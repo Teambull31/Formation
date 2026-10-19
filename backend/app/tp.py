@@ -37,8 +37,19 @@ def _tp_dir(tp: Tp, workspace: Path) -> Path:
 
 
 def _copy_new(src: str, dst: str) -> None:
-    if not Path(dst).exists():
+    if not os.path.lexists(dst):  # a dangling learner symlink counts as existing
         shutil.copy2(src, dst)
+
+
+def _check_dest(d: Path, dst: Path) -> None:
+    # learner-owned tree: no symlink may sit between the tp dir and dst (dst included)
+    for p in [dst, *dst.parents]:
+        if p == d:
+            break
+        if p.is_symlink():
+            raise ValueError(f"Lien symbolique refusé dans le workspace : {p.name}")
+    if not dst.parent.resolve().is_relative_to(d.resolve()):
+        raise ValueError(f"Destination hors du dossier de TP : {dst.name}")
 
 
 def seed_workspace(tp: Tp, lesson_dir: Path, workspace: Path) -> Path:
@@ -50,10 +61,13 @@ def seed_workspace(tp: Tp, lesson_dir: Path, workspace: Path) -> Path:
         if any(p.is_symlink() for p in links):
             raise ValueError(f"Lien symbolique refusé dans le kit : {entry}")
         dst = d / src.resolve().name
-        if src.is_dir():
-            shutil.copytree(src, dst, dirs_exist_ok=True, copy_function=_copy_new)
-        else:
-            _copy_new(str(src), str(dst))
+        pairs = [(p, dst / p.relative_to(src)) for p in sorted(src.rglob("*"))] if src.is_dir() else []
+        for s, t in [(src, dst), *pairs]:
+            _check_dest(d, t)
+            if s.is_dir():
+                t.mkdir(exist_ok=True)
+            else:
+                _copy_new(str(s), str(t))
     return d
 
 

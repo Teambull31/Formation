@@ -83,6 +83,67 @@ def test_seed_workspace_refuses_symlink(tmp_path):
         seed_workspace(t, lesson, tmp_path)
 
 
+def _seed_fixture(tmp_path):
+    lesson = tmp_path / "m" / "lessons" / "l.tp"
+    lesson.mkdir(parents=True)
+    (tmp_path / "m" / "kit").mkdir()
+    (tmp_path / "m" / "kit" / "a.txt").write_text("kit")
+    t = tp("true")
+    t.workspace, t.seed = "w", ["../../kit"]
+    ws = tmp_path / "ws"
+    (ws / "w").mkdir(parents=True)
+    return t, lesson, ws
+
+
+def test_seed_refuses_symlinked_destination_dir(tmp_path):
+    import pytest
+    from app.tp import seed_workspace
+    t, lesson, ws = _seed_fixture(tmp_path)
+    out = tmp_path / "outside"
+    out.mkdir()
+    (ws / "w" / "kit").symlink_to(out)
+    with pytest.raises(ValueError):
+        seed_workspace(t, lesson, ws)
+    assert list(out.iterdir()) == []
+
+
+def test_seed_refuses_nested_symlinked_destination(tmp_path):
+    import pytest
+    from app.tp import seed_workspace
+    t, lesson, ws = _seed_fixture(tmp_path)
+    (tmp_path / "m" / "kit" / "sub").mkdir()
+    (tmp_path / "m" / "kit" / "sub" / "b.txt").write_text("kit")
+    out = tmp_path / "outside"
+    out.mkdir()
+    (ws / "w" / "kit").mkdir()
+    (ws / "w" / "kit" / "sub").symlink_to(out)
+    with pytest.raises(ValueError):
+        seed_workspace(t, lesson, ws)
+    assert list(out.iterdir()) == []
+
+
+def test_seed_dangling_symlink_file_not_written_through(tmp_path):
+    import pytest
+    from app.tp import seed_workspace
+    t, lesson, ws = _seed_fixture(tmp_path)
+    target = tmp_path / "target.txt"
+    (ws / "w" / "kit").mkdir()
+    (ws / "w" / "kit" / "a.txt").symlink_to(target)
+    try:
+        seed_workspace(t, lesson, ws)
+    except ValueError:
+        pass
+    assert not target.exists()
+
+
+def test_seed_rerun_idempotent(tmp_path):
+    from app.tp import seed_workspace
+    t, lesson, ws = _seed_fixture(tmp_path)
+    seed_workspace(t, lesson, ws)
+    seed_workspace(t, lesson, ws)
+    assert (ws / "w" / "kit" / "a.txt").read_text() == "kit"
+
+
 def test_run_check_cwd_is_tp_workspace(tmp_path):
     t = tp("test -f here.txt")
     t.workspace = "sub"
