@@ -19,9 +19,11 @@ def synthesize(text: str, out: Path, engine: str = "espeak") -> Path:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
     try:
-        subprocess.run(["espeak-ng", "-v", "fr", "-s", "150", "-w", str(out), text],
+        subprocess.run(["espeak-ng", "-v", "fr", "-s", "150", "-w", str(out), "--", text],
                        check=True, capture_output=True, text=True, timeout=120)
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
         detail = getattr(e, "stderr", "") or str(e)
         raise RuntimeError(f"Échec de la synthèse vocale (espeak-ng) : {detail.strip()}") from e
+    if not out.exists():
+        raise RuntimeError("Échec de la synthèse vocale (espeak-ng) : aucun fichier produit")
     return out

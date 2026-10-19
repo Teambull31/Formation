@@ -30,3 +30,9 @@ def test_synthesize_writes_wav(tmp_path):
         pytest.skip("espeak-ng absent")
     out = synthesize("bonjour", tmp_path / "sub" / "a.wav")
     assert out.stat().st_size > 1000
+
+
+def test_synthesize_text_starting_with_dashes(tmp_path):
+    if shutil.which("espeak-ng") is None:
+        pytest.skip("espeak-ng absent")
+    assert synthesize("--dry-run x", tmp_path / "a.wav").exists()

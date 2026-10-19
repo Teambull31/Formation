@@ -2,7 +2,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from app.content import load_module
+from app.content import ModuleError, load_module
 from app.progress import Profile, level_for_xp
 
 
@@ -36,10 +36,14 @@ N'inclus aucune donnée réelle : pas de données personnelles ni professionnell
 def import_module(src: Path, dest_root: Path) -> Path:
     src, dest_root = Path(src), Path(dest_root)
     module = load_module(src)  # ModuleError propagates before anything is created
+    links = [p for p in src.rglob("*") if p.is_symlink()]
+    if links:
+        raise ModuleError([f"symlink interdit: {p}" for p in links])
+    dest_root.mkdir(parents=True, exist_ok=True)
     dest_root = dest_root.resolve()
-    final = (dest_root / module.id).resolve()
-    if final.parent != dest_root:
-        raise ValueError(f"Destination hors du dossier de modules : {final}")
+    final = dest_root / module.id
+    if final.is_symlink():
+        raise ModuleError([f"destination symlink interdite: {final}"])
     tmp = Path(tempfile.mkdtemp(dir=dest_root, prefix=".import-"))
     try:
         staged = tmp / module.id

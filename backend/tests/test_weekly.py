@@ -58,3 +58,49 @@ def test_import_refuses_path_traversal(tmp_path):
     with pytest.raises(ModuleError):
         import_module(src, dest)
     assert not (tmp_path / "evil").exists() and list(dest.iterdir()) == []
+
+
+def _copy(tmp_path):
+    src = tmp_path / "src"
+    shutil.copytree(DEMO, src)
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    return src, dest
+
+
+@pytest.mark.parametrize("target", ["/etc/hostname", "/nonexistent/x"])
+def test_import_refuses_symlinks(tmp_path, target):
+    src, dest = _copy(tmp_path)
+    (src / "lessons" / "link").symlink_to(target)
+    with pytest.raises(ModuleError, match="symlink interdit"):
+        import_module(src, dest)
+    assert list(dest.iterdir()) == []
+
+
+def test_import_refuses_dir_symlink(tmp_path):
+    src, dest = _copy(tmp_path)
+    (src / "dirlink").symlink_to(tmp_path)
+    with pytest.raises(ModuleError, match="symlink interdit"):
+        import_module(src, dest)
+    assert list(dest.iterdir()) == []
+
+
+def test_import_refuses_symlinked_destination(tmp_path):
+    src, dest = _copy(tmp_path)
+    other = tmp_path / "other"
+    other.mkdir()
+    (dest / "demo").symlink_to(other)
+    with pytest.raises(ModuleError):
+        import_module(src, dest)
+    assert list(other.iterdir()) == []
+
+
+def test_import_creates_dest_root_only_on_success(tmp_path):
+    src, _ = _copy(tmp_path)
+    root = tmp_path / "new" / "root"
+    assert (import_module(src, root) / "module.json").exists()
+    (src / "lessons" / "l1.md").unlink()
+    root2 = tmp_path / "other_root"
+    with pytest.raises(ModuleError):
+        import_module(src, root2)
+    assert not root2.exists()
