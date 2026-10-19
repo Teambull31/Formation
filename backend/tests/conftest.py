@@ -8,3 +8,24 @@ def db():
     conn = connect(":memory:")
     yield conn
     conn.close()
+
+
+def _terminal_client(tmp_path, host):
+    from fastapi import FastAPI
+    from starlette.testclient import TestClient
+
+    from app.terminal import register_terminal
+
+    app = FastAPI()
+    register_terminal(app, workspace=tmp_path)
+    return TestClient(app, client=(host, 50000))
+
+
+@pytest.fixture
+def terminal_client(tmp_path):
+    return _terminal_client(tmp_path, "127.0.0.1")
+
+
+@pytest.fixture
+def terminal_remote_client(tmp_path):
+    return _terminal_client(tmp_path, "192.168.1.20")
