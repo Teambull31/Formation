@@ -1,0 +1,11 @@
+[
+  {"id": "char-mira", "name": "Mira l'Archiviste", "type": "character", "rarity": "common"},
+  {"id": "char-bram", "name": "Bram le Sentinelle", "type": "character", "rarity": "common"},
+  {"id": "skin-forgeron", "name": "Skin Forgeron", "type": "skin", "rarity": "common"},
+  {"id": "skin-braise", "name": "Skin Braise du Bivouac", "type": "skin", "rarity": "common"},
+  {"id": "char-lyra", "name": "Lyra la Pipelinière", "type": "character", "rarity": "rare"},
+  {"id": "skin-veilleur", "name": "Skin Veilleur de Nuit", "type": "skin", "rarity": "rare"},
+  {"id": "char-orion", "name": "Orion le Conteneurier", "type": "character", "rarity": "rare"},
+  {"id": "char-aether", "name": "Aether, Dragon du Cluster", "type": "character", "rarity": "epic"},
+  {"id": "skin-rootmage", "name": "Skin Archimage Root", "type": "skin", "rarity": "epic"}
+]

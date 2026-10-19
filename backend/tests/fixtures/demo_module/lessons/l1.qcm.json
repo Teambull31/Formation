@@ -1,0 +1,4 @@
+[
+  {"id": "q1", "text": "Quelle est la bonne réponse ?", "options": ["Option A", "Option B", "Option C"], "answer": 1, "explain": "L'option B est correcte car elle suit la règle vue en cours.", "remedial_lesson_id": "l2"},
+  {"id": "q2", "text": "Quelle option est exacte ?", "options": ["Un", "Deux", "Trois"], "answer": 0, "explain": "Un est la bonne valeur.", "remedial_lesson_id": null}
+]
