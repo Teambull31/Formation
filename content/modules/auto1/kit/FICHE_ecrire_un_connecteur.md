@@ -15,7 +15,7 @@ Les règles ne se négocient pas :
 
 1. **Lecture seule.** Aucun envoi, aucune suppression, aucun marquage « lu ». Scopes minimaux : `Mail.Read`, `gmail.readonly`.
 2. **Borné.** `limit` plafonne le résultat ; `limit <= 0` rend une liste vide ; les pages sont comptées pour qu'un serveur hostile ne boucle pas. Le corps est tronqué.
-3. !!Ne jamais journaliser un corps de mail ni un jeton.!! Les messages de `ConnectorError` ne contiennent ni l'un ni l'autre : on journalise des comptes, jamais du contenu.
+3. !!Ne jamais journaliser un corps de mail ni un jeton.!! Les erreurs et les logs d'un connecteur ne contiennent ni jeton ni contenu de mail, y compris les `RuntimeError` d'aide à l'installation : on journalise des comptes, jamais du contenu.
 4. **Un seul hôte.** Les requêtes HTTP passent par `get_json`, qui refuse toute URL hors de `base_url` (`same_origin`) et ne suit pas les redirections.
 5. **Jeton en 0600**, dans `~/.config/formation-auto1/`, écrit par `write_private`. !!Jamais de mot de passe ni de jeton en clair dans le code ou les arguments.!!
 

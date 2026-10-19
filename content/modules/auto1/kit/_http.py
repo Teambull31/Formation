@@ -47,23 +47,27 @@ def default_token_path(name: str) -> Path:
 
 
 def write_private(path, text: str) -> None:
-    """Token cache: owner-only (0600), even if the file already existed wider."""
+    """Token cache: owner-only (0600), even if the file already existed wider.
+
+    POSIX only for the mode bits. On Windows chmod is a no-op: the file is protected by the
+    ACL of the user profile (Path.home()), so never point token_path outside it."""
     path = Path(path)
     if path.parent.is_symlink():  # a swapped-in directory link could redirect the token elsewhere
         raise ConnectorError("dossier de jeton : lien symbolique refusé")
     if path.parent.exists():
         st = path.parent.stat()
         # only our own dir: never chmod a shared one such as /tmp
-        if st.st_uid == os.getuid() and st.st_mode & 0o077:
+        if hasattr(os, "getuid") and st.st_uid == os.getuid() and st.st_mode & 0o077:
             path.parent.chmod(0o700)
     else:
         path.parent.mkdir(parents=True, mode=0o700)
         path.parent.chmod(0o700)  # mkdir's mode is masked by umask
     try:
         # O_NOFOLLOW: a symlink planted at the token path must not redirect our write
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0), 0o600)
     except OSError:
         raise ConnectorError("écriture du fichier de jeton refusée (lien symbolique ou droits)") from None
     with os.fdopen(fd, "w", encoding="utf-8") as f:
-        os.fchmod(f.fileno(), 0o600)  # os.open's mode is ignored on an existing file
+        if hasattr(os, "fchmod"):
+            os.fchmod(f.fileno(), 0o600)  # os.open's mode is ignored on an existing file
         f.write(text)

@@ -376,3 +376,13 @@ def test_gmail_endless_page_token_is_bounded(monkeypatch):
     monkeypatch.setattr(gmail_api, "get_json", fake)
     GmailSource("c", "t", base_url="http://h.example.test/g", auth=lambda: "t").fetch(limit=200)
     assert len([u for u in calls if "/messages?" in u]) <= 200 // 50 + 2
+
+
+def test_write_private_without_posix_calls(tmp_path, monkeypatch):
+    """Windows has no getuid/fchmod/O_NOFOLLOW: the token write must still work."""
+    from _http import write_private
+    for name in ("getuid", "fchmod", "O_NOFOLLOW"):
+        monkeypatch.delattr(os, name, raising=False)
+    p = tmp_path / "d" / "t.json"
+    write_private(p, "{}")
+    assert p.read_text() == "{}"

@@ -253,6 +253,24 @@ def test_fiches_identifiers_exist_in_kit():
         assert (KIT / f"{m}.py").is_file()
 
 
+def test_fiches_constructor_signatures():
+    import inspect
+    import sys
+    sys.path.insert(0, str(KIT))
+    from gmail_api import GmailSource
+    from imap_source import ImapSource
+    from outlook_graph import OutlookGraphSource
+    imap = inspect.signature(ImapSource.__init__).parameters
+    assert list(imap)[1:] == ["host", "user", "password_env", "folder", "port", "connection_factory"]
+    assert (imap["folder"].default, imap["port"].default, imap["connection_factory"].default) == ("INBOX", 993, None)
+    out = inspect.signature(OutlookGraphSource.__init__).parameters
+    assert out["tenant"].default == "consumers" and out["token_path"].default is None
+    assert inspect.signature(GmailSource.__init__).parameters["token_path"].default is None
+    text = _fiche(FICHES[1])
+    assert 'ImapSource(host, user, password_env, folder="INBOX", port=993, connection_factory=None)' in text
+    assert 'OutlookGraphSource(client_id, tenant="consumers")' in _fiche(FICHES[0])
+
+
 
 # ---- self-test of the validator on a synthetic module ----
 
