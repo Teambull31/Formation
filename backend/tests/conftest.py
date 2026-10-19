@@ -18,7 +18,13 @@ def _terminal_client(tmp_path, host):
 
     app = FastAPI()
     register_terminal(app, workspace=tmp_path)
-    return TestClient(app, client=(host, 50000))
+    class LocalhostClient(TestClient):
+        # TestClient envoie Host: testserver pour les websockets; on simule un navigateur sur localhost
+        def websocket_connect(self, url, subprotocols=None, **kw):
+            kw["headers"] = {"host": "localhost:8000", **kw.get("headers", {})}
+            return super().websocket_connect(url, subprotocols, **kw)
+
+    return LocalhostClient(app, client=(host, 50000))
 
 
 @pytest.fixture

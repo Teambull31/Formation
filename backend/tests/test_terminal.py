@@ -64,3 +64,56 @@ def test_terminal_kills_shell_on_close(terminal_client):
             return
         time.sleep(0.1)
     pytest.fail("shell encore present (vivant ou zombie)")
+
+
+def test_is_local_ipv4_mapped():
+    assert is_local("::ffff:127.0.0.1") and not is_local("::ffff:10.0.0.1") and not is_local("junk")
+
+
+def _rejected(client, headers):
+    with pytest.raises(WebSocketDisconnect) as e:
+        with client.websocket_connect("/ws/terminal", headers=headers) as ws:
+            ws.receive_bytes()
+    assert e.value.code == 1008
+
+
+@pytest.mark.parametrize("origin,host", [
+    ("http://localhost.evil.example", "localhost:8000"),
+    ("http://127.0.0.1.nip.io", "127.0.0.1.nip.io"),
+    ("http://evil.example", "localhost:8000"),
+    ("http://localhost:3000", "localhost:8000"),
+    ("null", "localhost:8000"),
+    ("http://evil.example", "evil.example"),
+])
+def test_terminal_rejects_bad_origin(terminal_client, origin, host):
+    _rejected(terminal_client, {"origin": origin, "host": host})
+
+
+@pytest.mark.parametrize("host", ["evil.example", "localhost.evil.example:8000", "evil.example:8000"])
+def test_terminal_rejects_bad_host(terminal_client, host):
+    _rejected(terminal_client, {"host": host})
+
+
+@pytest.mark.parametrize("host", ["localhost:8000", "[::1]:8000", "127.0.0.1:8000"])
+def test_terminal_accepts_same_origin(terminal_client, host):
+    with terminal_client.websocket_connect(
+        "/ws/terminal", headers={"origin": f"http://{host}", "host": host}
+    ) as ws:
+        ws.send_bytes(b"echo salu$((0+1))t\n")
+        assert b"salu1t" in read_until(ws, b"salu1t")
+
+
+def test_terminal_closes_when_shell_exits(terminal_client):
+    with terminal_client.websocket_connect("/ws/terminal") as ws:
+        ws.send_bytes(b"exit\n")
+        with pytest.raises(WebSocketDisconnect):
+            read_until(ws, rb"NEVER")
+
+
+def test_terminal_failed_spawn_closes_without_leak(terminal_client, monkeypatch):
+    monkeypatch.setenv("SHELL", "/nonexistent/shell")
+    before = len(os.listdir("/proc/self/fd"))
+    with pytest.raises(WebSocketDisconnect):
+        with terminal_client.websocket_connect("/ws/terminal") as ws:
+            ws.receive_bytes()
+    assert len(os.listdir("/proc/self/fd")) <= before
