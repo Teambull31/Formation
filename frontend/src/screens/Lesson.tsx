@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, isForbidden,
-  type Lesson as L, type QcmResult,
+  type Lesson as L, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
 import Terminal from './Terminal'
@@ -24,11 +24,11 @@ function Audio({ id }: { id: string }) {
   )
 }
 
-function Qcm({ q, onOpen }: { q: L['qcm'][number]; onOpen: (id: string) => void }) {
+function Qcm({ q, onOpen, onAnswered }: { q: L['qcm'][number]; onOpen: (id: string) => void; onAnswered: () => void }) {
   const [res, setRes] = useState<{ chosen: number; r: QcmResult } | null>(null)
   const [err, setErr] = useState('')
   const pick = (i: number) =>
-    answerQcm(q.id, i).then((r) => setRes({ chosen: i, r })).catch((e: Error) => setErr(e.message))
+    answerQcm(q.id, i).then((r) => { setRes({ chosen: i, r }); setErr(''); onAnswered() }).catch((e: Error) => setErr(e.message))
   return (
     <div className="card">
       <p>{q.text}</p>
@@ -44,37 +44,51 @@ function Qcm({ q, onOpen }: { q: L['qcm'][number]; onOpen: (id: string) => void 
           )}
         </div>
       )}
-      {err && <p className="note">{err}</p>}
+      {err && <p className="note" role="alert">{err}</p>}
     </div>
   )
 }
 
-export default function Lesson({ id, onOpen }: { id: string | null; onOpen: (id: string) => void }) {
+interface Props {
+  id: string | null
+  kind?: StepKind | null // step kind the lesson was opened from
+  done?: boolean // server-side done state of that step
+  onOpen: (id: string) => void
+}
+
+export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props) {
   const [les, setLes] = useState<L | null>(null)
-  const [err, setErr] = useState('')
+  const [loadErr, setLoadErr] = useState('')
+  const [banner, setBanner] = useState('') // action errors: shown above content, content stays
   const [local, setLocal] = useState(true) // false once the API/terminal answers 403 (phone/remote)
   const [hint, setHint] = useState('')
   const [level, setLevel] = useState(1)
   const [check, setCheck] = useState<{ passed: boolean; output: string } | null>(null)
-  const [done, setDone] = useState<string[]>([])
+  const [done, setDone] = useState<string[]>(initiallyDone && kind ? [kind] : [])
+  const [answered, setAnswered] = useState(0)
+  const [busy, setBusy] = useState(false)
   const denied = useCallback(() => setLocal(false), [])
 
   useEffect(() => {
-    // state reset per lesson comes from the parent's key={id}
-    if (id) getLesson(id).then(setLes).catch((e: Error) => setErr(e.message))
+    // state reset per lesson comes from the parent's key
+    if (id) getLesson(id).then(setLes).catch((e: Error) => setLoadErr(e.message))
   }, [id])
 
   if (!id) return <section className="screen wrap"><p className="note">Choisis une étape dans la quête pour ouvrir une leçon.</p></section>
-  if (err) return <section className="screen wrap"><p className="note" role="alert">{err}</p></section>
+  if (loadErr) return <section className="screen wrap"><p className="note" role="alert">{loadErr}</p></section>
   if (!les) return <section className="screen wrap"><p className="note">Chargement…</p></section>
 
-  const mark = (kind: 'lesson' | 'qcm' | 'tp') =>
-    completeStep(kind, les.id).then(() => setDone((d) => [...d, kind])).catch((e: Error) => setErr(e.message))
-  const guard = (e: unknown) => { if (isForbidden(e)) setLocal(false); else setErr((e as Error).message) }
+  const mark = (k: StepKind) =>
+    completeStep(k, les.id)
+      .then(() => { setBanner(''); setDone((d) => (d.includes(k) ? d : [...d, k])) })
+      .catch((e: Error) => setBanner(e.message))
+  const guard = (e: unknown) => { if (isForbidden(e)) setLocal(false); else setBanner((e as Error).message) }
+  const run = (p: () => Promise<unknown>) => { setBusy(true); p().finally(() => setBusy(false)) }
   const tp = les.tp
 
   return (
     <section className="screen wrap">
+      {banner && <p className="fb" role="alert">{banner}</p>}
       <h1>{les.title}</h1>
       <p className="time">{les.minutes} min</p>
       <Audio id={les.id} />
@@ -84,9 +98,11 @@ export default function Lesson({ id, onOpen }: { id: string | null; onOpen: (id:
         {done.includes('lesson') ? 'Leçon terminée' : 'Terminer la leçon'}
       </button>
       {les.qcm.length > 0 && <h2>QCM</h2>}
-      {les.qcm.map((q) => <Qcm key={q.id} q={q} onOpen={onOpen} />)}
+      {les.qcm.map((q) => <Qcm key={q.id} q={q} onOpen={onOpen} onAnswered={() => setAnswered((n) => n + 1)} />)}
       {les.qcm.length > 0 && (
-        <button className="btn ghost" disabled={done.includes('qcm')} onClick={() => mark('qcm')}>Valider le QCM</button>
+        <button className="btn ghost" disabled={done.includes('qcm') || answered < les.qcm.length} onClick={() => mark('qcm')}>
+          {done.includes('qcm') ? 'QCM validé' : 'Valider le QCM'}
+        </button>
       )}
       {tp && (
         <>
@@ -96,16 +112,21 @@ export default function Lesson({ id, onOpen }: { id: string | null; onOpen: (id:
             <>
               <Terminal onDenied={denied} />
               <div className="row wrapf">
-                <button className="btn term" onClick={() =>
-                  checkTp(tp.id).then((r) => { setCheck(r); if (r.passed) return mark('tp') }).catch(guard)}>Vérifier</button>
-                <button className="btn ghost" onClick={() =>
-                  getHint(tp.id, level).then((h) => { setHint(h.hint); setLevel(level + 1) }).catch(guard)}>Indice (-10 XP)</button>
+                <button className="btn term" disabled={busy} onClick={() => run(() =>
+                  checkTp(tp.id).then((r) => { setCheck(r); if (r.passed) return mark('tp') }).catch(guard))}>Vérifier</button>
+                <button className="btn ghost" disabled={busy} onClick={() => run(() =>
+                  getHint(tp.id, level).then((h) => { setHint(h.hint); setLevel(level + 1) }).catch(guard))}>Indice (-10 XP)</button>
               </div>
             </>
           ) : <p className="note">Le terminal et la vérification sont réservés à l'ordinateur.</p>}
           {hint && <p className="out" role="status">{hint}</p>}
           {check && <><p>{check.passed ? 'TP validé.' : 'TP non validé.'}</p><pre className="out">{check.output}</pre></>}
         </>
+      )}
+      {kind === 'bonus' && (
+        <button className="btn" disabled={done.includes('bonus')} onClick={() => mark('bonus')}>
+          {done.includes('bonus') ? 'Bonus terminé' : 'Terminer le bonus'}
+        </button>
       )}
     </section>
   )

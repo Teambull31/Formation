@@ -1,23 +1,28 @@
-import { useCallback, useEffect, useState } from 'react'
-import { announceRest, getQuest, getTeam, setTopic, type Quest as Q, type Step, type Team } from '../api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { announceRest, getQuest, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Team } from '../api'
 
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
 
-export default function Quest({ onStart }: { onStart: (lessonId: string) => void }) {
+export default function Quest({ onStart }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void }) {
   const [quest, setQuest] = useState<Q | null>(null)
   const [team, setTeam] = useState<Team | null>(null)
   const [minutes, setMinutes] = useState<30 | 60>(30)
   const [topic, setTopicText] = useState('')
   const [msg, setMsg] = useState('')
 
-  const load = useCallback(() => {
+  const req = useRef(0) // request counter: stale responses are ignored
+  const load = useCallback((ok = '') => {
+    const n = ++req.current
     Promise.all([getQuest(minutes), getTeam()])
-      .then(([q, t]) => { setQuest(q); setTeam(t); setTopicText(q.imposed_topic ?? ''); setMsg('') })
-      .catch((e: Error) => setMsg(e.message))
+      .then(([q, t]) => {
+        if (n !== req.current) return
+        setQuest(q); setTeam(t); setTopicText(q.imposed_topic ?? ''); setMsg(ok)
+      })
+      .catch((e: Error) => { if (n === req.current) setMsg(e.message) })
   }, [minutes])
-  useEffect(load, [load])
+  useEffect(() => load(), [load])
 
-  const act = (p: Promise<unknown>, ok = '') => p.then(() => { load(); setMsg(ok) }).catch((e: Error) => setMsg(e.message))
+  const act = (p: Promise<unknown>, ok = '') => p.then(() => load(ok)).catch((e: Error) => setMsg(e.message))
   const row = (s: Step) => (
     <div className="step" key={s.kind + s.lesson_id}>
       <span className={'dot' + (s.done ? ' done' : '')} aria-hidden>{s.done ? '✓' : ''}</span>
@@ -25,7 +30,7 @@ export default function Quest({ onStart }: { onStart: (lessonId: string) => void
         <div>{LABEL[s.kind]} · {s.lesson_id}</div>
         <div className="time">{s.minutes} min · +{s.xp} XP{s.done ? ' · fait' : ''}</div>
       </div>
-      <button className="btn ghost" onClick={() => onStart(s.lesson_id)}>Commencer</button>
+      <button className="btn ghost" onClick={() => onStart(s.lesson_id, s.kind, s.done)}>Commencer</button>
     </div>
   )
 
