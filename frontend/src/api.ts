@@ -1,9 +1,11 @@
 // One typed function per backend route. Same-origin relative URLs only.
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  errors: string[] // 422 import validation errors
+  constructor(status: number, message: string, errors: string[] = []) {
     super(message)
     this.status = status
+    this.errors = errors
   }
   get forbidden() {
     return this.status === 403
@@ -19,13 +21,15 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   })
   if (!r.ok) {
     let msg = r.statusText
+    let errors: string[] = []
     try {
       const j = await r.json()
       msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail ?? j)
+      if (Array.isArray(j.errors)) errors = j.errors.map(String)
     } catch {
       /* non-JSON error body */
     }
-    throw new ApiError(r.status, msg)
+    throw new ApiError(r.status, msg, errors)
   }
   return r.json() as Promise<T>
 }

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import Quest from './screens/Quest'
 import Lesson from './screens/Lesson'
+import Team from './screens/Team'
+import Boss from './screens/Boss'
+import Weekly from './screens/Weekly'
 import type { StepKind } from './api'
 
 const TABS = ['Quête', 'Leçon', 'Équipe', 'Boss', 'Semaine'] as const
@@ -21,9 +24,9 @@ export default function App() {
         {tab === 'Leçon' && (
           <Lesson key={lesson?.n} id={lesson?.id ?? null} kind={lesson?.kind} done={lesson?.done} onOpen={(id) => open(id)} />
         )}
-        {(tab === 'Équipe' || tab === 'Boss' || tab === 'Semaine') && (
-          <section className="screen wrap"><h1>{tab}</h1><p className="note">Bientôt disponible.</p></section>
-        )}
+        {tab === 'Équipe' && <Team />}
+        {tab === 'Boss' && <Boss onOpen={(id) => open(id)} />}
+        {tab === 'Semaine' && <Weekly />}
       </main>
       <nav aria-label="Navigation principale"><div className="inner" role="tablist">
         {TABS.map((t) => (
