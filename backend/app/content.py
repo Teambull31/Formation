@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -101,18 +102,28 @@ def _tp(path: Path, errors: list[str]) -> Tp | None:
     return Tp(**{k: d[k] for k in keys})
 
 
+def _safe_id(v) -> bool:
+    # ids become file/dir names: reject anything that could escape a directory
+    return isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9_-]+", v) is not None
+
+
 def load_module(path: Path) -> Module:
     path = Path(path)
     errors: list[str] = []
     meta = _json(path / "module.json", errors)
     if meta is None or not _fields(meta, path / "module.json", ["id", "title", "skill", "lessons"], errors):
         raise ModuleError(errors)
+    if not _safe_id(meta["id"]):
+        errors.append(f"{path / 'module.json'}: id invalide {meta['id']!r} (attendu : lettres, chiffres, _ ou -)")
     lessons = []
     ids = []
     for ref in meta["lessons"]:
         if not _fields(ref, path / "module.json", ["id", "title", "minutes"], errors):
             continue
         lid = ref["id"]
+        if not _safe_id(lid):
+            errors.append(f"{path / 'module.json'}: id invalide {lid!r} (leçon) (attendu : lettres, chiffres, _ ou -)")
+            continue
         ids.append(lid)
         md = path / "lessons" / f"{lid}.md"
         try:

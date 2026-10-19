@@ -60,3 +60,20 @@ def test_tp_requires_at_least_one_hint(tmp_path):
     with pytest.raises(ModuleError) as e:
         load_module(d)
     assert any("hints" in x for x in e.value.errors)
+
+
+@pytest.mark.parametrize("bad", ["../x", "a/b", "", "a b"])
+def test_lesson_id_must_be_safe(tmp_path, bad):
+    d = broken(tmp_path)
+    edit(d / "module.json", lambda m: m["lessons"][0].update(id=bad))
+    with pytest.raises(ModuleError) as e:
+        load_module(d)
+    assert any("id invalide" in x for x in e.value.errors)
+
+
+def test_module_id_must_be_safe(tmp_path):
+    d = broken(tmp_path)
+    edit(d / "module.json", lambda m: m.update(id="../x"))
+    with pytest.raises(ModuleError) as e:
+        load_module(d)
+    assert any("id invalide" in x for x in e.value.errors)

@@ -1,0 +1,4 @@
+{"id": "demo_boss", "title": "Boss de démonstration", "phases": [
+ {"pattern_id": "crashloop", "label": "Phase 1 : relancer le service", "check": "test -f phase1.txt", "remedial_lesson_id": "l2"},
+ {"pattern_id": "state_drift", "label": "Phase 2 : corriger la dérive d'état", "check": "test -f phase2.txt", "remedial_lesson_id": "l1"},
+ {"pattern_id": "idempotence", "label": "Phase 3 : rendre le script idempotent", "check": "test -f phase3.txt", "remedial_lesson_id": "l2"}]}
