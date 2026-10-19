@@ -113,7 +113,7 @@ def check_tp_solution(mod_dir: Path, lid: str, tmp: Path) -> list[str]:
 def check_emails(mod_dir: Path) -> list[str]:
     errs = []
     for f in mod_dir.rglob("*"):
-        if f.is_file():
+        if f.is_file() and "__pycache__" not in f.parts:  # bytecode is not shipped content
             text = f.read_text(encoding="utf-8", errors="replace")
             errs += [f"{f}: e-mail {m}" for m in EMAIL.findall(text) if not m.lower().endswith("@example.test")]
     return errs
