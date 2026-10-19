@@ -194,6 +194,65 @@ def test_boss(boss_dir, tmp_path):
 
 # ---- fiche assertions (added by task 5) ----
 
+KIT = CONTENT / "modules" / "auto1" / "kit"
+FICHES = ["FICHE_perso_vers_pro.md", "FICHE_ecrire_un_connecteur.md"]
+RUBRIQUES = [
+    "enregistrement de l'application dans l'annuaire de l'entreprise",
+    "consentement administrateur",
+    "droits d'accès aux mails",
+    "règles d'accès conditionnel",
+    "accord du service informatique",
+]
+# inline `code` that is a kit identifier: CamelCase class or snake_case name
+IDENT = re.compile(r"^(?:[A-Z][a-z]+(?:[A-Z][a-z]+)+|[a-z]+(?:_[a-z]+)+)$")
+NOT_KIT = {"mock_graph", "mock_gmail"}  # simulators: files, checked as modules below
+
+
+def _fiche(name: str) -> str:
+    return (KIT / name).read_text(encoding="utf-8")
+
+
+def _prose(text: str) -> str:
+    return re.sub(r"`[^`\n]*`", "", re.sub(r"```.*?```", "", text, flags=re.S))
+
+
+@pytest.mark.parametrize("name", FICHES)
+def test_fiche_markers(name):
+    body = _prose(_fiche(name))
+    assert len(re.findall(r"\*\*[^*\n]+\*\*", body)) >= 3
+    assert len(re.findall(r"!![^!\n]+!!", body)) >= 3
+
+
+def test_fiche_perso_vers_pro_content():
+    text = _fiche(FICHES[0])
+    heads = [h.lower() for h in re.findall(r"^#+\s*(.+)$", text, flags=re.M)]
+    for r in RUBRIQUES:
+        assert any(r in h for h in heads), r
+    assert "la connexion au compte professionnel se fait au travail, jamais depuis l'appli d'entraînement" in text
+    assert "aucun mail réel ne va à Claude ou à un service externe" in text
+    for needle in ("consumers", "organizations", "Mail.Read", "device code", "0600", ".mbox", "MboxMailSource"):
+        assert needle in text, needle
+
+
+def test_fiche_connecteur_content():
+    text = _fiche(FICHES[1])
+    for needle in ("MailSource", "fetch", "ImapSource", "readonly=True", "password_env", "connection_factory"):
+        assert needle in text, needle
+
+
+def test_fiches_identifiers_exist_in_kit():
+    src = "\n".join(p.read_text(encoding="utf-8") for p in KIT.glob("*.py"))
+    missing = []
+    for name in FICHES:
+        for tok in re.findall(r"`([^`\n]+)`", _fiche(name)):
+            tok = tok.split("(")[0].strip()
+            if IDENT.match(tok) and tok not in NOT_KIT and not re.search(rf"\b{tok}\b", src):
+                missing.append(f"{name}: {tok}")
+    assert missing == []
+    for m in NOT_KIT:
+        assert (KIT / f"{m}.py").is_file()
+
+
 
 # ---- self-test of the validator on a synthetic module ----
 
