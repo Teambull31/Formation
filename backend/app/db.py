@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS boss_attempts(
     id INTEGER PRIMARY KEY AUTOINCREMENT, boss_id TEXT, phase_reached INTEGER,
     won INTEGER, failed_pattern TEXT, at TEXT);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS imposed_periods(start TEXT, end TEXT);
 """
 
 

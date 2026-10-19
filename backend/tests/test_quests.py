@@ -109,3 +109,36 @@ def test_many_rest_days_never_penalized(db):
     d = D1 + timedelta(days=8)
     activity(db, d, "l2")
     assert current_streak(db, d) == 2
+
+
+def test_replaced_topic_keeps_first_period_covered(db):
+    activity(db, D1)
+    set_imposed_topic(db, "A", D2)
+    set_imposed_topic(db, None, D2)
+    set_imposed_topic(db, "B", D3)
+    d4 = D1 + timedelta(days=3)
+    activity(db, d4, "l2")
+    assert current_streak(db, d4) == 2  # D2 (A) and D3 (B) covered
+
+
+def test_resetting_same_topic_keeps_start(db):
+    activity(db, D1)
+    set_imposed_topic(db, "A", D2)
+    set_imposed_topic(db, "A", D3)
+    d4 = D1 + timedelta(days=3)
+    activity(db, d4, "l2")
+    assert current_streak(db, d4) == 2
+
+
+def test_clear_without_active_topic_is_noop(db):
+    activity(db, D1)
+    set_imposed_topic(db, None, D2)
+    set_imposed_topic(db, None, D3)
+    activity(db, D3, "l2")
+    assert current_streak(db, D3) == 1
+    set_imposed_topic(db, "A", D2)
+    set_imposed_topic(db, None, D2)
+    set_imposed_topic(db, None, D3)  # second clear must not extend coverage
+    d5 = D1 + timedelta(days=4)
+    activity(db, d5, "l2")
+    assert current_streak(db, d5) == 1

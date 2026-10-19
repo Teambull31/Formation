@@ -63,9 +63,10 @@ def complete_step(db: sqlite3.Connection, today: date, kind: str, lesson_id: str
         (today.isoformat(), kind, lesson_id),
     )
     db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (today.isoformat(),))
-    db.commit()
     if first:
-        award_xp(db, skill, XP[kind])
+        award_xp(db, skill, XP[kind])  # commits the step rows and the XP in one transaction
+    else:
+        db.commit()
 
 
 def announce_rest(db: sqlite3.Connection, day: date) -> None:
@@ -74,13 +75,14 @@ def announce_rest(db: sqlite3.Connection, day: date) -> None:
 
 
 def set_imposed_topic(db: sqlite3.Connection, topic: str | None, today: date) -> None:
+    active = db.execute("SELECT 1 FROM imposed_periods WHERE end IS NULL").fetchone() is not None
     if topic is None:
-        db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('imposed_end', ?)", (today.isoformat(),))
+        db.execute("UPDATE imposed_periods SET end = ? WHERE end IS NULL", (today.isoformat(),))
         db.execute("DELETE FROM settings WHERE key = 'imposed_topic'")
     else:
         db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('imposed_topic', ?)", (topic,))
-        db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('imposed_start', ?)", (today.isoformat(),))
-        db.execute("DELETE FROM settings WHERE key = 'imposed_end'")
+        if not active:  # re-setting while active keeps the original start
+            db.execute("INSERT INTO imposed_periods(start, end) VALUES (?, NULL)", (today.isoformat(),))
     db.commit()
 
 
@@ -89,14 +91,13 @@ def current_streak(db: sqlite3.Connection, today: date) -> int:
     if not active:
         return 0
     rest = {r["day"] for r in db.execute("SELECT day FROM rest_days")}
-    start, end = _setting(db, "imposed_start"), _setting(db, "imposed_end")
-    has_topic = _setting(db, "imposed_topic") is not None
-    # shortcut: a single imposed-topic period is tracked; a new one replaces the old
-    start_d = date.fromisoformat(start) if start else None
-    end_d = date.fromisoformat(end) if end else (today if has_topic else None)
+    periods = [
+        (date.fromisoformat(r["start"]), date.fromisoformat(r["end"]) if r["end"] else today)
+        for r in db.execute("SELECT start, end FROM imposed_periods")
+    ]
 
     def covered(d: date) -> bool:
-        return d.isoformat() in rest or (start_d is not None and end_d is not None and start_d <= d <= end_d)
+        return d.isoformat() in rest or any(s <= d <= e for s, e in periods)
 
     first = min(active)
     streak, d = 0, today
