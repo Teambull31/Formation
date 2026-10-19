@@ -20,7 +20,8 @@ class Handle:
         self.lock = self._server.lock = threading.Lock()
         self.address = self._server.server_address
         self.port = self.address[1]
-        threading.Thread(target=self._server.serve_forever, daemon=True).start()
+        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread.start()
 
     def set_mode(self, mode):
         self.state["mode"] = mode
@@ -34,6 +35,7 @@ class Handle:
     def shutdown(self):
         self._server.shutdown()
         self._server.server_close()  # releases the port
+        self._thread.join(2)
 
     def __enter__(self):
         return self
@@ -43,6 +45,8 @@ class Handle:
 
 
 class JsonHandler(BaseHTTPRequestHandler):
+    timeout = 10  # seconds: a stalled client must not hold a thread forever
+
     def log_message(self, *args):  # keep test/lesson output quiet
         pass
 

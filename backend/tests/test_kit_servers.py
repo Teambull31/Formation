@@ -132,6 +132,28 @@ def test_servers_bind_localhost_only():
         assert a.address[0] == "127.0.0.1" and b.address[0] == "127.0.0.1"
 
 
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://127.0.0.1/x", "gopher://127.0.0.1/x"])
+def test_generate_refuses_non_http_scheme(url, monkeypatch):
+    with pytest.raises(LlmUnavailable, match="http"):
+        llm.generate("x", base_url=url)
+    monkeypatch.setenv("OLLAMA_URL", url)
+    with pytest.raises(LlmUnavailable, match="http"):
+        llm.generate("x")
+
+
+def test_generate_ignores_http_proxy_env(monkeypatch):
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:1")
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:1")
+    with mock_ollama.serve(0, "ok") as srv:
+        assert llm.generate("x", base_url=f"http://127.0.0.1:{srv.port}")
+
+
+def test_post_tasks_cannot_overwrite_id():
+    with test_api.serve() as srv:
+        status, task = call(srv, "/tasks", "POST", json.dumps({"id": 1, "title": "x"}).encode())
+        assert status == 201 and task["id"] == 4
+
+
 def test_servers_shut_down_and_release_port():
     srv = test_api.serve()
     port = srv.port

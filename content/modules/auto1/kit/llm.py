@@ -8,12 +8,18 @@ import urllib.request
 MAX_RESPONSE = 1_000_000  # bytes read at most from the server
 
 
+# Local calls must not go through HTTP_PROXY (the prompt holds private mails).
+NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 class LlmUnavailable(Exception):
     pass
 
 
 def generate(prompt, model="qwen3:14b", base_url=None, timeout=60):
     base = base_url or os.environ.get("OLLAMA_URL", "http://localhost:11434")
+    if not base.lower().startswith(("http://", "https://")):  # no file:// or ftp:// reads
+        raise LlmUnavailable("OLLAMA_URL doit être http(s)")
     req = urllib.request.Request(
         f"{base.rstrip('/')}/api/generate",
         data=json.dumps({"model": model, "prompt": prompt, "stream": False}).encode(),
@@ -21,7 +27,7 @@ def generate(prompt, model="qwen3:14b", base_url=None, timeout=60):
     )
     try:
         # urlopen raises on non-200 (HTTPError), refusal and timeout (both OSError)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with NO_PROXY_OPENER.open(req, timeout=timeout) as resp:
             text = json.loads(resp.read(MAX_RESPONSE))["response"]
     except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as e:
         # Only the error type: the prompt holds private mails, it must not leak into logs.

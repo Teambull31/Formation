@@ -35,7 +35,7 @@ class ApiHandler(JsonHandler):
             return self.send_json(400, {"error": "JSON object required"})
         with self.server.lock:
             tasks = self.server.state["tasks"]
-            task = {"id": len(tasks) + 1, **data}
+            task = {**data, "id": len(tasks) + 1}  # id last: the client cannot choose it
             tasks.append(task)
         self.send_json(201, task)
 
