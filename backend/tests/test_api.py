@@ -72,6 +72,45 @@ def test_quest_step_validation(client):
     assert xp(client) == 20
 
 
+def test_quest_step_tp_requires_passing_check(client, tmp_path):
+    step = {"kind": "tp", "lesson_id": "l1"}
+    assert client.post("/api/quest/step", json=step).status_code == 409
+    client.post("/api/tp/t1/check")  # fails: no ok.txt
+    assert client.post("/api/quest/step", json=step).status_code == 409
+    (tmp_path / "ws" / "ok.txt").write_text("x")
+    assert client.post("/api/tp/t1/check").json()["passed"] is True
+    assert client.post("/api/quest/step", json=step).status_code == 200
+    assert xp(client) == 80
+
+
+BAD = [("post", "/api/tp/t1/check"), ("post", "/api/boss/attempt"),
+       ("post", "/api/weekly/import"), ("get", "/api/tp/t1/hint?level=1")]
+
+
+@pytest.mark.parametrize("method,url", BAD)
+@pytest.mark.parametrize("headers", [{"origin": "http://evil.com"}, {"host": "evil.com"}])
+def test_local_peer_with_bad_origin_or_host_is_403(client, method, url, headers):
+    kw = {"json": {"path": "/tmp/x"}} if "import" in url else {}
+    assert getattr(client, method)(url, headers=headers, **kw).status_code == 403
+
+
+def test_remote_cannot_hint(remote_client):
+    assert remote_client.get("/api/tp/t1/hint?level=1").status_code == 403
+
+
+def test_audio_failure_leaves_no_partial(client, tmp_path, monkeypatch):
+    import app.main as m
+
+    def boom(text, out):
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"partial")
+        raise RuntimeError("fail")
+
+    monkeypatch.setattr(m, "synthesize", boom)
+    assert client.get("/api/audio/l1.wav").status_code == 503
+    assert list((tmp_path / "audio").glob("*")) == []
+
+
 def test_rest_and_topic(client):
     assert client.post("/api/rest").status_code == 200
     assert client.post("/api/topic", json={"topic": "k8s"}).status_code == 200
@@ -154,6 +193,7 @@ def test_weekly_brief(client):
 
 
 def test_audio_rejects_traversal_and_unknown(client):
+    assert client.get("/api/audio/a.b.wav").status_code == 404
     assert client.get("/api/audio/..%2Fx.wav").status_code == 404
     assert client.get("/api/audio/nope.wav").status_code == 404
 

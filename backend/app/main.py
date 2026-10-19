@@ -20,7 +20,7 @@ from app.gacha import NoTokens, pull
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import due_reviews, record_answer
-from app.terminal import is_local, register_terminal
+from app.terminal import _origin_ok, is_local, register_terminal
 from app.tp import run_check
 from app.weekly import build_brief, import_module
 
@@ -52,7 +52,8 @@ class ImportIn(BaseModel):
 
 
 def local_only(request: Request) -> None:
-    if not is_local(request.client.host if request.client else None):
+    # peer IP + Host/Origin (anti DNS rebinding / cross-site); _origin_ok only reads .headers
+    if not is_local(request.client.host if request.client else None) or not _origin_ok(request):
         raise HTTPException(403, "Réservé à la machine locale")
 
 
@@ -123,7 +124,11 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def quest_step(body: StepIn, db=Depends(get_db)):
         if body.kind not in XP:
             raise HTTPException(400, "Type d'étape invalide")
-        _, m, _ = find_lesson(body.lesson_id)
+        _, m, les = find_lesson(body.lesson_id)
+        if body.kind == "tp":
+            key = f"tp_passed:{les.tp.id}" if les.tp else None
+            if key is None or db.execute("SELECT 1 FROM settings WHERE key = ?", (key,)).fetchone() is None:
+                raise HTTPException(409, "TP non validé : lancez la vérification d'abord")
         complete_step(db, date.today(), body.kind, body.lesson_id, m.skill)
         return {"ok": True}
 
@@ -155,10 +160,14 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         _, _, les = find_lesson(lid)
         out = Path(db_path).parent / "audio" / f"{lid}.wav"
         if not out.exists():
+            tmp = out.with_name(out.name + ".tmp")
             try:
-                synthesize(strip_markdown(les.body_md), out)
+                synthesize(strip_markdown(les.body_md), tmp)
+                os.replace(tmp, out)
             except RuntimeError as e:
                 raise HTTPException(503, str(e))
+            finally:
+                tmp.unlink(missing_ok=True)
         return FileResponse(out, media_type="audio/wav")
 
     @app.post("/api/qcm/answer")
@@ -178,16 +187,19 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def reviews(db=Depends(get_db)):
         return {"due": due_reviews(db, date.today())}
 
-    @app.get("/api/tp/{tp_id}/hint")
+    @app.get("/api/tp/{tp_id}/hint", dependencies=[Depends(local_only)])
     def tp_hint(tp_id: str, level: int = Query(1, ge=1), db=Depends(get_db)):
         _, m, tp = find_tp(tp_id)
         award_xp(db, m.skill, -HINT_COST)
         return {"hint": llm.hint(tp, level, ""), "cost": HINT_COST}
 
     @app.post("/api/tp/{tp_id}/check", dependencies=[Depends(local_only)])
-    def tp_check(tp_id: str):
+    def tp_check(tp_id: str, db=Depends(get_db)):
         lesson_dir, _, tp = find_tp(tp_id)
         r = run_check(tp, workspace, lesson_dir)
+        if r.passed:
+            db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES (?, '1')", (f"tp_passed:{tp.id}",))
+            db.commit()
         return {"passed": r.passed, "output": r.output}
 
     @app.get("/api/team")

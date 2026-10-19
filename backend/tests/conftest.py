@@ -53,7 +53,7 @@ def app_client(tmp_path, host, static_dir=None):
     ws = tmp_path / "ws"
     ws.mkdir()
     app = create_app(str(tmp_path / "f.db"), content, ws, static_dir=static_dir)
-    return TestClient(app, client=(host, 50000))
+    return TestClient(app, base_url="http://localhost", client=(host, 50000))
 
 
 @pytest.fixture
