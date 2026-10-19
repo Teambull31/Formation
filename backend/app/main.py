@@ -5,11 +5,12 @@ import re
 from dataclasses import asdict
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app import llm
 from app.audio import strip_markdown, synthesize
@@ -18,7 +19,7 @@ from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
 from app.progress import award_xp, get_profile, level_for_xp
-from app.quests import XP, announce_rest, build_daily_quest, complete_step, current_streak, set_imposed_topic
+from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import due_reviews, record_answer
 from app.terminal import _origin_ok, is_local, register_terminal
 from app.tp import run_check
@@ -47,6 +48,10 @@ class BriefIn(BaseModel):
     format: str
 
 
+class HintIn(BaseModel):
+    level: int = Field(1, ge=1)
+
+
 class ImportIn(BaseModel):
     path: str
 
@@ -66,6 +71,15 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     boss = json.loads(boss_dirs[0].read_text(encoding="utf-8")) if boss_dirs else None
     rng = random.Random()
     app = FastAPI()
+
+    @app.middleware("http")
+    async def same_origin_writes(request: Request, call_next):
+        # CSRF guard: a browser-sent Origin on a write must match Host; curl/TestClient send none
+        origin = request.headers.get("origin")
+        if (request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path.startswith("/api")
+                and origin is not None and urlsplit(origin).netloc.lower() != request.headers.get("host", "").lower()):
+            return JSONResponse({"detail": "Origine interdite"}, status_code=403)
+        return await call_next(request)
 
     def get_db():
         db = connect(db_path)
@@ -125,11 +139,10 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         if body.kind not in XP:
             raise HTTPException(400, "Type d'étape invalide")
         _, m, les = find_lesson(body.lesson_id)
-        if body.kind == "tp":
-            key = f"tp_passed:{les.tp.id}" if les.tp else None
-            if key is None or db.execute("SELECT 1 FROM settings WHERE key = ?", (key,)).fetchone() is None:
+        if body.kind == "tp" and les.tp:
+            if db.execute("SELECT 1 FROM settings WHERE key = ?", (f"tp_passed:{les.tp.id}",)).fetchone() is None:
                 raise HTTPException(409, "TP non validé : lancez la vérification d'abord")
-        complete_step(db, date.today(), body.kind, body.lesson_id, m.skill)
+        complete_step(db, date.today(), body.kind, body.lesson_id, m.skill, applicable_kinds(les))
         return {"ok": True}
 
     @app.post("/api/rest")
@@ -187,11 +200,11 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def reviews(db=Depends(get_db)):
         return {"due": due_reviews(db, date.today())}
 
-    @app.get("/api/tp/{tp_id}/hint", dependencies=[Depends(local_only)])
-    def tp_hint(tp_id: str, level: int = Query(1, ge=1), db=Depends(get_db)):
+    @app.post("/api/tp/{tp_id}/hint", dependencies=[Depends(local_only)])
+    def tp_hint(tp_id: str, body: HintIn, db=Depends(get_db)):
         _, m, tp = find_tp(tp_id)
         award_xp(db, m.skill, -HINT_COST)
-        return {"hint": llm.hint(tp, level, ""), "cost": HINT_COST}
+        return {"hint": llm.hint(tp, body.level, ""), "cost": HINT_COST}
 
     @app.post("/api/tp/{tp_id}/check", dependencies=[Depends(local_only)])
     def tp_check(tp_id: str, db=Depends(get_db)):
@@ -207,7 +220,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         p = get_profile(db)
         inv = [dict(r) for r in db.execute("SELECT item_id, name, type, rarity, obtained_at FROM inventory")]
         return {"xp": p.total_xp, "level": level_for_xp(p.total_xp), "rank": p.rank, "skills": p.skills,
-                "tokens": p.tokens, "streak": current_streak(db, date.today()), "inventory": inv}
+                "skill_levels": {k: level_for_xp(v) for k, v in p.skills.items()}, "tokens": p.tokens, "streak": current_streak(db, date.today()), "inventory": inv}
 
     @app.post("/api/gacha/pull")
     def gacha_pull(db=Depends(get_db)):

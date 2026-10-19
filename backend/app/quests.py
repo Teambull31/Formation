@@ -44,19 +44,25 @@ def _step(db: sqlite3.Connection, kind: str, lesson_id: str) -> Step:
     return Step(kind, lesson_id, MINUTES[kind], XP[kind], _is_done(db, kind, lesson_id))
 
 
+def applicable_kinds(lesson) -> tuple[str, ...]:
+    return tuple(k for k in KINDS if (k != "tp" or lesson.tp) and (k != "qcm" or lesson.qcm))
+
+
 def build_daily_quest(db: sqlite3.Connection, module: Module, today: date, minutes: int = 30) -> Quest:
     topic = _setting(db, "imposed_topic")
     ids = [lesson.id for lesson in module.lessons]
-    todo = [i for i, lid in enumerate(ids) if not all(_is_done(db, k, lid) for k in KINDS)]
+    kinds = [applicable_kinds(lesson) for lesson in module.lessons]
+    todo = [i for i, lid in enumerate(ids) if not all(_is_done(db, k, lid) for k in kinds[i])]
     if not todo:
         return Quest(today, [], None, topic)
     i = todo[0]
-    steps = [_step(db, k, ids[i]) for k in KINDS]
+    steps = [_step(db, k, ids[i]) for k in kinds[i]]
     bonus = _step(db, "bonus", ids[i + 1]) if minutes >= 60 and i + 1 < len(ids) else None
     return Quest(today, steps, bonus, topic)
 
 
-def complete_step(db: sqlite3.Connection, today: date, kind: str, lesson_id: str, skill: str) -> None:
+def complete_step(db: sqlite3.Connection, today: date, kind: str, lesson_id: str, skill: str,
+                  kinds: tuple[str, ...] = KINDS) -> None:
     first = not _is_done(db, kind, lesson_id)
     db.execute(
         "INSERT OR REPLACE INTO quest_steps(day, kind, lesson_id, done) VALUES (?, ?, ?, 1)",
@@ -64,6 +70,9 @@ def complete_step(db: sqlite3.Connection, today: date, kind: str, lesson_id: str
     )
     db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (today.isoformat(),))
     if first:
+        # one token per finished lesson (all applicable steps) and per bonus; same commit as the XP
+        if kind == "bonus" or (kind in kinds and all(_is_done(db, k, lesson_id) for k in kinds)):
+            db.execute("UPDATE tokens SET count = count + 1 WHERE id = 1")
         award_xp(db, skill, XP[kind])  # commits the step rows and the XP in one transaction
     else:
         db.commit()

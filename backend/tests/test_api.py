@@ -55,14 +55,14 @@ def test_qcm_validation(client):
 def test_hint_costs_ten_xp(client):
     client.post("/api/quest/step", json={"kind": "lesson", "lesson_id": "l1"})  # earn 20 XP first (XP floors at 0)
     before = xp(client)
-    r = client.get("/api/tp/t1/hint?level=1")
+    r = client.post("/api/tp/t1/hint", json={"level": 1})
     assert r.json()["cost"] == 10 and r.json()["hint"]
     assert xp(client) == before - 10
 
 
 def test_hint_bad_level_and_unknown_tp(client):
-    assert client.get("/api/tp/t1/hint?level=0").status_code == 422
-    assert client.get("/api/tp/nope/hint?level=1").status_code == 404
+    assert client.post("/api/tp/t1/hint", json={"level": 0}).status_code == 422
+    assert client.post("/api/tp/nope/hint", json={"level": 1}).status_code == 404
 
 
 def test_quest_step_validation(client):
@@ -84,18 +84,18 @@ def test_quest_step_tp_requires_passing_check(client, tmp_path):
 
 
 BAD = [("post", "/api/tp/t1/check"), ("post", "/api/boss/attempt"),
-       ("post", "/api/weekly/import"), ("get", "/api/tp/t1/hint?level=1")]
+       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint")]
 
 
 @pytest.mark.parametrize("method,url", BAD)
 @pytest.mark.parametrize("headers", [{"origin": "http://evil.com"}, {"host": "evil.com"}])
 def test_local_peer_with_bad_origin_or_host_is_403(client, method, url, headers):
-    kw = {"json": {"path": "/tmp/x"}} if "import" in url else {}
+    kw = {"json": {"path": "/tmp/x"}} if "import" in url else {"json": {"level": 1}} if "hint" in url else {}
     assert getattr(client, method)(url, headers=headers, **kw).status_code == 403
 
 
 def test_remote_cannot_hint(remote_client):
-    assert remote_client.get("/api/tp/t1/hint?level=1").status_code == 403
+    assert remote_client.post("/api/tp/t1/hint", json={"level": 1}).status_code == 403
 
 
 def test_audio_failure_leaves_no_partial(client, tmp_path, monkeypatch):
@@ -142,6 +142,32 @@ def test_remote_can_read_quest_and_lesson(remote_client):
     assert remote_client.get("/api/quest").status_code == 200
     assert remote_client.get("/api/lesson/l1").status_code == 200
     assert remote_client.get("/api/team").status_code == 200
+
+
+@pytest.mark.parametrize("url", ["/api/rest", "/api/gacha/pull"])
+def test_cross_origin_post_is_403(client, url):
+    assert client.post(url, headers={"origin": "http://evil.com"}).status_code == 403
+
+
+def test_same_origin_post_passes(client):
+    assert client.post("/api/rest", headers={"origin": "http://localhost"}).status_code == 200
+    assert client.post("/api/rest").status_code == 200
+
+
+def test_team_has_skill_levels(client):
+    client.post("/api/quest/step", json={"kind": "lesson", "lesson_id": "l1"})
+    t = client.get("/api/team").json()
+    assert t["skills"]["demo"] == 20 and t["skill_levels"]["demo"] == 1
+
+
+def test_finishing_lesson_via_api_earns_token(client, tmp_path):
+    client.post("/api/quest/step", json={"kind": "lesson", "lesson_id": "l1"})
+    client.post("/api/quest/step", json={"kind": "qcm", "lesson_id": "l1"})
+    (tmp_path / "ws" / "ok.txt").write_text("x")
+    client.post("/api/tp/t1/check")
+    assert client.get("/api/team").json()["tokens"] == 0
+    client.post("/api/quest/step", json={"kind": "tp", "lesson_id": "l1"})
+    assert client.get("/api/team").json()["tokens"] == 1
 
 
 def test_gacha_without_tokens_is_409(client):

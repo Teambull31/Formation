@@ -44,7 +44,7 @@ export interface Lesson {
 }
 export interface QcmResult { correct: boolean; explanation: string; remedial_lesson_id: string | null }
 export interface Team {
-  xp: number; level: number; rank: string; skills: Record<string, number>; tokens: number; streak: number
+  xp: number; level: number; rank: string; skills: Record<string, number>; skill_levels: Record<string, number>; tokens: number; streak: number
   inventory: { item_id: string; name: string; type: string; rarity: string; obtained_at: string }[]
 }
 export interface BossInfo { title: string; phases: { label: string }[]; attempts: number }
@@ -63,7 +63,7 @@ export const answerQcm = (question_id: string, chosen: number) =>
   call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen })
 export const getReviews = () => call<{ due: unknown[] }>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
-  call<{ hint: string; cost: number }>('GET', `/api/tp/${encodeURIComponent(tpId)}/hint?level=${level}`)
+  call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
 export const checkTp = (tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/check`)
 export const getTeam = () => call<Team>('GET', '/api/team')

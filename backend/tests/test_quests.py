@@ -142,3 +142,51 @@ def test_clear_without_active_topic_is_noop(db):
     d5 = D1 + timedelta(days=4)
     activity(db, d5, "l2")
     assert current_streak(db, d5) == 1
+
+
+def _bare(demo, no_tp=False, no_qcm=False):
+    import dataclasses
+    les = [dataclasses.replace(l, tp=None if no_tp else l.tp, qcm=[] if no_qcm else l.qcm) for l in demo.lessons]
+    return dataclasses.replace(demo, lessons=les)
+
+
+def test_quest_only_applicable_steps_and_advances(db, demo):
+    m = _bare(demo, no_tp=True)
+    q = build_daily_quest(db, m, D1)
+    assert [s.kind for s in q.steps] == ["lesson", "qcm"]
+    for k in ("lesson", "qcm"):
+        complete_step(db, D1, k, "l1", "demo", ("lesson", "qcm"))
+    assert build_daily_quest(db, m, D2).steps[0].lesson_id == "l2"
+
+
+def test_empty_qcm_lesson_completes(db, demo):
+    m = _bare(demo, no_qcm=True)
+    assert [s.kind for s in build_daily_quest(db, m, D1).steps] == ["lesson", "tp"]
+    for k in ("lesson", "tp"):
+        complete_step(db, D1, k, "l1", "demo", ("lesson", "tp"))
+    assert build_daily_quest(db, m, D2).steps[0].lesson_id == "l2"
+
+
+def tokens(db):
+    return get_profile(db).tokens
+
+
+def test_token_when_all_applicable_steps_done_once(db):
+    complete_step(db, D1, "lesson", "l1", "demo")
+    complete_step(db, D1, "qcm", "l1", "demo")
+    assert tokens(db) == 0
+    complete_step(db, D1, "tp", "l1", "demo")
+    assert tokens(db) == 1
+    complete_step(db, D1, "tp", "l1", "demo")
+    assert tokens(db) == 1
+
+
+def test_token_with_reduced_kinds(db):
+    complete_step(db, D1, "lesson", "l1", "demo", ("lesson",))
+    assert tokens(db) == 1
+
+
+def test_bonus_gives_one_token_once(db):
+    complete_step(db, D1, "bonus", "l2", "demo")
+    complete_step(db, D1, "bonus", "l2", "demo")
+    assert tokens(db) == 1

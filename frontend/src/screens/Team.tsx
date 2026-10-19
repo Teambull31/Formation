@@ -29,7 +29,7 @@ export default function Team() {
             <h3>Compétences</h3>
             {Object.keys(team.skills).length === 0 && <p className="note">Aucune compétence pour l'instant.</p>}
             {Object.entries(team.skills).map(([k, v]) => (
-              <div key={k} className="row between"><span>{k}</span><span className="stat">niveau {v}</span></div>
+              <div key={k} className="row between"><span>{k}</span><span className="stat">niveau {team.skill_levels[k]} · {v} XP</span></div>
             ))}
           </div>
           <div className="card">
