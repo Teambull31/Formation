@@ -106,3 +106,13 @@ def test_explain_error_uses_ollama(q):
 
 def test_explain_error_fallback(q):
     assert explain_error(q, 0, post=raises(httpx.ConnectError)) == q.explain
+
+
+@pytest.mark.parametrize("bad", [99, -1])
+def test_explain_error_bad_index_falls_back(q, bad):
+    assert explain_error(q, bad, post=fake("x")) == q.explain
+
+
+def test_hint_with_no_hints_does_not_raise(tp):
+    tp.hints = []
+    assert hint(tp, 1, "", post=raises(httpx.ConnectError)) == "Relis les instructions du TP."

@@ -19,6 +19,12 @@ def _ask(prompt: str, post) -> str:
     return text.strip()
 
 
+def _fallback_hint(tp: Tp, level: int) -> str:
+    if not tp.hints:
+        return "Relis les instructions du TP."
+    return tp.hints[min(level, len(tp.hints)) - 1]
+
+
 def hint(tp: Tp, level: int, last_output: str, *, post=httpx.post) -> str:
     level = max(1, level)
     prompt = (
@@ -29,20 +35,22 @@ def hint(tp: Tp, level: int, last_output: str, *, post=httpx.post) -> str:
         f"Dernière sortie du terminal de l'apprenant :\n{last_output[:2000]}"
     )
     try:
-        return _ask(prompt, post) or tp.hints[min(level, len(tp.hints)) - 1]
+        return _ask(prompt, post) or _fallback_hint(tp, level)
     except Exception:
-        return tp.hints[min(level, len(tp.hints)) - 1]
+        return _fallback_hint(tp, level)
 
 
 def explain_error(q: Question, chosen: int, *, post=httpx.post) -> str:
-    options = "\n".join(f"{i}. {o}" for i, o in enumerate(q.options))
-    prompt = (
-        "Tu es un tuteur Linux/DevOps. Explique en français, en quelques phrases courtes, "
-        "pourquoi la réponse choisie est fausse (ou confirme qu'elle est juste).\n\n"
-        f"Question : {q.text}\nOptions :\n{options}\n"
-        f"Bonne réponse : {q.options[q.answer]}\nRéponse choisie : {q.options[chosen]}"
-    )
     try:
+        if not 0 <= chosen < len(q.options):  # no negative wraparound
+            return q.explain
+        options = "\n".join(f"{i}. {o}" for i, o in enumerate(q.options))
+        prompt = (
+            "Tu es un tuteur Linux/DevOps. Explique en français, en quelques phrases courtes, "
+            "pourquoi la réponse choisie est fausse (ou confirme qu'elle est juste).\n\n"
+            f"Question : {q.text}\nOptions :\n{options}\n"
+            f"Bonne réponse : {q.options[q.answer]}\nRéponse choisie : {q.options[chosen]}"
+        )
         return _ask(prompt, post) or q.explain
     except Exception:
         return q.explain
