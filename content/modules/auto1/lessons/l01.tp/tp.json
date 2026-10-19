@@ -1,0 +1,14 @@
+{
+  "id": "l01-tp",
+  "title": "TP 1 : un tri.sh qui range par extension",
+  "instructions_md": "Dans le dossier **inbox/** (fourni), des fichiers fictifs sont en vrac, certains avec des **espaces** dans le nom, un sans extension.\n\nÉcrivez **tri.sh** dans le dossier du TP, puis rendez-le exécutable.\n\n- `./tri.sh <dossier>` range chaque fichier du dossier dans un sous-dossier nommé d'après son extension (`pdf/`, `txt/`…).\n- Un fichier sans extension va dans `sans_extension/`.\n- Sans argument : message `Usage : …` sur la sortie d'erreur et code de sortie **2**.\n- Dossier inexistant : code de sortie non nul.\n- Rien ne doit être supprimé ni écrasé. Relancer le script ne casse rien.\n- Commencez par le shebang et `set -euo pipefail`.\n\nLe contrôle teste votre script sur des dossiers jetables différents à chaque fois.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Une boucle `for f in \"$dossier\"/*` parcourt les fichiers. Passez-les ensuite à `mv`.",
+    "L'extension se calcule avec `${nom##*.}`. Si le nom ne contient pas de point (`case $nom in *.*)`), utilisez `sans_extension`. Mettez TOUTES les variables entre guillemets.",
+    "Squelette : vérifier `$# -ne 1` (echo Usage >&2 ; exit 2), puis `for f in \"$dossier\"/*; do [ -f \"$f\" ] || continue; nom=${f##*/}; … mkdir -p \"$dossier/$ext\"; mv -n -- \"$f\" \"$dossier/$ext/$nom\"; done`. Terminez par `chmod +x tri.sh`."
+  ],
+  "timeout_s": 60,
+  "workspace": "l01",
+  "seed": ["../../kit", "seed/inbox"]
+}

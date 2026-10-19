@@ -1,0 +1,67 @@
+[
+ {
+  "id": "l01-q1",
+  "text": "Que fait la ligne set -euo pipefail au début d'un script ?",
+  "options": [
+   "Elle rend le script plus rapide",
+   "Elle affiche chaque commande avant de l'exécuter",
+   "Elle arrête le script à la première erreur, refuse les variables inconnues et compte les erreurs dans un tube",
+   "Elle demande confirmation avant chaque suppression"
+  ],
+  "answer": 2,
+  "explain": "Le mode strict stoppe le script dès qu'une commande échoue (-e), signale une variable non définie (-u) et fait échouer un tube si une de ses étapes échoue (pipefail). Sans lui, un script continue après une erreur et peut agir sur de mauvaises données.",
+  "remedial_lesson_id": "l01"
+ },
+ {
+  "id": "l01-q2",
+  "text": "Un script reçoit un mauvais nombre d'arguments. Que doit-il faire ?",
+  "options": [
+   "Afficher un message Usage sur la sortie d'erreur et sortir avec le code 2",
+   "Continuer avec des valeurs par défaut au hasard",
+   "Sortir silencieusement avec le code 0",
+   "Supprimer le dossier courant par sécurité"
+  ],
+  "answer": 0,
+  "explain": "Un message Usage explique comment appeler le script, et un code non nul prévient les outils qui le lancent que cela a échoué. Sortir avec 0 serait faux : 0 veut dire que tout s'est bien passé.",
+  "remedial_lesson_id": "l01"
+ },
+ {
+  "id": "l01-q3",
+  "text": "Erreur classique : le script plante sur « facture mars.pdf ». Quelle est la cause la plus probable ?",
+  "options": [
+   "Le fichier est trop long",
+   "L'extension pdf n'est pas gérée par bash",
+   "Il manque le shebang",
+   "La variable est utilisée sans guillemets, donc coupée en deux mots à l'espace"
+  ],
+  "answer": 3,
+  "explain": "Sans guillemets, le shell découpe le contenu de la variable à chaque espace : mv reçoit alors deux fichiers inexistants. La correction est d'écrire \"$f\" partout ; le shebang ou l'extension n'ont aucun rapport.",
+  "remedial_lesson_id": "l01"
+ },
+ {
+  "id": "l01-q4",
+  "text": "Erreur classique : pour ranger sans danger, quelle commande choisir ?",
+  "options": [
+   "cp puis rm de l'original dans la foulée",
+   "mv -n -- \"$f\" \"$cible\"",
+   "mv $f $cible",
+   "rm \"$f\" après avoir recréé le fichier à la main"
+  ],
+  "answer": 1,
+  "explain": "mv -n déplace sans écraser un fichier existant, et -- protège les noms qui commencent par un tiret ; les guillemets gardent les espaces. mv $f $cible sans guillemets casse les noms avec espaces, et rm est une suppression : un tri ne doit jamais en faire.",
+  "remedial_lesson_id": "l01"
+ },
+ {
+  "id": "l01-q5",
+  "text": "Que veut dire le code de sortie 0 ?",
+  "options": [
+   "Le script a échoué",
+   "Le script n'a rien trouvé à faire et a été ignoré",
+   "Le script a réussi",
+   "Le script attend une réponse de l'utilisateur"
+  ],
+  "answer": 2,
+  "explain": "Par convention, 0 signifie succès et tout autre nombre signifie échec. Les planificateurs et les autres scripts se fient à ce code ; le confondre avec une erreur ferait relancer ou ignorer des tâches à tort.",
+  "remedial_lesson_id": "l01"
+ }
+]
