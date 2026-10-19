@@ -16,6 +16,8 @@ from app.tp import run_check, seed_workspace
 
 CONTENT = Path(__file__).resolve().parents[2] / "content"
 EXPECTED_LESSONS = [f"l{i:02d}" for i in range(1, 13)]
+# flipped to True by the last lesson task and boss task
+STRICT = False
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 
@@ -37,7 +39,8 @@ def _lesson_cases() -> list:
 
 
 def _run_solution(script: Path, cwd: Path, lesson_dir: Path) -> None:
-    subprocess.run(["bash", str(script)], cwd=cwd, env={**os.environ, "LESSON_DIR": str(lesson_dir)},
+    env = {"PATH": os.environ["PATH"], "HOME": str(cwd), "LESSON_DIR": str(lesson_dir)}
+    subprocess.run(["bash", str(script)], cwd=cwd, env=env,
                    check=True, capture_output=True, timeout=60)
 
 
@@ -63,9 +66,10 @@ def check_lesson_static(mod_dir: Path, lid: str) -> list[str]:
             errs.append(f"{lid}/{q.id}: explain vide")
         if q.remedial_lesson_id not in ids:
             errs.append(f"{lid}/{q.id}: remedial_lesson_id {q.remedial_lesson_id!r} hors module")
-    if les.body_md.count("**") < 6:
+    body = re.sub(r"`[^`\n]*`", "", re.sub(r"```.*?```", "", les.body_md, flags=re.S))
+    if len(re.findall(r"\*\*[^*\n]+\*\*", body)) < 3:
         errs.append(f"{lid}: moins de 3 paires **")
-    if les.body_md.count("!!") < 6:
+    if len(re.findall(r"!![^!\n]+!!", body)) < 3:
         errs.append(f"{lid}: moins de 3 paires !!")
     if les.tp is None:
         errs.append(f"{lid}: TP manquant")
@@ -85,17 +89,22 @@ def check_tp_solution(mod_dir: Path, lid: str, tmp: Path) -> list[str]:
     sol = tp_dir / "solution.sh"
     if not sol.is_file():
         return [f"{lid}: solution.sh manquant"]
-    ws = tmp / f"ws-{lid}"
-    ws.mkdir()
-    d = seed_workspace(tp, tp_dir, ws)
+    before, after = tmp / f"ws-{lid}-before", tmp / f"ws-{lid}-after"
+    before.mkdir()
+    after.mkdir()
     errs = []
-    if run_check(tp, ws, tp_dir).passed:
+    try:
+        seed_workspace(tp, tp_dir, before)
+        d = seed_workspace(tp, tp_dir, after)  # fresh copy: the before-check must not leave state
+    except (ValueError, OSError) as e:
+        return [f"{lid}: seed invalide ({e})"]
+    if run_check(tp, before, tp_dir).passed:
         errs.append(f"{lid}: check réussit avant la solution")
     try:
         _run_solution(sol, d, tp_dir)
     except (subprocess.SubprocessError, OSError) as e:
         return errs + [f"{lid}: solution.sh en échec ({e})"]
-    r = run_check(tp, ws, tp_dir)
+    r = run_check(tp, after, tp_dir)
     if not r.passed:
         errs.append(f"{lid}: check échoue après la solution\n{r.output}")
     return errs
@@ -105,11 +114,8 @@ def check_emails(mod_dir: Path) -> list[str]:
     errs = []
     for f in mod_dir.rglob("*"):
         if f.is_file():
-            try:
-                text = f.read_text(encoding="utf-8")
-            except UnicodeDecodeError:
-                continue
-            errs += [f"{f}: e-mail {m}" for m in EMAIL.findall(text) if not m.endswith("@example.test")]
+            text = f.read_text(encoding="utf-8", errors="replace")
+            errs += [f"{f}: e-mail {m}" for m in EMAIL.findall(text) if not m.lower().endswith("@example.test")]
     return errs
 
 
@@ -122,6 +128,8 @@ def check_boss(boss_dir: Path, tmp: Path) -> list[str]:
         tp = Tp(ph["pattern_id"], ph["label"], "", ph["check"], [], ph.get("timeout_s", 30), ".")
         return run_check(tp, ws, boss_dir).passed
 
+    if not boss["phases"]:
+        return [f"{boss_dir.name}: aucune phase"]
     errs = []
     for n, ph in enumerate(boss["phases"], 1):
         if phase_ok(ph):
@@ -141,9 +149,20 @@ def check_boss(boss_dir: Path, tmp: Path) -> list[str]:
 
 # ---- shipped content ----
 
+@pytest.mark.skipif(STRICT, reason="strict mode: see test below")
 @pytest.mark.xfail(strict=False, reason="lessons added by later tasks")
+def test_all_twelve_lessons_present_pending():
+    assert _listed(CONTENT / "modules" / "auto1") == EXPECTED_LESSONS
+
+
+@pytest.mark.skipif(not STRICT, reason="enabled by the last lesson task")
 def test_all_twelve_lessons_present():
     assert _listed(CONTENT / "modules" / "auto1") == EXPECTED_LESSONS
+
+
+@pytest.mark.skipif(not STRICT, reason="enabled by the boss task")
+def test_boss_exists():
+    assert _boss_dirs()
 
 
 @pytest.mark.parametrize("mod_dir", _module_dirs(), ids=lambda p: p.name)
@@ -229,3 +248,76 @@ def test_selftest_boss(tmp_path):
     (b / "phase1_solution.sh").write_text("touch a.txt\n")
     (b / "phase2_solution.sh").write_text("touch b.txt\n")
     assert check_boss(b, tmp_path) == []
+
+
+def test_selftest_marker_counting(tmp_path):
+    def errs(body):
+        m = _make_module(tmp_path / str(abs(hash(body))))
+        (m / "lessons" / "l01.md").write_text(body)
+        return check_lesson_static(m, "l01")
+    ok = "**a** **b** **c** !!x!! !!y!! !!z!!"
+    assert errs(ok) == []
+    assert errs("**** **** **** !!x!! !!y!! !!z!!")
+    assert errs("```\n**a** **b** **c**\n```\n!!x!! !!y!! !!z!!")
+    assert errs("`**a** **b** **c**` !!x!! !!y!! !!z!!")
+    assert errs("**a** **b** **c** !!x!! !!y!! !!z")  # 7 markers, one unpaired
+
+
+def test_selftest_check_with_own_state_detected(tmp_path):
+    m = _make_module(tmp_path, check="touch ok; test -f ok")
+    assert any("avant la solution" in e for e in check_tp_solution(m, "l01", tmp_path))
+
+
+def test_selftest_missing_seed(tmp_path):
+    m = _make_module(tmp_path)
+    tpj = m / "lessons" / "l01.tp" / "tp.json"
+    d = json.loads(tpj.read_text())
+    d["seed"] = ["nope"]
+    tpj.write_text(json.dumps(d))
+    assert check_load(m)
+
+
+def test_selftest_solution_missing_or_failing(tmp_path):
+    m = _make_module(tmp_path / "a")
+    sol = m / "lessons" / "l01.tp" / "solution.sh"
+    sol.write_text("exit 1\n")
+    assert any("en échec" in e for e in check_tp_solution(m, "l01", tmp_path))
+    sol.unlink()
+    assert any("manquant" in e for e in check_tp_solution(m, "l01", tmp_path))
+
+
+def test_selftest_check_never_passes(tmp_path):
+    m = _make_module(tmp_path, check="false")
+    assert any("après la solution" in e for e in check_tp_solution(m, "l01", tmp_path))
+
+
+def test_selftest_bad_remedial_id(tmp_path):
+    m = _make_module(tmp_path)
+    qf = m / "lessons" / "l01.qcm.json"
+    qs = json.loads(qf.read_text())
+    qs[0]["remedial_lesson_id"] = None
+    qf.write_text(json.dumps(qs))
+    assert check_lesson_static(m, "l01")
+    qs[0]["remedial_lesson_id"] = "zz"
+    qf.write_text(json.dumps(qs))
+    assert check_load(m)
+
+
+def test_selftest_email_case_and_binary(tmp_path):
+    m = _make_module(tmp_path)
+    (m / "x.txt").write_text("a@EXAMPLE.TEST")
+    assert check_emails(m) == []
+    (m / "b.bin").write_bytes(b"\xff\xfe bob@gmail.com \xff")
+    assert len(check_emails(m)) == 1
+
+
+def test_selftest_boss_failures(tmp_path):
+    b = tmp_path / "boss"
+    b.mkdir()
+    (b / "boss.json").write_text(json.dumps({"id": "b", "phases": []}))
+    assert check_boss(b, tmp_path)
+    (tmp_path / "w2").mkdir()
+    (b / "boss.json").write_text(json.dumps({"id": "b", "phases": [
+        {"pattern_id": "p", "label": "L", "check": "test -f a.txt"}]}))
+    (b / "phase1_solution.sh").write_text("true\n")  # does not satisfy the check
+    assert any("après sa solution" in e for e in check_boss(b, tmp_path / 'w2'))
