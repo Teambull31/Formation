@@ -35,3 +35,40 @@ def terminal_client(tmp_path):
 @pytest.fixture
 def terminal_remote_client(tmp_path):
     return _terminal_client(tmp_path, "192.168.1.20")
+
+
+def app_client(tmp_path, host, static_dir=None):
+    import shutil
+    from pathlib import Path
+
+    from starlette.testclient import TestClient
+
+    from app.main import create_app
+
+    fx = Path(__file__).parent / "fixtures"
+    content = tmp_path / "content"
+    shutil.copytree(fx / "demo_module", content / "modules" / "demo")
+    shutil.copytree(fx / "demo_boss", content / "boss" / "demo_boss")
+    shutil.copy(Path(__file__).parents[2] / "content" / "gacha.json", content / "gacha.json")
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    app = create_app(str(tmp_path / "f.db"), content, ws, static_dir=static_dir)
+    return TestClient(app, client=(host, 50000))
+
+
+@pytest.fixture
+def client(tmp_path):
+    return app_client(tmp_path, "127.0.0.1")
+
+
+@pytest.fixture
+def remote_client(tmp_path):
+    return app_client(tmp_path, "192.168.1.20")
+
+
+@pytest.fixture
+def broken_module(tmp_path):
+    d = tmp_path / "broken"
+    d.mkdir()
+    (d / "module.json").write_text("{not json")
+    return str(d)

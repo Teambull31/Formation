@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS imposed_periods(start TEXT, end TEXT);
 
 
 def connect(path: str) -> sqlite3.Connection:
-    db = sqlite3.connect(path)
+    # a per-request connection may be created in another worker thread than the route's
+    db = sqlite3.connect(path, check_same_thread=False)
     db.row_factory = sqlite3.Row
     db.executescript(SCHEMA)
     db.commit()
