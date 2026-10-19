@@ -1,0 +1,1 @@
+{"id": "t2", "title": "TP 2 : créer un fichier", "instructions_md": "Créez le fichier **ok.txt** dans le répertoire de travail.", "check": "bash \"$LESSON_DIR/check.sh\"", "hints": ["Utilisez la commande touch.", "Le fichier s'appelle ok.txt.", "Lancez : touch ok.txt"], "timeout_s": 10, "workspace": "."}
