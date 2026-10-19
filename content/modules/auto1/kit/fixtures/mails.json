@@ -1,0 +1,86 @@
+[
+  {
+    "id": "m001",
+    "sender": "claire.martin@example.test",
+    "subject": "Réunion d'équipe jeudi à 10h",
+    "received": "2026-03-02T08:15:00Z",
+    "body": "Bonjour,\n\nLa réunion d'équipe aura lieu jeudi à 10h en salle Horizon.\nOrdre du jour : bilan du mois, planning des congés, point sur les projets en cours.\n\nMerci de confirmer votre présence.\n\nClaire"
+  },
+  {
+    "id": "m002",
+    "sender": "compta@example.test",
+    "subject": "Facture n° 2026-0412 à régler avant le 15",
+    "received": "2026-03-02T14:40:00Z",
+    "body": "Bonjour,\n\nVeuillez trouver ci-joint la facture n° 2026-0412 d'un montant de 1 240,00 euros TTC, à régler avant le 15 du mois.\n\nCordialement,\nLe service comptabilité"
+  },
+  {
+    "id": "m003",
+    "sender": "lettre.info@example.test",
+    "subject": "Votre newsletter de la semaine : 5 astuces pour mieux s'organiser",
+    "received": "2026-03-03T06:00:00Z",
+    "body": "Cette semaine : planifier sa journée, trier ses mails, dire non aux réunions inutiles, automatiser le répétitif et prendre de vraies pauses.\n\nPour vous désabonner, répondez STOP."
+  },
+  {
+    "id": "m004",
+    "sender": "supervision@example.test",
+    "subject": "[ALERTE] Disque presque plein sur srv-fichiers",
+    "received": "2026-03-03T22:05:00Z",
+    "body": "Alerte de niveau CRITIQUE.\nServeur : srv-fichiers\nPartition /data utilisée à 94 %.\nAction recommandée : libérer de l'espace ou étendre le volume avant demain matin."
+  },
+  {
+    "id": "m005",
+    "sender": "gagnant.promo@example.test",
+    "subject": "FÉLICITATIONS !!! Vous avez gagné un voyage",
+    "received": "2026-03-04T03:12:00Z",
+    "body": "Cher client, vous êtes l'heureux gagnant d'un séjour de rêve ! Pour recevoir votre cadeau, envoyez-nous vos coordonnées bancaires dans les 24 heures. Offre limitée !!!"
+  },
+  {
+    "id": "m006",
+    "sender": "paul.durand@example.test",
+    "subject": "Relance : devis pour le site vitrine",
+    "received": "2026-03-04T09:30:00Z",
+    "body": "Bonjour,\n\nJe me permets de vous relancer au sujet du devis envoyé il y a deux semaines pour le site vitrine. Avez-vous pu le consulter ?\n\nBien cordialement,\nPaul Durand"
+  },
+  {
+    "id": "m007",
+    "sender": "rh@example.test",
+    "subject": "Rappel : saisie des congés avant vendredi",
+    "received": "2026-03-05T07:50:00Z",
+    "body": "Bonjour à tous,\n\nPensez à saisir vos congés d'été dans l'outil avant vendredi soir. Passé ce délai, les demandes seront traitées par ordre d'arrivée.\n\nLe service RH"
+  },
+  {
+    "id": "m008",
+    "sender": "sophie.leroy@example.test",
+    "subject": "Photos du séminaire",
+    "received": "2026-03-05T16:20:00Z",
+    "body": "Salut !\n\nJ'ai déposé les photos du séminaire dans le dossier partagé. Dis-moi si tu veux que j'en retouche certaines.\n\nSophie"
+  },
+  {
+    "id": "m009",
+    "sender": "supervision@example.test",
+    "subject": "[INFO] Sauvegarde nocturne terminée",
+    "received": "2026-03-06T02:30:00Z",
+    "body": "La sauvegarde nocturne s'est terminée sans erreur.\nDurée : 41 minutes. Volume sauvegardé : 128 Go."
+  },
+  {
+    "id": "m010",
+    "sender": "marc.petit@example.test",
+    "subject": "Question sur la commande 7781",
+    "received": "2026-03-06T11:05:00Z",
+    "body": "Bonjour,\n\nMa commande 7781 devait arriver hier et je n'ai toujours rien reçu. Pouvez-vous me donner des nouvelles ?\n\nMerci d'avance,\nMarc Petit"
+  },
+  {
+    "id": "m011",
+    "sender": "clara.moreau@example.test",
+    "subject": "Compte rendu de la réunion client",
+    "received": "2026-03-07T09:00:00Z",
+    "body": "Bonjour,\n\nVoici le compte rendu : le client valide la maquette, demande un ajustement des couleurs et souhaite une livraison avant fin avril.\n\nProchaine étape : envoyer la version corrigée lundi.\n\nClara"
+  },
+  {
+    "id": "m012",
+    "sender": "inconnu.service@example.test",
+    "subject": "Mise à jour de votre abonnement",
+    "received": "2026-03-08T12:45:00Z",
+    "body": "Bonjour,\n\nVotre abonnement sera renouvelé automatiquement le mois prochain au tarif de 9,90 € par mois. Aucune action n'est nécessaire de votre part.\n\nL'équipe abonnements"
+  }
+]

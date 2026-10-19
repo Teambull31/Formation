@@ -1,0 +1,216 @@
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: claire.martin@example.test
+To: moi@example.test
+Date: Mon, 02 Mar 2026 08:15:00 +0000
+Message-ID: <m001@example.test>
+Subject: =?utf-8?b?UsOpdW5pb24gZCfDqXF1aXBlIGpldWRpIMOg?= 10h
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+La r=C3=A9union d'=C3=A9quipe aura lieu jeudi =C3=A0 10h en salle Horizon.
+Ordre du jour : bilan du mois, planning des cong=C3=A9s, point sur les projet=
+s en cours.
+
+Merci de confirmer votre pr=C3=A9sence.
+
+Claire
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: compta@example.test
+To: moi@example.test
+Date: Mon, 02 Mar 2026 14:40:00 +0000
+Message-ID: <m002@example.test>
+Subject: Facture =?utf-8?q?n=C2=B0_2026-0412_=C3=A0_r=C3=A9gler?= avant le 15
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+Bonjour,
+
+Veuillez trouver ci-joint la facture n∞ 2026-0412 d'un montant de 1 240,00 euros TTC, ‡ rÈgler avant le 15 du mois.
+
+Cordialement,
+Le service comptabilitÈ
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: lettre.info@example.test
+To: moi@example.test
+Date: Tue, 03 Mar 2026 06:00:00 +0000
+Message-ID: <m003@example.test>
+Subject: Votre newsletter de la semaine : 5 astuces pour mieux s'organiser
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="===============5985124510495197222=="
+
+--===============5985124510495197222==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Cette semaine : planifier sa journ=C3=A9e, trier ses mails, dire non aux r=C3=
+=A9unions inutiles, automatiser le r=C3=A9p=C3=A9titif et prendre de vraies p=
+auses.
+
+Pour vous d=C3=A9sabonner, r=C3=A9pondez STOP.
+
+--===============5985124510495197222==
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p>Cette semaine : planifier sa journ=C3=A9e, trier ses mails, di=
+re non aux r=C3=A9unions inutiles, automatiser le r=C3=A9p=C3=A9titif et pren=
+dre de vraies pauses.<br><br>Pour vous d=C3=A9sabonner, r=C3=A9pondez STOP.</=
+p></body></html>
+
+--===============5985124510495197222==--
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: supervision@example.test
+To: moi@example.test
+Date: Tue, 03 Mar 2026 22:05:00 +0000
+Message-ID: <m004@example.test>
+Subject: [ALERTE] Disque presque plein sur srv-fichiers
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Alerte de niveau CRITIQUE.
+Serveur : srv-fichiers
+Partition /data utilis=C3=A9e =C3=A0 94 %.
+Action recommand=C3=A9e : lib=C3=A9rer de l'espace ou =C3=A9tendre le volume =
+avant demain matin.
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: gagnant.promo@example.test
+To: moi@example.test
+Date: Wed, 04 Mar 2026 03:12:00 +0000
+Message-ID: <m005@example.test>
+Subject: =?utf-8?q?F=C3=89LICITATIONS_!!!_Vous_avez_gagn=C3=A9?= un voyage
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Cher client, vous =C3=AAtes l'heureux gagnant d'un s=C3=A9jour de r=C3=AAve !=
+ Pour recevoir votre cadeau, envoyez-nous vos coordonn=C3=A9es bancaires dans=
+ les 24 heures. Offre limit=C3=A9e !!!
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: paul.durand@example.test
+To: moi@example.test
+Date: Wed, 04 Mar 2026 09:30:00 +0000
+Message-ID: <m006@example.test>
+Subject: Relance : devis pour le site vitrine
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+Je me permets de vous relancer au sujet du devis envoy=C3=A9 il y a deux sema=
+ines pour le site vitrine. Avez-vous pu le consulter ?
+
+Bien cordialement,
+Paul Durand
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: rh@example.test
+To: moi@example.test
+Date: Thu, 05 Mar 2026 07:50:00 +0000
+Message-ID: <m007@example.test>
+Subject: Rappel : saisie des =?utf-8?q?cong=C3=A9s?= avant vendredi
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour =C3=A0 tous,
+
+Pensez =C3=A0 saisir vos cong=C3=A9s d'=C3=A9t=C3=A9 dans l'outil avant vendr=
+edi soir. Pass=C3=A9 ce d=C3=A9lai, les demandes seront trait=C3=A9es par ord=
+re d'arriv=C3=A9e.
+
+Le service RH
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: sophie.leroy@example.test
+To: moi@example.test
+Date: Thu, 05 Mar 2026 16:20:00 +0000
+Message-ID: <m008@example.test>
+Subject: Photos du =?utf-8?q?s=C3=A9minaire?=
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Salut !
+
+J'ai d=C3=A9pos=C3=A9 les photos du s=C3=A9minaire dans le dossier partag=C3=
+=A9. Dis-moi si tu veux que j'en retouche certaines.
+
+Sophie
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: supervision@example.test
+To: moi@example.test
+Date: Fri, 06 Mar 2026 02:30:00 +0000
+Message-ID: <m009@example.test>
+Subject: [INFO] Sauvegarde nocturne =?utf-8?q?termin=C3=A9e?=
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+MIME-Version: 1.0
+
+La sauvegarde nocturne s'est termin√©e sans erreur.
+Dur√©e : 41 minutes. Volume sauvegard√© : 128 Go.
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: marc.petit@example.test
+To: moi@example.test
+Date: Fri, 06 Mar 2026 11:05:00 +0000
+Message-ID: <m010@example.test>
+Subject: Question sur la commande 7781
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+Ma commande 7781 devait arriver hier et je n'ai toujours rien re=C3=A7u. Pouv=
+ez-vous me donner des nouvelles ?
+
+Merci d'avance,
+Marc Petit
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+From: clara.moreau@example.test
+To: moi@example.test
+Date: Sat, 07 Mar 2026 09:00:00 +0000
+Message-ID: <m011@example.test>
+Subject: Compte rendu de la =?utf-8?q?r=C3=A9union?= client
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+Voici le compte rendu : le client valide la maquette, demande un ajustement d=
+es couleurs et souhaite une livraison avant fin avril.
+
+Prochaine =C3=A9tape : envoyer la version corrig=C3=A9e lundi.
+
+Clara
+
+From MAILER-DAEMON Mon Oct 19 16:05:31 2026
+To: moi@example.test
+Subject: Mise =?utf-8?q?=C3=A0?= jour de votre abonnement
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+Bonjour,
+
+Votre abonnement sera renouvel=C3=A9 automatiquement le mois prochain au tari=
+f de 9,90 =E2=82=AC par mois. Aucune action n'est n=C3=A9cessaire de votre pa=
+rt.
+
+L'=C3=A9quipe abonnements
+
