@@ -1,5 +1,6 @@
 import os
 import select
+import shutil
 import signal
 import subprocess
 import time
@@ -26,13 +27,47 @@ def _clip(raw: bytes, dropped: bool) -> str:
     return text
 
 
+def _tp_dir(tp: Tp, workspace: Path) -> Path:
+    d = Path(workspace) / tp.workspace
+    d.mkdir(parents=True, exist_ok=True)
+    # the learner owns the workspace: refuse a sub-directory swapped for a link leaving it
+    if not d.resolve().is_relative_to(Path(workspace).resolve()):
+        raise ValueError(f"Dossier de TP hors du workspace : {tp.workspace}")
+    return d
+
+
+def _copy_new(src: str, dst: str) -> None:
+    if not Path(dst).exists():
+        shutil.copy2(src, dst)
+
+
+def seed_workspace(tp: Tp, lesson_dir: Path, workspace: Path) -> Path:
+    """Copy tp.seed into workspace/tp.workspace, never overwriting; symlinks are refused."""
+    d = _tp_dir(tp, workspace)
+    for entry in tp.seed:
+        src = Path(lesson_dir) / entry
+        links = [src, *src.rglob("*")] if src.is_dir() and not src.is_symlink() else [src]
+        if any(p.is_symlink() for p in links):
+            raise ValueError(f"Lien symbolique refusé dans le kit : {entry}")
+        dst = d / src.resolve().name
+        if src.is_dir():
+            shutil.copytree(src, dst, dirs_exist_ok=True, copy_function=_copy_new)
+        else:
+            _copy_new(str(src), str(dst))
+    return d
+
+
 def run_check(tp: Tp, workspace: Path, lesson_dir: Path) -> CheckResult:
     if not Path(workspace).is_dir():
         return CheckResult(False, f"Workspace introuvable : {workspace}")
+    try:
+        cwd = _tp_dir(tp, workspace)
+    except ValueError as e:
+        return CheckResult(False, str(e))
     env = {**os.environ, "LESSON_DIR": str(lesson_dir)}
     proc = subprocess.Popen(
         ["bash", "-c", tp.check],
-        cwd=workspace,
+        cwd=cwd,
         env=env,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,

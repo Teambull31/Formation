@@ -64,7 +64,9 @@ export const answerQcm = (question_id: string, chosen: number) =>
 export const getReviews = () => call<{ due: unknown[] }>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
-export const checkTp = (tpId: string) =>
+export const startTp = (tpId: string) =>
+  call<{ dir: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/start`)
+export const checkTp =(tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/check`)
 export const getTeam = () => call<Team>('GET', '/api/team')
 export const pullGacha = () => call<Record<string, unknown>>('POST', '/api/gacha/pull')

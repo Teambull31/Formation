@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, isForbidden,
+  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, isForbidden, startTp,
   type Lesson as L, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
@@ -68,6 +68,13 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
   const [answered, setAnswered] = useState(0)
   const [busy, setBusy] = useState(false)
   const denied = useCallback(() => setLocal(false), [])
+  const [dir, setDir] = useState('.') // TP sub-directory of the workspace, from /start
+  const tpId = les?.tp?.id
+
+  useEffect(() => {
+    // once per TP; 403 means the terminal is hidden anyway
+    if (tpId && local) startTp(tpId).then((r) => setDir(r.dir)).catch((e) => { if (isForbidden(e)) setLocal(false) })
+  }, [tpId, local])
 
   useEffect(() => {
     // state reset per lesson comes from the parent's key
@@ -110,6 +117,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
           <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(tp.instructions_md) }} />
           {local ? (
             <>
+              {dir !== '.' && <p className="note">Dans le terminal : cd {dir}</p>}
               <Terminal onDenied={denied} />
               <div className="row wrapf">
                 <button className="btn term" disabled={busy} onClick={() => run(() =>

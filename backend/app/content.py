@@ -1,7 +1,7 @@
 import json
 import re
-from dataclasses import dataclass
-from pathlib import Path
+from dataclasses import dataclass, field
+from pathlib import Path, PurePath
 
 
 @dataclass
@@ -23,6 +23,7 @@ class Tp:
     hints: list[str]
     timeout_s: int
     workspace: str
+    seed: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -91,7 +92,7 @@ def _qcm(path: Path, errors: list[str]) -> list[Question]:
     return out
 
 
-def _tp(path: Path, errors: list[str]) -> Tp | None:
+def _tp(path: Path, errors: list[str], module: Path) -> Tp | None:
     d = _json(path, errors)
     keys = ["id", "title", "instructions_md", "check", "hints", "timeout_s", "workspace"]
     if d is None or not _fields(d, path, keys, errors):
@@ -99,7 +100,21 @@ def _tp(path: Path, errors: list[str]) -> Tp | None:
     if not isinstance(d["hints"], list) or not d["hints"]:
         errors.append(f"{path}: hints doit contenir au moins un indice")
         return None
-    return Tp(**{k: d[k] for k in keys})
+    ws = d["workspace"]
+    if not isinstance(ws, str) or not ws or PurePath(ws).is_absolute() or ".." in PurePath(ws).parts:
+        errors.append(f"{path}: workspace {ws!r} doit être un chemin relatif sans '..'")
+        return None
+    seed = d.get("seed", [])
+    if not isinstance(seed, list) or not all(isinstance(e, str) and e for e in seed):
+        errors.append(f"{path}: seed doit être une liste de chemins")
+        return None
+    root = module.resolve()
+    for e in seed:
+        p = path.parent / e
+        if PurePath(e).is_absolute() or p.is_symlink() or not p.exists() or not p.resolve().is_relative_to(root):
+            errors.append(f"{path}: seed {e!r} invalide (doit exister dans le module, sans lien symbolique)")
+            return None
+    return Tp(**{k: d[k] for k in keys}, seed=seed)
 
 
 def _safe_id(v) -> bool:
@@ -133,7 +148,7 @@ def load_module(path: Path) -> Module:
             body = ""
         qcm = _qcm(path / "lessons" / f"{lid}.qcm.json", errors)
         tp_file = path / "lessons" / f"{lid}.tp" / "tp.json"
-        tp = _tp(tp_file, errors) if tp_file.exists() else None
+        tp = _tp(tp_file, errors, path) if tp_file.exists() else None
         lessons.append(Lesson(lid, ref["title"], ref["minutes"], body, qcm, tp))
     seen = set()
     for les in lessons:

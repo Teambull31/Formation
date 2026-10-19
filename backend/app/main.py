@@ -22,7 +22,7 @@ from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import due_reviews, record_answer
 from app.terminal import _origin_ok, is_local, register_terminal
-from app.tp import run_check
+from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
 
 HINT_COST = 10
@@ -205,6 +205,15 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         _, m, tp = find_tp(tp_id)
         award_xp(db, m.skill, -HINT_COST)
         return {"hint": llm.hint(tp, body.level, ""), "cost": HINT_COST}
+
+    @app.post("/api/tp/{tp_id}/start", dependencies=[Depends(local_only)])
+    def tp_start(tp_id: str):
+        lesson_dir, _, tp = find_tp(tp_id)
+        try:
+            seed_workspace(tp, lesson_dir, workspace)
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        return {"dir": tp.workspace}
 
     @app.post("/api/tp/{tp_id}/check", dependencies=[Depends(local_only)])
     def tp_check(tp_id: str, db=Depends(get_db)):

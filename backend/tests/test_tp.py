@@ -49,3 +49,45 @@ def test_grandchild_killed_on_timeout(tmp_path):
 def test_missing_workspace(tmp_path):
     r = run_check(tp("exit 0"), tmp_path / "nope", tmp_path)
     assert not r.passed and r.output
+
+
+def test_seed_workspace_dir_and_file_no_overwrite(tmp_path):
+    from app.tp import seed_workspace
+    lesson = tmp_path / "m" / "lessons" / "l.tp"
+    lesson.mkdir(parents=True)
+    (tmp_path / "m" / "kit" / "sub").mkdir(parents=True)
+    (tmp_path / "m" / "kit" / "a.txt").write_text("kit")
+    (tmp_path / "m" / "kit" / "sub" / "b.txt").write_text("kit")
+    (lesson / "one.txt").write_text("one")
+    t = tp("true")
+    t.workspace, t.seed = "w", ["../../kit", "one.txt"]
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    d = seed_workspace(t, lesson, ws)
+    assert d == ws / "w" and (d / "kit" / "a.txt").read_text() == "kit" and (d / "kit" / "sub" / "b.txt").exists()
+    assert (d / "one.txt").read_text() == "one"
+    (d / "kit" / "a.txt").write_text("mine")
+    seed_workspace(t, lesson, ws)
+    assert (d / "kit" / "a.txt").read_text() == "mine"
+
+
+def test_seed_workspace_refuses_symlink(tmp_path):
+    import pytest
+    from app.tp import seed_workspace
+    lesson = tmp_path / "l"
+    lesson.mkdir()
+    (lesson / "x").symlink_to("/etc/passwd")
+    t = tp("true")
+    t.seed = ["x"]
+    with pytest.raises(ValueError):
+        seed_workspace(t, lesson, tmp_path)
+
+
+def test_run_check_cwd_is_tp_workspace(tmp_path):
+    t = tp("test -f here.txt")
+    t.workspace = "sub"
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "here.txt").write_text("x")
+    assert run_check(t, tmp_path, tmp_path).passed
+    t.workspace = "other"
+    assert not run_check(t, tmp_path, tmp_path).passed and (tmp_path / "other").is_dir()

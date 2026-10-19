@@ -248,3 +248,46 @@ def test_static_served_after_api(tmp_path):
     (d / "index.html").write_text("<h1>hi</h1>")
     c = app_client(tmp_path, "127.0.0.1", static_dir=d)
     assert "hi" in c.get("/").text and c.get("/api/team").status_code == 200
+
+
+def _seeded(tmp_path):
+    import json
+    mod = tmp_path / "content" / "modules" / "demo"
+    (mod / "kit").mkdir()
+    (mod / "kit" / "a.txt").write_text("kit")
+    p = mod / "lessons" / "l1.tp" / "tp.json"
+    d = json.loads(p.read_text())
+    d.update(seed=["../../kit"], workspace="tp1")
+    p.write_text(json.dumps(d))
+
+
+def test_start_copies_seed_without_overwrite(client, tmp_path):
+    _seeded(tmp_path)
+    r = client.post("/api/tp/t1/start")
+    assert r.status_code == 200 and r.json() == {"dir": "tp1"}
+    f = tmp_path / "ws" / "tp1" / "kit" / "a.txt"
+    assert f.read_text() == "kit"
+    f.write_text("mine")
+    assert client.post("/api/tp/t1/start").status_code == 200
+    assert f.read_text() == "mine"
+
+
+def test_start_default_workspace_and_unknown(client):
+    assert client.post("/api/tp/t1/start").json() == {"dir": "."}
+    assert client.post("/api/tp/nope/start").status_code == 404
+
+
+def test_remote_cannot_start_tp(remote_client):
+    assert remote_client.post("/api/tp/t1/start").status_code == 403
+
+
+def test_start_bad_origin_403(client):
+    assert client.post("/api/tp/t1/start", headers={"origin": "http://evil.com"}).status_code == 403
+
+
+def test_check_runs_in_tp_workspace(client, tmp_path):
+    _seeded(tmp_path)
+    client.post("/api/tp/t1/start")
+    assert client.post("/api/tp/t1/check").json()["passed"] is False
+    (tmp_path / "ws" / "tp1" / "ok.txt").write_text("x")
+    assert client.post("/api/tp/t1/check").json()["passed"] is True
