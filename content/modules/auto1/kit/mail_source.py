@@ -14,6 +14,10 @@ MARKER = "… [tronqué]"
 EPOCH = "1970-01-01T00:00:00Z"
 
 
+class ConnectorError(Exception):
+    """Échec d'un connecteur. Le message ne contient jamais jeton ni contenu de mail."""
+
+
 @dataclass(frozen=True)
 class Mail:
     id: str
@@ -143,6 +147,21 @@ def _body(msg) -> str:
     return ""
 
 
+def message_to_mail(msg, fallback_id: str) -> Mail:
+    """Message RFC 822 -> Mail (partagé par mbox et IMAP)."""
+    try:
+        received = _iso(parsedate_to_datetime(msg["Date"]))
+    except (TypeError, ValueError):  # En-tête Date absent ou illisible
+        received = EPOCH
+    return Mail(
+        id=(msg["Message-ID"] or "").strip("<> \n") or fallback_id,
+        sender=_decode(msg["From"]) or "inconnu@example.test",
+        subject=_decode(msg["Subject"]) or "(sans objet)",
+        received=received,
+        body=_truncate(_body(msg)),
+    )
+
+
 class MboxMailSource:
     def __init__(self, path):
         self.path = Path(path)
@@ -152,17 +171,4 @@ class MboxMailSource:
             box = mailbox.mbox(self.path, create=False)  # ne crée jamais le fichier
         except mailbox.NoSuchMailboxError:
             return []
-        mails = []
-        for i, msg in enumerate(box):
-            try:
-                received = _iso(parsedate_to_datetime(msg["Date"]))
-            except (TypeError, ValueError):  # En-tête Date absent ou illisible
-                received = EPOCH
-            mails.append(Mail(
-                id=(msg["Message-ID"] or "").strip("<> \n") or f"mbox-{i}",
-                sender=_decode(msg["From"]) or "inconnu@example.test",
-                subject=_decode(msg["Subject"]) or "(sans objet)",
-                received=received,
-                body=_truncate(_body(msg)),
-            ))
-        return _select(mails, since, limit)
+        return _select([message_to_mail(msg, f"mbox-{i}") for i, msg in enumerate(box)], since, limit)
