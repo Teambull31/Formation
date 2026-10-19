@@ -13,7 +13,10 @@ SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]  # no send, no modif
 
 
 def _b64(data: str) -> str:
-    return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", errors="replace")
+    try:
+        return base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)).decode("utf-8", errors="replace")
+    except ValueError:  # binascii.Error: one bad mail must not kill the batch
+        return ""
 
 
 def _find(part, mime):

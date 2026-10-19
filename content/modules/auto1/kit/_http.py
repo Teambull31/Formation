@@ -49,7 +49,14 @@ def default_token_path(name: str) -> Path:
 def write_private(path, text: str) -> None:
     """Token cache: owner-only (0600), even if the file already existed wider."""
     path = Path(path)
-    if not path.parent.exists():
+    if path.parent.is_symlink():  # a swapped-in directory link could redirect the token elsewhere
+        raise ConnectorError("dossier de jeton : lien symbolique refusé")
+    if path.parent.exists():
+        st = path.parent.stat()
+        # only our own dir: never chmod a shared one such as /tmp
+        if st.st_uid == os.getuid() and st.st_mode & 0o077:
+            path.parent.chmod(0o700)
+    else:
         path.parent.mkdir(parents=True, mode=0o700)
         path.parent.chmod(0o700)  # mkdir's mode is masked by umask
     try:

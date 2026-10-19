@@ -325,6 +325,25 @@ def test_gmail_malformed_responses(monkeypatch):
     assert len(mails) == 1 and mails[0].received.startswith("1970")
     monkeypatch.setattr(gmail_api, "get_json", lambda *a: {"messages": "x"})
     assert src.fetch() == []
+    for bad in ("a", "!!!!", "abcde"):  # length 1 mod 4, invalid chars
+        answers = iter([{"messages": [{"id": "a"}]},
+                        {"id": "a", "payload": {"mimeType": "text/plain", "body": {"data": bad}}}])
+        monkeypatch.setattr(gmail_api, "get_json", lambda *a: next(answers))
+        assert src.fetch()[0].body == ""
+
+
+def test_write_private_tightens_own_parent_and_refuses_symlinked_parent(tmp_path):
+    d = tmp_path / "cfg"
+    d.mkdir()
+    d.chmod(0o755)
+    _http.write_private(d / "t.json", "{}")
+    assert stat.S_IMODE(os.stat(d).st_mode) == 0o700
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "lnk").symlink_to(real)
+    with pytest.raises(ConnectorError):
+        _http.write_private(tmp_path / "lnk" / "t.json", "{}")
+    assert not (real / "t.json").exists()
 
 
 def test_gmail_quotes_message_ids(monkeypatch):
