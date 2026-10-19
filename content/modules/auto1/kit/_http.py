@@ -3,6 +3,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+from pathlib import Path
 from urllib.parse import urlparse
 
 from mail_source import ConnectorError
@@ -28,18 +29,34 @@ def get_json(url: str, token: str, base_url: str):
     req = urllib.request.Request(url, method="GET", headers={"Authorization": f"Bearer {token}"})
     try:
         with _OPENER.open(req, timeout=15) as r:
-            return json.loads(r.read(5_000_000))
+            data = json.loads(r.read(5_000_000))
     except urllib.error.HTTPError as e:
         if e.code == 401:
             raise ConnectorError("authentification refusée (401)") from None
         raise ConnectorError(f"erreur HTTP {e.code}") from None
     except (urllib.error.URLError, OSError, ValueError):
         raise ConnectorError("serveur injoignable ou réponse invalide") from None
+    if not isinstance(data, dict):  # every API we call answers with an object
+        raise ConnectorError("réponse invalide")
+    return data
+
+
+def default_token_path(name: str) -> Path:
+    """Under the home config dir, never relative to the cwd (a repo checkout would commit it)."""
+    return Path.home() / ".config" / "formation-auto1" / f"{name}_token.json"
 
 
 def write_private(path, text: str) -> None:
     """Token cache: owner-only (0600), even if the file already existed wider."""
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    path = Path(path)
+    if not path.parent.exists():
+        path.parent.mkdir(parents=True, mode=0o700)
+        path.parent.chmod(0o700)  # mkdir's mode is masked by umask
+    try:
+        # O_NOFOLLOW: a symlink planted at the token path must not redirect our write
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        raise ConnectorError("écriture du fichier de jeton refusée (lien symbolique ou droits)") from None
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         os.fchmod(f.fileno(), 0o600)  # os.open's mode is ignored on an existing file
         f.write(text)

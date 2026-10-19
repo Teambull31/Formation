@@ -4,3 +4,5 @@ dist
 *.db
 __pycache__
 .superpowers/
+*token*.json
+credentials*.json

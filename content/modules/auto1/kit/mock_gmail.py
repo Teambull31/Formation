@@ -3,7 +3,7 @@ import base64
 import json
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from _server import Handle, JsonHandler
 
@@ -34,7 +34,13 @@ class GmailHandler(JsonHandler):
             return self.send_json(401, {"error": "unauthenticated"})
         path = urlparse(self.path).path
         if path == "/gmail/v1/users/me/messages":
-            return self.send_json(200, {"messages": [{"id": m["id"]} for m in MAILS]})
+            q = parse_qs(urlparse(self.path).query)
+            size = self.server.state["page_size"] or int(q.get("maxResults", [len(MAILS)])[0])
+            start = int(q.get("pageToken", ["0"])[0])
+            out = {"messages": [{"id": m["id"]} for m in MAILS[start:start + size]]}
+            if start + size < len(MAILS):
+                out["nextPageToken"] = str(start + size)
+            return self.send_json(200, out)
         for i, m in enumerate(MAILS):
             if path == f"/gmail/v1/users/me/messages/{m['id']}":
                 return self.send_json(200, gmail_message(m, i))
@@ -46,5 +52,5 @@ class GmailHandler(JsonHandler):
     do_POST = do_PUT = do_PATCH = do_DELETE = _refuse
 
 
-def serve(port=0):
-    return Handle(GmailHandler, port)
+def serve(port=0, page_size=0):
+    return Handle(GmailHandler, port, page_size=page_size)

@@ -4,8 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
-from _http import get_json, write_private
-from mail_source import Mail, _normalise, _select, _truncate, html_to_text
+from _http import default_token_path, get_json, write_private
+from mail_source import ConnectorError, Mail, _normalise, _select, _truncate, html_to_text
 
 log = logging.getLogger(__name__)
 SCOPES = ["Mail.Read"]  # the least privilege: no send, no delete
@@ -13,10 +13,10 @@ FIELDS = "id,subject,from,receivedDateTime,body"
 
 
 class OutlookGraphSource:
-    def __init__(self, client_id, tenant="consumers", token_path="graph_token.json",
+    def __init__(self, client_id, tenant="consumers", token_path=None,
                  base_url="https://graph.microsoft.com/v1.0", auth=None):
         self.client_id, self.tenant, self.base_url, self.auth = client_id, tenant, base_url.rstrip("/"), auth
-        self.token_path = Path(token_path)
+        self.token_path = Path(token_path) if token_path else default_token_path("graph")
 
     def _token(self) -> str:
         if self.auth:  # tests and lessons inject a token provider
@@ -40,30 +40,44 @@ class OutlookGraphSource:
         if cache.has_state_changed:
             write_private(self.token_path, cache.serialize())
         if "access_token" not in result:
-            raise RuntimeError("Connexion Microsoft refusée (device code).")
+            # error_description holds no secret (no token, no mail)
+            raise RuntimeError(f"Connexion Microsoft refusée : {result.get('error_description', 'device code')}")
         return result["access_token"]
 
     def fetch(self, since: datetime | None = None, limit: int = 50) -> list[Mail]:
+        if limit <= 0:
+            return []
         token = self._token()
         query = urlencode({"$select": FIELDS, "$orderby": "receivedDateTime desc", "$top": min(limit, 50)})
-        url, mails = f"{self.base_url}/me/messages?{query}", []
-        while url and len(mails) < limit:
+        url, mails, seen = f"{self.base_url}/me/messages?{query}", [], set()
+        for _ in range(limit // min(limit, 50) + 2):  # bound: a hostile server must not loop us forever
+            if not url or url in seen or len(mails) >= limit:
+                break
+            seen.add(url)
             page = get_json(url, token, self.base_url)
-            mails += [self._mail(m) for m in page.get("value", []) if isinstance(m, dict)]
+            if not isinstance(page, dict):
+                raise ConnectorError("réponse invalide")
+            rows = [m for m in page.get("value", []) if isinstance(m, dict)] if isinstance(page.get("value"), list) else []
+            if not rows:
+                break
+            mails += [self._mail(m) for m in rows]
             url = page.get("@odata.nextLink")
         log.info("outlook: %d mails fetched", len(mails))  # counts only, never content
         return _select(mails, since, limit)
 
     @staticmethod
     def _mail(m) -> Mail:
-        body = m.get("body") or {}
-        text = str(body.get("content") or "")
+        """Any field may be missing or of the wrong type: fall back, never raise."""
+        body = m.get("body") if isinstance(m.get("body"), dict) else {}
+        sender = m.get("from") if isinstance(m.get("from"), dict) else {}
+        addr = sender.get("emailAddress") if isinstance(sender.get("emailAddress"), dict) else {}
+        text = body.get("content") if isinstance(body.get("content"), str) else ""
         if body.get("contentType") == "html":
             text = html_to_text(text)
         return Mail(
             id=str(m.get("id") or ""),
-            sender=((m.get("from") or {}).get("emailAddress") or {}).get("address") or "inconnu@example.test",
-            subject=m.get("subject") or "(sans objet)",
+            sender=addr.get("address") if isinstance(addr.get("address"), str) and addr.get("address") else "inconnu@example.test",
+            subject=m.get("subject") if isinstance(m.get("subject"), str) and m.get("subject") else "(sans objet)",
             received=_normalise(str(m.get("receivedDateTime") or "").replace("Z", "+00:00")),
             body=_truncate(text),
         )

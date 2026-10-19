@@ -65,7 +65,7 @@ def test_outlook_html_body_becomes_plain_text():
 
 def test_nextlink_to_other_host_is_refused(monkeypatch):
     import outlook_graph
-    page = {"value": [], "@odata.nextLink": "http://evil.example.test/steal"}
+    page = {"value": [{"id": "1"}], "@odata.nextLink": "http://evil.example.test/steal"}
     seen = []
     real = outlook_graph.get_json
 
@@ -183,3 +183,177 @@ def test_connectors_never_log_mail_bodies(caplog):
         GmailSource("c", "t", base_url=f"http://127.0.0.1:{gsrv.port}/gmail/v1", auth=lambda: SECRET).fetch()
     text = caplog.text
     assert SECRET not in text and "Horizon" not in text and "Facture" not in text
+
+
+# ---- fix round 1 ----
+import imaplib  # noqa: E402
+
+import _http  # noqa: E402
+import gmail_api  # noqa: E402
+import outlook_graph  # noqa: E402
+
+
+def test_imap_default_connection_verifies_certs(monkeypatch):
+    seen = {}
+
+    class Spy(FakeImap):
+        def __init__(self, host, port, **kw):
+            seen.update(kw)
+            super().__init__(host, port)
+
+    monkeypatch.setenv("IMAP_PW", "pw")
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", Spy)
+    ImapSource("h", "u@example.test", "IMAP_PW").fetch()
+    import ssl
+    assert seen["ssl_context"].verify_mode == ssl.CERT_REQUIRED and seen["timeout"] == 30
+
+
+def test_imap_logout_on_error_and_limit_zero_and_bad_search(monkeypatch):
+    monkeypatch.setenv("IMAP_PW", "pw")
+    state = {"logout": 0, "fetch": 0}
+
+    class Bad(FakeImap):
+        def search(self, charset, crit):
+            return "NO", [None]
+
+        def logout(self):
+            state["logout"] += 1
+
+    with pytest.raises(ConnectorError):
+        ImapSource("h", "u@example.test", "IMAP_PW", connection_factory=Bad).fetch()
+    assert state["logout"] == 1
+
+    class Count(FakeImap):
+        def fetch(self, n, what):
+            state["fetch"] += 1
+            return super().fetch(n, what)
+
+    assert ImapSource("h", "u@example.test", "IMAP_PW", connection_factory=Count).fetch(limit=0) == []
+    assert state["fetch"] == 0
+
+    class NoneData(FakeImap):
+        def search(self, charset, crit):
+            return "OK", [None]
+
+    with pytest.raises(ConnectorError):
+        ImapSource("h", "u@example.test", "IMAP_PW", connection_factory=NoneData).fetch()
+
+
+def test_outlook_hostile_nextlink_loops_end_quickly(monkeypatch):
+    calls = []
+    row = {"id": "x", "subject": "s", "body": {"contentType": "text", "content": "b"}}
+    src = OutlookGraphSource("c", base_url="http://h.example.test/v1.0", auth=lambda: "t")
+
+    def same(url, token, base):
+        calls.append(url)
+        return {"value": [row], "@odata.nextLink": "http://h.example.test/v1.0/same"}
+
+    monkeypatch.setattr(outlook_graph, "get_json", same)
+    src.fetch(limit=200)
+    assert len(calls) <= 2
+
+    calls.clear()
+
+    def endless(url, token, base):
+        calls.append(url)
+        return {"value": [], "@odata.nextLink": f"http://h.example.test/v1.0/p{len(calls)}"}
+
+    monkeypatch.setattr(outlook_graph, "get_json", endless)
+    src.fetch(limit=200)
+    assert len(calls) <= 2
+
+    calls.clear()
+
+    def distinct(url, token, base):
+        calls.append(url)
+        return {"value": [dict(row, id=str(len(calls)))], "@odata.nextLink": f"http://h.example.test/v1.0/p{len(calls)}"}
+
+    monkeypatch.setattr(outlook_graph, "get_json", distinct)
+    src.fetch(limit=200)
+    assert len(calls) <= 200 // 50 + 2
+
+
+def test_default_token_path_is_under_home_config(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    p = OutlookGraphSource("c").token_path
+    assert p == tmp_path / ".config" / "formation-auto1" / "graph_token.json"
+    assert GmailSource("cred.json").token_path == tmp_path / ".config" / "formation-auto1" / "gmail_token.json"
+    _http.write_private(p, "{}")
+    assert stat.S_IMODE(os.stat(p).st_mode) == 0o600
+    assert stat.S_IMODE(os.stat(p.parent).st_mode) == 0o700
+
+
+def test_write_private_refuses_symlink(tmp_path):
+    target = tmp_path / "t"
+    target.write_text("keep")
+    link = tmp_path / "link.json"
+    link.symlink_to(target)
+    with pytest.raises(ConnectorError):
+        _http.write_private(link, "{}")
+    assert target.read_text() == "keep"
+
+
+def test_gitignore_covers_tokens():
+    text = (Path(__file__).resolve().parents[2] / ".gitignore").read_text()
+    assert "*token*.json" in text and "credentials*.json" in text
+
+
+def test_outlook_malformed_json_never_tracebacks(monkeypatch):
+    src = OutlookGraphSource("c", base_url="http://h.example.test/v1.0", auth=lambda: "t")
+    monkeypatch.setattr(outlook_graph, "get_json", lambda *a: ["not", "a", "dict"])
+    with pytest.raises(ConnectorError, match="réponse invalide"):
+        src.fetch()
+    odd = {"value": [{"id": "1", "subject": None, "from": "x", "body": "str", "receivedDateTime": 5},
+                     {"id": "2", "from": {"emailAddress": "x"}, "body": None}, "junk"]}
+    monkeypatch.setattr(outlook_graph, "get_json", lambda *a: odd)
+    mails = src.fetch()
+    assert len(mails) == 2 and mails[0].sender.endswith("@example.test")
+
+
+def test_get_json_non_object_is_invalid(monkeypatch):
+    monkeypatch.setattr(_http._OPENER, "open", lambda *a, **k: __import__("io").BytesIO(b"[1]"))
+    with pytest.raises(ConnectorError, match="réponse invalide"):
+        _http.get_json("http://h.example.test/x", "t", "http://h.example.test")
+
+
+def test_gmail_malformed_responses(monkeypatch):
+    src = GmailSource("c", "t", base_url="http://h.example.test/g", auth=lambda: "t")
+    answers = iter([{"messages": [{}, "junk", {"id": 5}, {"id": "a"}]},
+                    {"id": "a", "internalDate": "9" * 40, "payload": {"headers": ["x", {"name": "From"}]}}])
+    monkeypatch.setattr(gmail_api, "get_json", lambda *a: next(answers))
+    mails = src.fetch()
+    assert len(mails) == 1 and mails[0].received.startswith("1970")
+    monkeypatch.setattr(gmail_api, "get_json", lambda *a: {"messages": "x"})
+    assert src.fetch() == []
+
+
+def test_gmail_quotes_message_ids(monkeypatch):
+    urls = []
+    answers = iter([{"messages": [{"id": "../x?y"}]}, {"id": "../x?y", "internalDate": "0", "payload": {}}])
+
+    def fake(url, token, base):
+        urls.append(url)
+        return next(answers)
+
+    monkeypatch.setattr(gmail_api, "get_json", fake)
+    GmailSource("c", "t", base_url="http://h.example.test/g", auth=lambda: "t").fetch()
+    assert urls[1] == "http://h.example.test/g/users/me/messages/..%2Fx%3Fy?format=full"
+
+
+def test_gmail_follows_next_page_token_with_bound():
+    with mock_gmail.serve(page_size=5) as srv:
+        src = GmailSource("c", "t", base_url=f"http://127.0.0.1:{srv.port}/gmail/v1", auth=lambda: SECRET)
+        assert len(src.fetch(limit=12)) == 12
+        assert len(src.fetch(limit=7)) == 7
+
+
+def test_gmail_endless_page_token_is_bounded(monkeypatch):
+    calls = []
+
+    def fake(url, token, base):
+        calls.append(url)
+        return {"messages": [{"id": "a"}], "nextPageToken": "same"} if "/messages?" in url else {"id": "a", "payload": {}}
+
+    monkeypatch.setattr(gmail_api, "get_json", fake)
+    GmailSource("c", "t", base_url="http://h.example.test/g", auth=lambda: "t").fetch(limit=200)
+    assert len([u for u in calls if "/messages?" in u]) <= 200 // 50 + 2

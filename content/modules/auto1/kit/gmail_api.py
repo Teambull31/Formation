@@ -3,9 +3,10 @@ import base64
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
-from _http import get_json, write_private
-from mail_source import Mail, _iso, _select, _truncate, html_to_text
+from _http import default_token_path, get_json, write_private
+from mail_source import EPOCH, ConnectorError, Mail, _iso, _select, _truncate, html_to_text
 
 log = logging.getLogger(__name__)
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]  # no send, no modify
@@ -16,9 +17,12 @@ def _b64(data: str) -> str:
 
 
 def _find(part, mime):
-    if part.get("mimeType") == mime and part.get("body", {}).get("data"):
-        return _b64(part["body"]["data"])
-    for sub in part.get("parts", []):
+    if not isinstance(part, dict):
+        return None
+    data = (part.get("body") or {}).get("data") if isinstance(part.get("body"), dict) else None
+    if part.get("mimeType") == mime and isinstance(data, str) and data:
+        return _b64(data)
+    for sub in part.get("parts") if isinstance(part.get("parts"), list) else []:
         if (found := _find(sub, mime)) is not None:
             return found
 
@@ -33,8 +37,8 @@ def _body(payload) -> str:
 
 
 class GmailSource:
-    def __init__(self, credentials_path, token_path, base_url="https://gmail.googleapis.com/gmail/v1", auth=None):
-        self.credentials_path, self.token_path = Path(credentials_path), Path(token_path)
+    def __init__(self, credentials_path, token_path=None, base_url="https://gmail.googleapis.com/gmail/v1", auth=None):
+        self.credentials_path, self.token_path = Path(credentials_path), (Path(token_path) if token_path else default_token_path("gmail"))
         self.base_url, self.auth = base_url.rstrip("/"), auth
 
     def _token(self) -> str:
@@ -56,15 +60,42 @@ class GmailSource:
         return creds.token
 
     def fetch(self, since: datetime | None = None, limit: int = 50) -> list[Mail]:
+        if limit <= 0:
+            return []
         token = self._token()
-        listing = get_json(f"{self.base_url}/users/me/messages?maxResults={min(limit, 50)}", token, self.base_url)
+        size = min(limit, 50)
+        refs, page_token, seen = [], None, set()
+        for _ in range(limit // size + 2):  # bound: a hostile server must not loop us forever
+            url = f"{self.base_url}/users/me/messages?maxResults={size}"
+            if page_token:
+                url += f"&pageToken={quote(page_token, safe='')}"
+            listing = get_json(url, token, self.base_url)
+            batch = listing.get("messages") if isinstance(listing.get("messages"), list) else []
+            refs += [r["id"] for r in batch if isinstance(r, dict) and isinstance(r.get("id"), str) and r["id"]]
+            page_token = listing.get("nextPageToken")
+            if not batch or len(refs) >= limit or not isinstance(page_token, str) or page_token in seen:
+                break
+            seen.add(page_token)
         mails = []
-        for ref in listing.get("messages", [])[:limit]:
-            m = get_json(f"{self.base_url}/users/me/messages/{ref['id']}?format=full", token, self.base_url)
-            h = {x["name"].lower(): x["value"] for x in m.get("payload", {}).get("headers", [])}
-            received = _iso(datetime.fromtimestamp(int(m.get("internalDate", 0)) / 1000, timezone.utc))
-            mails.append(Mail(id=m["id"], sender=h.get("from", "inconnu@example.test"),
-                              subject=h.get("subject", "(sans objet)"), received=received,
-                              body=_truncate(_body(m.get("payload", {})))))
+        for mid in refs[:limit]:
+            # quote: an id like "../x?y" must stay one path segment
+            m = get_json(f"{self.base_url}/users/me/messages/{quote(mid, safe='')}?format=full", token, self.base_url)
+            payload = m.get("payload") if isinstance(m.get("payload"), dict) else {}
+            rows = payload.get("headers") if isinstance(payload.get("headers"), list) else []
+            h = {x["name"].lower(): x.get("value") for x in rows if isinstance(x, dict) and isinstance(x.get("name"), str)}
+            mails.append(Mail(id=mid, sender=_str(h.get("from"), "inconnu@example.test"),
+                              subject=_str(h.get("subject"), "(sans objet)"), received=_received(m.get("internalDate")),
+                              body=_truncate(_body(payload))))
         log.info("gmail: %d mails fetched", len(mails))  # counts only
         return _select(mails, since, limit)
+
+
+def _str(v, default):
+    return v if isinstance(v, str) and v else default
+
+
+def _received(ms) -> str:
+    try:
+        return _iso(datetime.fromtimestamp(int(ms) / 1000, timezone.utc))
+    except (TypeError, ValueError, OverflowError, OSError):  # missing, huge or invalid
+        return EPOCH
