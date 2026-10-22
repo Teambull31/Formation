@@ -337,7 +337,9 @@ def scenario(stub, mode, url=None, port=None, label_=None, calls_known=True):
         fail(f"{label_} : archive/ = {sorted(arch)} au lieu de {sorted(exp_arch)} ; un fichier <id nettoyé>.txt par mail "
              "archivé, contenant seulement « id: … » et « sujet: … » (id nettoyé : tout sauf lettres, chiffres, _ et - devient _).")
     if log.splitlines() != exp_lines:
-        fail(f"{label_} : actions.log inattendu. Une ligne « <id> action refusée » par réponse refusée, puis une ligne "
+        extra = (" Modèle injoignable (LlmUnavailable) : il compte comme une réponse refusée, donc 3 essais, chacun journalisé "
+                 "« <id> action refusée », puis « <id> rien » ; ne sortez pas de la boucle dès la première panne.") if not calls_known else ""
+        fail(f"{label_} : actions.log inattendu.{extra} Une ligne « <id> action refusée » par réponse refusée, puis une ligne "
              f"« <id> <action> » par mail, sans rien d'autre (ni objet, ni corps, ni expéditeur, ni texte du modèle).\n"
              f"Attendu (début) : {exp_lines[:4]}\nObtenu (début) : {log.splitlines()[:4]}")
     return items

@@ -3,10 +3,10 @@
   "id": "l12-q1",
   "text": "Votre script quotidien est lancé deux fois par erreur le même jour. Quel résultat prouve qu'il est idempotent ?",
   "options": [
-    "Le fichier du jour contient chaque mail en double",
-    "Le fichier du jour est identique après la 2e exécution",
-    "Le script affiche un message à chaque lancement",
-    "Le script met deux fois plus de temps"
+   "Le fichier du jour contient chaque mail en double après la 2e exécution",
+   "Le fichier du jour reste identique",
+   "Le script affiche un message d'avertissement à chaque lancement",
+   "Le script met deux fois plus de temps à la 2e exécution"
   ],
   "answer": 1,
   "explain": "Idempotent veut dire que relancer ne change rien de plus : le fichier reste identique. Des mails en double sont justement le signe contraire, et un message affiché ou un temps de traitement ne disent rien sur le résultat.",
@@ -16,10 +16,10 @@
   "id": "l12-q2",
   "text": "Comment reconnaître qu'un mail a déjà été traité ?",
   "options": [
-    "Par son objet, qui est unique",
-    "Par sa taille en octets",
-    "Par la date du jour de l'exécution",
-    "Par son id, gardé dans un fichier d'état"
+   "Par son objet, qui est supposé unique",
+   "Par sa taille en octets, qui est propre à chaque mail",
+   "Par la date du jour de l'exécution du script",
+   "Par son id, gardé dans un fichier d'état"
   ],
   "answer": 3,
   "explain": "L'id identifie un mail de façon stable, et le fichier d'état survit d'une exécution à l'autre. Deux mails peuvent avoir le même objet ou la même taille, et la date du jour change à chaque passage.",
@@ -29,10 +29,10 @@
   "id": "l12-q3",
   "text": "Ollama est en panne au moment du passage de 7 h. Que doit faire le digest ?",
   "options": [
-    "Sonder le modèle une fois, puis produire quand même le digest avec des résumés de secours, et le noter dans le journal",
-    "S'arrêter sans rien produire, en attendant que le modèle revienne",
-    "Réessayer le modèle pour chaque mail avec un long délai",
-    "Effacer l'état pour recommencer plus tard"
+   "Sonder une fois, puis produire un digest de secours",
+   "S'arrêter sans rien produire, en attendant que le modèle revienne",
+   "Réessayer le modèle pour chaque mail avec un long délai",
+   "Effacer l'état pour tout retraiter plus tard"
   ],
   "answer": 0,
   "explain": "Un digest en secours vaut mieux que pas de digest, et une seule tentative évite d'attendre un délai par mail. Effacer l'état ferait retraiter tous les mails, et s'arrêter prive l'utilisateur de son résumé.",
@@ -42,10 +42,10 @@
   "id": "l12-q4",
   "text": "Que doit contenir une ligne du journal quotidien ?",
   "options": [
-    "L'objet et le résumé de chaque mail traité, pour garder une trace",
-    "Des compteurs (nouveaux, ignorés), le jour, l'heure et l'état du modèle, jamais de contenu de mail",
-    "Le corps des mails en erreur, pour comprendre",
-    "Le jeton d'accès, pour pouvoir relancer"
+   "L'objet et le résumé de chaque mail traité, pour garder une trace",
+   "Des compteurs, l'heure et l'état du modèle",
+   "Le corps des mails en erreur, pour comprendre le problème",
+   "Le jeton d'accès, pour pouvoir relancer le script seul"
   ],
   "answer": 1,
   "explain": "Le journal dit ce qui s'est passé, pas ce que contiennent les mails : un fichier de log est copié, envoyé, lu par d'autres. Objets, corps et jeton sont des données sensibles qui n'ont rien à y faire.",
@@ -55,10 +55,10 @@
   "id": "l12-q5",
   "text": "Vous voulez brancher le digest sur votre boîte mail professionnelle. Quelle est la première étape ?",
   "options": [
-    "Planifier le script avec cron, puis prévenir si besoin",
-    "Tester sur la vraie boîte un dimanche, quand personne ne regarde",
-    "Obtenir l'accord écrit du service informatique",
-    "Demander à un collègue son mot de passe de messagerie"
+   "Planifier le script avec cron, puis prévenir si besoin",
+   "Tester sur la vraie boîte un dimanche, quand personne ne regarde",
+   "Obtenir l'accord écrit du service informatique",
+   "Demander à un collègue son mot de passe de messagerie"
   ],
   "answer": 2,
   "explain": "Une boîte pro appartient à l'entreprise : sécurité, droits et règles de confidentialité relèvent du service informatique, dont l'accord passe avant toute connexion. Tester en cachette ou emprunter un mot de passe sont des fautes, pas des raccourcis.",

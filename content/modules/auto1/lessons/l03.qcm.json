@@ -3,10 +3,10 @@
   "id": "l03-q1",
   "text": "Un appel renvoie 503. Que faire ?",
   "options": [
-   "Corriger la requête, car l'erreur vient de vous",
-   "Réessayer avec une pause, car l'erreur vient du serveur et peut passer",
-   "Abandonner tout de suite, un 5xx est toujours définitif",
-   "Passer en POST pour contourner l'erreur"
+   "Corriger la requête, car l'erreur vient de vous et il faut la reformuler",
+   "Réessayer après une pause : l'erreur vient du serveur",
+   "Abandonner tout de suite : un 5xx est toujours définitif et inutile à rejouer",
+   "Passer en POST pour contourner l'erreur du serveur"
   ],
   "answer": 1,
   "explain": "Un code 5xx signale un problème côté serveur, souvent passager : un retry espacé a de bonnes chances de réussir. Corriger la requête est la réponse aux 4xx, pas aux 5xx.",
@@ -16,10 +16,10 @@
   "id": "l03-q2",
   "text": "Erreur classique : votre script appelle une API sans timeout et le serveur ne répond plus. Que se passe-t-il ?",
   "options": [
-   "Python coupe l'appel au bout de 5 secondes",
-   "Le script reçoit automatiquement une erreur 408",
-   "Le script peut attendre indéfiniment et bloquer la tâche",
-   "Le script réessaie tout seul trois fois"
+   "Python coupe l'appel au bout de 5 secondes et lève une exception",
+   "Le script reçoit automatiquement une erreur 408 du serveur",
+   "Il peut attendre sans fin et bloquer la tâche",
+   "Le script réessaie tout seul trois fois avant d'abandonner"
   ],
   "answer": 2,
   "explain": "urlopen n'a pas de limite par défaut : le script reste suspendu tant que le serveur ne ferme pas la connexion. Il faut passer timeout=… à chaque appel, sinon une tâche planifiée peut rester bloquée sans fin.",
@@ -29,10 +29,10 @@
   "id": "l03-q3",
   "text": "Pourquoi ne faut-il pas réessayer un POST à l'aveugle ?",
   "options": [
-   "Parce que POST est plus lent que GET",
-   "Parce que le serveur interdit deux POST d'affilée",
-   "Parce que les en-têtes ne sont pas renvoyés",
-   "Parce que l'action a pu réussir : le retry crée un doublon"
+   "Parce que POST est plus lent que GET et risque d'expirer",
+   "Parce que le serveur interdit deux POST d'affilée sur une même route",
+   "Parce que les en-têtes ne sont pas renvoyés lors d'un second essai",
+   "Parce que l'action a peut-être réussi : le retry fait un doublon"
   ],
   "answer": 3,
   "explain": "Un POST crée quelque chose. Si la réponse s'est perdue après la création, rejouer la requête crée une deuxième tâche ou facture. Un GET, lui, est idempotent : le rejouer ne change rien.",
@@ -42,10 +42,10 @@
   "id": "l03-q4",
   "text": "Erreur classique : le script réessaie 3 fois immédiatement, sans pause, une API déjà surchargée. Quel est le défaut ?",
   "options": [
-   "Il martèle le serveur : il faut espacer les essais (backoff)",
-   "Trois essais, c'est toujours trop peu",
-   "Il faudrait aussi réessayer les erreurs 404",
-   "Il faudrait passer à 20 essais pour être sûr"
+   "Il martèle le serveur : espacez les essais (backoff)",
+   "Trois essais, c'est toujours trop peu pour une API déjà surchargée",
+   "Il faudrait aussi réessayer les erreurs 404, qui sont passagères",
+   "Il faudrait passer à 20 essais pour être sûr que ça passe"
   ],
   "answer": 0,
   "explain": "Des essais sans pause aggravent la surcharge et échouent presque tous. Un backoff (0,2 s puis 0,4 s) laisse au serveur le temps de se rétablir. Réessayer un 404 est inutile : la même requête donnera la même erreur.",
@@ -55,10 +55,10 @@
   "id": "l03-q5",
   "text": "Quel appel est sûr à relancer automatiquement, au sens de l'idempotence vue en leçon 2 ?",
   "options": [
-   "POST /tasks qui crée une tâche",
-   "GET /tasks qui lit la liste",
-   "POST /factures qui envoie une facture",
-   "POST /mails qui envoie un mail"
+   "POST /tasks, qui crée une tâche à chaque appel",
+   "GET /tasks, qui lit la liste",
+   "POST /factures, qui envoie une facture au client",
+   "POST /mails, qui envoie un mail à un destinataire"
   ],
   "answer": 1,
   "explain": "Un GET ne modifie rien : le rejouer donne le même résultat, comme un tri qui ignore ce qui est déjà rangé. Les trois POST créent ou envoient quelque chose : les rejouer produit des doublons.",

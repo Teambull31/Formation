@@ -34,6 +34,14 @@ LIEN = re.compile(r"https?://|www\.")
 APPEL = re.compile(r"cliquez|connectez|saisissez|mot de passe|password|click|réactiv")
 
 
+def llm_timeout():
+    """Secondes d'attente du modèle : variable OLLAMA_TIMEOUT (60 par défaut, un modèle froid est lent)."""
+    try:
+        return float(os.environ.get("OLLAMA_TIMEOUT", "60"))
+    except ValueError:
+        return 60.0
+
+
 def load_mails(source, path):
     src = JsonMailSource(path) if source == "json" else MboxMailSource(path)
     return src.fetch(limit=10_000)
@@ -71,7 +79,7 @@ def fallback_summary(mail):
 
 def summarize(mail):
     try:
-        data = json.loads(generate(build_prompt(mail), timeout=3))
+        data = json.loads(generate(build_prompt(mail), timeout=llm_timeout()))
         resume = data["resume"].strip()
         # sortie contrainte : exactement ces deux clés, valeurs bornées
         if set(data) == {"urgence", "resume"} and data["urgence"] in URGENCES and 0 < len(resume) <= MAX_RESUME:

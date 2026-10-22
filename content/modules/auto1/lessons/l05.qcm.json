@@ -3,10 +3,10 @@
   "id": "l05-q1",
   "text": "Quel est l'intérêt principal de cacher la source de mails derrière l'interface MailSource ?",
   "options": [
-   "Changer de source (JSON, mbox, IMAP) sans toucher au reste du code",
-   "Rendre la lecture des mails plus rapide",
-   "Chiffrer automatiquement les mails",
-   "Éviter d'écrire des tests"
+   "Changer de source sans toucher au reste",
+   "Rendre la lecture des mails plus rapide grâce à un cache interne",
+   "Chiffrer automatiquement les mails lus depuis la source",
+   "Éviter d'écrire des tests, puisque l'interface vérifie tout"
   ],
   "answer": 0,
   "explain": "Le reste du script ne connaît que fetch et le dataclass Mail : on change une seule ligne pour passer de JSON à mbox. L'interface n'accélère ni ne chiffre rien, et elle facilite les tests au lieu de les remplacer.",
@@ -16,10 +16,10 @@
   "id": "l05-q2",
   "text": "Quels champs un objet Mail contient-il ?",
   "options": [
-   "to, cc, bcc, headers",
+   "to, cc, bcc, headers, attachments",
    "id, sender, subject, received, body",
-   "uniquement sender et subject",
-   "un dictionnaire libre, différent selon la source"
+   "uniquement sender et subject, le reste étant lu à la demande",
+   "un dictionnaire libre, différent selon la source utilisée"
   ],
   "answer": 1,
   "explain": "Mail est un dataclass figé avec ces cinq champs, identiques pour toutes les sources, ce qui permet d'écrire un seul code d'affichage. Un dictionnaire libre obligerait à tester la source partout.",
@@ -29,10 +29,10 @@
   "id": "l05-q3",
   "text": "Erreur classique : pour afficher les mails, vous écrivez un bloc `if source == \"json\"` et un bloc `if source == \"mbox\"` avec chacun sa boucle d'affichage. Où est le problème ?",
   "options": [
-   "Python n'accepte pas deux boucles pour le même usage",
-   "Le JSON est plus lent que mbox",
-   "Aucun, c'est la bonne pratique",
-   "Le code d'affichage est dupliqué : les deux copies finiront par diverger"
+   "Python n'accepte pas deux boucles pour le même usage dans un fichier",
+   "Le JSON est plus lent que mbox, donc le premier bloc ralentira tout",
+   "Aucun, c'est la bonne pratique : une branche par format de source",
+   "L'affichage est dupliqué et finira par diverger"
   ],
   "answer": 3,
   "explain": "Seule la création de la source dépend du format ; l'affichage doit être écrit une fois, sur les objets Mail. Deux copies donnent un jour deux formats de sortie différents pour les mêmes mails.",
@@ -42,12 +42,12 @@
   "id": "l05-q4",
   "text": "Erreur classique : vous lancez votre script avec un chemin mal tapé et il n'affiche rien, sans erreur. Pourquoi, et que faire ?",
   "options": [
-   "La source renvoie une liste vide pour un fichier absent : vérifiez que le fichier existe et affichez une erreur lisible",
-   "Le fichier est vide, c'est normal",
-   "Python cache toujours les erreurs de lecture",
-   "Il faut relancer le script avec sudo"
+   "Le fichier est vide, c'est normal : il n'y a simplement pas de mails à lire",
+   "La source renvoie [] si le fichier manque : testez qu'il existe",
+   "Python cache toujours les erreurs de lecture quand on utilise un dataclass",
+   "Il faut relancer le script avec sudo pour accéder au fichier"
   ],
-  "answer": 0,
+  "answer": 1,
   "explain": "Les sources du kit ne plantent pas sur un fichier absent, elles renvoient []. Sans vérification, une faute de frappe ressemble à une boîte vide. Un message clair et un code de sortie non nul évitent cette confusion.",
   "remedial_lesson_id": "l05"
  },
@@ -55,10 +55,10 @@
   "id": "l05-q5",
   "text": "Vous voulez tester votre script sur vos vrais mails. Que faites-vous ?",
   "options": [
-   "Vous les collez dans un chat IA pour comparer le résultat",
-   "Vous les envoyez à un service en ligne de tri",
-   "Vous les gardez en local et lancez le script dessus, ou vous utilisez les fixtures fictives",
-   "Vous les copiez dans le journal du script pour déboguer"
+   "Vous les collez dans un chat IA pour comparer son résumé au vôtre",
+   "Vous les envoyez à un service en ligne de tri, gratuit et rapide",
+   "Vous les gardez en local, ou vous prenez les fixtures fictives",
+   "Vous les copiez dans le journal du script pour déboguer plus facilement"
   ],
   "answer": 2,
   "explain": "Les mails réels ne quittent jamais la machine : ni vers Claude, ni vers un service externe, ni dans un journal lisible par d'autres. Les fixtures fictives du kit servent à vérifier le comportement sans aucun risque.",

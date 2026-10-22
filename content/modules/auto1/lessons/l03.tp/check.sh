@@ -83,9 +83,12 @@ class Stub(BaseHTTPRequestHandler):
         mode, hits = self.server.mode, self.server.hits
         hits.append("GET " + self.path)
         self.server.times.append(time.time())
-        if mode == "slow":
-            threading.Event().wait(30)
-            return
+        if mode == "slow":  # répond après 2,7 s : un timeout de 2 s coupe, un timeout de 3 s ou plus laisse passer
+            threading.Event().wait(2.7)
+            try:
+                return self.reply(200, [{"id": 1, "title": "a", "done": False}] if self.path == "/tasks" else {"ok": True})
+            except OSError:
+                return
         if mode == "notfound":
             return self.reply(404, {"error": "nope"})
         if self.path == "/tasks":
@@ -160,8 +163,11 @@ s.shutdown()
 s = stub("slow")   # serveur muet : le timeout doit couper chaque tentative
 code, out, dt = run(f"http://127.0.0.1:{s.server_address[1]}", limit=25)
 if code == 0:
-    fail("code de sortie 0 alors que le serveur ne répond jamais.")
-if dt > 15:
+    fail("code de sortie 0 alors que le serveur répond après 2,7 s : le timeout doit être de 2 secondes (timeout=2), pas plus.")
+if count(s, "GET /tasks") < 2:
+    fail("le serveur répond après 2,7 s : avec timeout=2, la 1re tentative doit expirer puis être rejouée (GET). "
+         f"Reçu {count(s, 'GET /tasks')} requête(s) GET /tasks : le timeout est trop long, utilisez timeout=2.")
+if dt > 12:
     fail(f"le timeout est trop long ({dt:.0f} s pour 3 tentatives) : utilisez timeout=2.")
 if not 2 <= len(s.hits) <= 3:
     fail(f"un timeout sur un GET se réessaie (3 tentatives au plus) : {len(s.hits)} requêtes reçues.")

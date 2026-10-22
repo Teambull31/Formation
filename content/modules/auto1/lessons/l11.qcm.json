@@ -17,9 +17,9 @@
   "text": "Comment un connecteur IMAP doit-il recevoir le mot de passe de la boîte ?",
   "options": [
    "Écrit en clair dans le script, avec un commentaire d'avertissement",
-   "Passé en argument de la ligne de commande",
-   "Chiffré en base64 dans le script",
-   "Lu dans une variable d'environnement dont le script connaît seulement le nom"
+   "Passé en argument de la ligne de commande, à chaque lancement",
+   "Chiffré en base64 dans un fichier à côté du script",
+   "Lu dans une variable d'environnement"
   ],
   "answer": 3,
   "explain": "Le script ne contient que le nom de la variable ; le secret vit hors du code. Un argument de ligne de commande est visible dans la liste des processus, et le base64 n'est pas du chiffrement : n'importe qui le décode.",
@@ -29,10 +29,10 @@
   "id": "l11-q3",
   "text": "Votre connecteur « dossier de .eml » est prêt. Comment prouver qu'il respecte le contrat MailSource ?",
   "options": [
-   "Vérifier que le fichier se lance sans erreur",
-   "Lui donner les mêmes mails qu'à JsonMailSource et comparer les résultats champ par champ, avec limit et since",
-   "L'essayer une fois sur votre vraie boîte mail",
-   "Compter le nombre de fichiers du dossier"
+   "Vérifier que le fichier se lance sans erreur sur vos mails",
+   "Comparer ses résultats à ceux de JsonMailSource",
+   "L'essayer une fois sur votre vraie boîte mail, en lecture seule",
+   "Compter les fichiers du dossier et vérifier qu'il n'est pas vide"
   ],
   "answer": 1,
   "explain": "Une source connue sert de référence : mêmes mails en entrée, résultats identiques (ordre, champs, limit, since). Lancer le fichier sans erreur ou compter les fichiers ne prouve rien sur le contenu ; tester sur la vraie boîte expose des mails réels, ce qu'on évite.",
@@ -42,9 +42,9 @@
   "id": "l11-q4",
   "text": "Dans le dossier de mails se trouvent notes.txt et un sous-dossier archive/. Que doit faire fetch ?",
   "options": [
-   "Lire tous les fichiers du dossier, y compris notes.txt",
-   "Lever une erreur pour prévenir l'utilisateur",
-   "Ignorer notes.txt et archive/ : seuls les *.eml du dossier comptent",
+   "Lire tous les fichiers du dossier, y compris notes.txt, comme des mails",
+   "Lever une erreur pour prévenir l'utilisateur de la présence d'intrus",
+   "Ignorer notes.txt et archive/ : seuls les .eml comptent",
    "Descendre dans archive/ et lire aussi ce qui s'y trouve"
   ],
   "answer": 2,
@@ -55,10 +55,10 @@
   "id": "l11-q5",
   "text": "Un .eml n'a pas d'en-tête Message-ID. Que fait un connecteur robuste ?",
   "options": [
-   "Il lui donne un identifiant de repli stable, par exemple le nom du fichier sans .eml",
-   "Il saute ce mail, car il n'a pas d'identifiant",
-   "Il plante, pour que l'on corrige le fichier",
-   "Il invente un identifiant aléatoire à chaque lancement"
+   "Il utilise un identifiant de repli stable (nom du fichier)",
+   "Il saute ce mail, car sans identifiant il ne peut pas le suivre",
+   "Il plante, pour que l'on corrige le fichier avant de continuer",
+   "Il invente un identifiant aléatoire à chaque lancement du script"
   ],
   "answer": 0,
   "explain": "Un champ manquant reçoit une valeur de repli, sans exception, et l'identifiant doit rester le même d'un lancement à l'autre (la leçon 12 s'en sert pour ne pas traiter deux fois le même mail). Un identifiant aléatoire changerait à chaque passage ; sauter ou planter fait perdre un mail.",

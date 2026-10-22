@@ -3,10 +3,10 @@
   "id": "l07-q1",
   "text": "À quoi sert le délimiteur `--- MAIL ---` placé dans le prompt ?",
   "options": [
-   "À accélérer la réponse du modèle",
-   "À chiffrer le contenu du mail",
-   "À séparer clairement les consignes de la donnée à résumer",
-   "À limiter le résumé à une seule phrase"
+   "À accélérer la réponse du modèle en allégeant le prompt",
+   "À chiffrer le contenu du mail avant son envoi au modèle",
+   "À séparer les consignes de la donnée",
+   "À limiter le résumé à une seule phrase courte"
   ],
   "answer": 2,
   "explain": "Le délimiteur marque où finissent vos consignes et où commence le mail : le modèle et votre code savent ce qui est donnée. Il n'a aucun effet sur la vitesse, le chiffrement ou la longueur du résumé.",
@@ -16,10 +16,10 @@
   "id": "l07-q2",
   "text": "Erreur classique : le modèle répond « Voici le résumé : {\"urgence\": \"haute\", ...} » et votre script fait `json.loads(reponse)` sans `try`. Que se passe-t-il ?",
   "options": [
-   "Une ValueError fait planter le script : il faut attraper l'erreur et passer au résumé de secours",
-   "json.loads ignore le texte avant l'accolade et lit le JSON",
-   "Le script recommence tout seul avec un autre prompt",
-   "Le résumé est accepté, mais sans urgence"
+   "Une ValueError : attrapez-la et passez au secours",
+   "json.loads ignore le texte avant l'accolade et lit le JSON seul",
+   "Le script recommence tout seul avec un autre prompt, plus strict",
+   "Le résumé est accepté, mais sans le champ urgence"
   ],
   "answer": 0,
   "explain": "json.loads exige un JSON complet et valide : le texte parasite lève ValueError. Un seul except qui bascule sur fallback_summary garde la chaîne en marche. Python ne corrige rien et ne relance rien tout seul.",
@@ -29,10 +29,10 @@
   "id": "l07-q3",
   "text": "Un mail fait 300 000 caractères. Que faites-vous avant de l'envoyer au modèle ?",
   "options": [
-   "Je l'envoie en entier, le modèle se débrouillera",
-   "Je saute ce mail et je n'écris aucune entrée pour lui",
-   "Je coupe le début et je garde la fin",
-   "Je coupe la fin du corps à quelques milliers de caractères"
+   "Je l'envoie en entier, le modèle se débrouillera avec sa fenêtre",
+   "Je saute ce mail et je n'écris aucune entrée pour lui dans le digest",
+   "Je coupe le début et je garde la fin, plus récente",
+   "Je garde le début et je coupe le reste"
   ],
   "answer": 3,
   "explain": "Le début d'un mail contient presque toujours l'essentiel, et un prompt énorme est lent ou dépasse la fenêtre de contexte. Sauter le mail casserait la règle une entrée par mail ; couper le début perdrait l'information principale.",
@@ -42,10 +42,10 @@
   "id": "l07-q4",
   "text": "Erreur classique : en secours, votre script renvoie toujours le résumé « Résumé indisponible ». Quel est le problème ?",
   "options": [
-   "Aucun, c'est clair pour tout le monde",
-   "Il masque le contenu réel du mail : un extrait du vrai texte est plus utile et tout aussi honnête",
-   "Il est trop long pour un champ JSON",
-   "Il n'est pas écrit en anglais"
+   "Aucun, c'est clair pour tout le monde et ça ne risque rien",
+   "Il ne dit rien du mail : un extrait vaut mieux",
+   "Il est trop long pour un champ JSON de résumé",
+   "Il n'est pas écrit en anglais, langue attendue par le modèle"
   ],
   "answer": 1,
   "explain": "Un texte constant ne dit rien du mail : le lecteur ne sait plus de quoi il parle. Un résumé extractif (les 200 premiers caractères) reste vrai et informatif. La longueur et la langue n'ont rien à voir.",
@@ -55,9 +55,9 @@
   "id": "l07-q5",
   "text": "Le modèle renvoie un JSON valide mais avec `\"urgence\": \"critique\"`, valeur absente de votre liste. Que faire ?",
   "options": [
-   "L'accepter, c'est plus précis que haute",
-   "Faire planter le script pour signaler le problème",
-   "La rejeter comme réponse invalide et utiliser le résumé de secours",
+   "L'accepter telle quelle, c'est plus précis que haute",
+   "Faire planter le script pour signaler le problème au plus vite",
+   "La rejeter et utiliser le secours",
    "Redemander au modèle sans limite jusqu'à obtenir une valeur correcte"
   ],
   "answer": 2,

@@ -130,7 +130,8 @@ NEW = [mail(f"m-{uid()}", f"{txt(2)} {uid(3)}", txt(8)), mail(f"u-{uid()}", f"Al
 CHANGED = dict(S1[0], subject="Sujet modifié", body="Contenu modifié après coup")  # même id, autre contenu : ignoré
 S2 = [CHANGED] + S1[1:] + NEW
 paths = {}
-for name, rows in (("s1", S1), ("s2", S2)):
+SUS = [mail(f"p-{uid()}", f"Offre {uid(3)}", HOSTILE), mail(f"q-{uid()}", f"Autre {uid(3)}", HOSTILE)]  # que des mails suspects
+for name, rows in (("s1", S1), ("s2", S2), ("sus", SUS)):
     paths[name] = os.path.join(TMP, name + ".json")
     with open(paths[name], "w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False)
@@ -226,7 +227,7 @@ def run(args, cwd, model, label):
     os.makedirs(home)
     env = {"PATH": os.environ["PATH"], "LANG": "C.UTF-8", "HOME": home, "NO_PROXY": "*", "no_proxy": "*",
            "OLLAMA_URL": f"http://127.0.0.1:{PORTS[model]}", "PYTHONPATH": GUARD,
-           "GUARD_PORT": ",".join(map(str, PORTS.values())), "GUARD_LOG": GLOG}
+           "OLLAMA_TIMEOUT": "3", "GUARD_PORT": ",".join(map(str, PORTS.values())), "GUARD_LOG": GLOG}
     Ollama.prompts.clear()
     down_hits[0] = 0
     tp_before = snapshot(TP)
@@ -314,8 +315,9 @@ if any(s in o for s in secret):
 
 # ===== B. deuxième exécution identique : rien ne change =====
 o = run(args_for(OUT, paths["s1"], D1), OUT, "ok", "2e exécution")
-if len(Ollama.prompts) > 1:
-    fail(f"2e exécution : {len(Ollama.prompts)} appels au modèle ; tous les mails sont déjà traités, il n'en faut aucun (un sondage au plus).")
+if Ollama.prompts:
+    fail(f"2e exécution : {len(Ollama.prompts)} appel(s) au modèle ; tous les mails sont déjà traités, il n'en faut aucun, pas même un sondage "
+         "(on ne sonde que s'il y a au moins un mail non suspect à résumer).")
 if read(os.path.join(OUT, f"digest-{D1}.md")) != md1:
     fail("2e exécution : digest-….md a changé alors que la source est identique (doublons ? réécriture ?). La relance doit être sans effet.")
 exp.append((D1, *M.run(m1, D1, True), "ok"))
@@ -337,6 +339,8 @@ if not old <= set(md3.splitlines()):
 # ===== D. autre jour, même source, modèle disponible =====
 exp.append((D2, *M.run(m2, D2, True), "ok"))
 run(args_for(OUT, paths["s2"], D2), OUT, "ok", "exécution du lendemain")
+if Ollama.prompts:
+    fail("exécution du lendemain : aucun mail à résumer, donc aucun appel au modèle (pas même un sondage).")
 same(read(os.path.join(OUT, f"digest-{D2}.md")), M.md(D2), "lendemain (rien de nouveau)")
 if read(os.path.join(OUT, f"digest-{D1}.md")) != md3:
     fail("le digest de la veille a été modifié par l'exécution du lendemain.")
@@ -385,6 +389,18 @@ M5 = Model()
 M5.run(D.load_mails("mbox", MBOX), D1, True)
 run(args_for(OUT4, MBOX, D1, ["--source", "mbox"]), OUT4, "ok", "source mbox")
 same(read(os.path.join(OUT4, f"digest-{D1}.md")), M5.md(D1), "source mbox")
+
+# ===== H. que des mails suspects : rien à résumer, donc le modèle n'est pas sondé =====
+for model in ("ok", "down"):
+    OUT5 = os.path.join(TMP, "suspects-" + model)
+    os.makedirs(OUT5)
+    M6 = Model()
+    M6.run(load("sus"), D1, True)
+    run(args_for(OUT5, paths["sus"], D1), OUT5, model, "mails tous suspects")
+    if Ollama.prompts or down_hits[0]:
+        fail("mails tous suspects : le modèle a été contacté ; on ne le sonde que s'il y a au moins un mail non suspect à résumer.")
+    same(read(os.path.join(OUT5, f"digest-{D1}.md")), M6.md(D1), "mails tous suspects")
+    log_check(os.path.join(OUT5, "quotidien.log"), [(D1, 2, 0, "ok")], "journal (mails tous suspects)")
 
 print("OK : quotidien.py est idempotent (relance sans effet, mails nouveaux seulement), garde l'état dans un fichier, "
       "journalise des compteurs, et bascule en secours quand le modèle est en panne.")

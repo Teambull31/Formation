@@ -257,6 +257,7 @@ srv.daemon_threads = True
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 OURL = f"http://127.0.0.1:{srv.server_address[1]}"
 os.environ["OLLAMA_URL"] = OURL
+os.environ["OLLAMA_TIMEOUT"] = "3"
 import digest as D  # noqa: E402
 
 EXPECTED = [D.digest_entry(m) for m in REF.fetch(limit=10_000)]
@@ -288,7 +289,7 @@ def cli(args, label):
     wd = os.path.join(TMP, f"cwd{n_run[0]}")
     os.makedirs(os.path.join(wd, "home"))
     env = {"PATH": os.environ["PATH"], "LANG": "C.UTF-8", "HOME": os.path.join(wd, "home"), "NO_PROXY": "*", "no_proxy": "*",
-           "OLLAMA_URL": OURL, "PYTHONPATH": GUARD, "GUARD_PORT": str(srv.server_address[1]), "GUARD_LOG": GLOG}
+           "OLLAMA_URL": OURL, "OLLAMA_TIMEOUT": "3", "PYTHONPATH": GUARD, "GUARD_PORT": str(srv.server_address[1]), "GUARD_LOG": GLOG}
     tp_before = set(os.listdir(TP))
     Ollama.prompts.clear()
     try:

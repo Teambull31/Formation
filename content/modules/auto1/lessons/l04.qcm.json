@@ -6,7 +6,7 @@
    "sorted(mails, key=lambda m: m[\"received\"])",
    "sorted(mails, key=lambda m: m[\"sender\"], reverse=True)",
    "sorted(mails, key=lambda m: m[\"received\"], reverse=True)",
-   "mails.reverse()"
+   "sorted(mails, key=lambda m: len(m[\"subject\"]), reverse=True)"
   ],
   "answer": 2,
   "explain": "Les dates ISO se comparent comme du texte, et reverse=True place les plus grandes (les plus récentes) en premier. Sans reverse, l'ordre est du plus ancien au plus récent ; trier sur le sender ou inverser la liste ne tient pas compte des dates.",
@@ -16,10 +16,10 @@
   "id": "l04-q2",
   "text": "Erreur classique : une ligne du JSON n'a pas de clé « subject » et votre script plante avec KeyError. Quelle correction ?",
   "options": [
-   "Supprimer la ligne du fichier à la main",
+   "Supprimer à la main la ligne du fichier JSON qui pose problème",
    "Entourer tout le script d'un except qui ignore l'erreur",
-   "Convertir le fichier en CSV",
-   "Utiliser m.get(\"subject\") et une valeur de repli"
+   "Convertir le fichier JSON en CSV pour éviter les clés",
+   "Utiliser m.get(\"subject\") avec une valeur de repli"
   ],
   "answer": 3,
   "explain": "m.get(\"subject\") renvoie None au lieu de planter, et on remplace alors par « (sans objet) ». Modifier les données à la main ne tient pas à la prochaine exécution, et un except global cache aussi les vraies erreurs.",
@@ -29,10 +29,10 @@
   "id": "l04-q3",
   "text": "Comment regrouper des mails par expéditeur en Python ?",
   "options": [
-   "Avec un dict de listes : groupes.setdefault(nom, []).append(mail)",
-   "Avec une seule liste triée au hasard",
-   "Avec json.dumps(mails)",
-   "Avec un if par expéditeur connu à l'avance"
+   "Un dict de listes, via setdefault(nom, []).append(mail)",
+   "Avec une seule liste triée, en repérant à la main où change l'expéditeur",
+   "Avec json.dumps(mails), qui range les mails par expéditeur",
+   "Avec un if par expéditeur connu à l'avance, écrit dans le script"
   ],
   "answer": 0,
   "explain": "Un dict dont chaque valeur est une liste regroupe n'importe quel nombre d'expéditeurs, y compris ceux qu'on n'a jamais vus. Écrire un if par nom casse dès qu'un nouvel expéditeur arrive.",
@@ -42,10 +42,10 @@
   "id": "l04-q4",
   "text": "Erreur classique : Claire@example.test et claire@example.test apparaissent comme deux groupes. Pourquoi, et que faire ?",
   "options": [
-   "Le JSON est invalide ; il faut le reformater",
-   "Les chaînes sont sensibles à la casse ; mettez le nom en minuscules avant de regrouper",
-   "Python ne sait pas lire les arobases",
-   "Le tri a échoué ; il faut le relancer"
+   "Le JSON est invalide à cause des majuscules ; il faut le reformater entièrement",
+   "Python distingue majuscules et minuscules ; passez le nom en .lower()",
+   "Python ne sait pas lire les arobases dans une clé de dictionnaire, il faut les retirer",
+   "Le tri a échoué entre les deux ; il faut le relancer avant de regrouper"
   ],
   "answer": 1,
   "explain": "Pour Python, « Claire » et « claire » sont deux chaînes différentes : le dict crée deux clés. On normalise avec .lower() avant de regrouper. Le JSON est parfaitement valide et le tri n'est pas en cause.",
@@ -55,10 +55,10 @@
   "id": "l04-q5",
   "text": "Pourquoi un rapport automatique doit-il avoir des groupes triés, plutôt que dans l'ordre d'arrivée du dict ?",
   "options": [
-   "Parce que Markdown refuse les listes non triées",
-   "Parce que Python plante sinon à la deuxième exécution",
-   "Parce qu'un rapport déterministe se compare et se relance sans surprise",
-   "Parce que cela accélère le script de moitié"
+   "Parce que Markdown refuse les listes qui ne sont pas triées alphabétiquement",
+   "Parce que Python plante sinon à la deuxième exécution sur les mêmes données",
+   "Pour obtenir un rapport identique à chaque relance",
+   "Parce que cela accélère le script de moitié sur de gros fichiers"
   ],
   "answer": 2,
   "explain": "Avec les mêmes données, un rapport déterministe donne le même texte : on peut le comparer, le versionner et le relancer sans effet de bord, comme une tâche idempotente vue en leçon 2. Markdown et Python acceptent n'importe quel ordre.",

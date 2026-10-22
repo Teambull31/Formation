@@ -40,7 +40,7 @@ def ecrire(path, texte):
 
 def modele_disponible():
     try:
-        generate("ping", timeout=3)
+        generate("ping", timeout=digest.llm_timeout())  # même délai que digest.py (OLLAMA_TIMEOUT)
         return True
     except LlmUnavailable:
         return False

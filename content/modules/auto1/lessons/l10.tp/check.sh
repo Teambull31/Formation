@@ -13,9 +13,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-KIT = os.path.join(TP, "kit")
-sys.path.insert(0, KIT)
-sys.path.insert(0, TP)
+KIT = os.path.join(TP, "kit")  # copie de l'apprenant : sert seulement à son programme
+LESSON = os.environ["LESSON_DIR"]
+REF_KIT = os.path.normpath(os.path.join(LESSON, "..", "..", "kit"))  # référence : le contrôle n'exécute jamais le code de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(LESSON, "..", "_starters"))
+sys.path.insert(0, REF_KIT)
+sys.path.insert(0, REF_DIGEST)
 import mock_graph
 from outlook_graph import OutlookGraphSource
 rnd = random.Random()
@@ -26,13 +29,29 @@ def fail(msg):
     sys.exit(1)
 
 
+# ---------- digest.py et kit/ doivent rester ceux du TP (l'attendu est reconstruit avec les originaux) ----------
+if open(os.path.join(REF_DIGEST, "digest.py"), "rb").read() != open(os.path.join(TP, "digest.py"), "rb").read():
+    fail("digest.py a été modifié : on branche Outlook sans toucher à digest.py (restaurez-le).")
+for n in sorted(os.listdir(REF_KIT)):
+    if n.endswith(".py"):
+        q = os.path.join(KIT, n)
+        if not os.path.exists(q) or open(q, "rb").read() != open(os.path.join(REF_KIT, n), "rb").read():
+            fail(f"kit/{n} a été modifié ou supprimé : le kit reste tel quel (restaurez-le).")
+
+
 # ---------- code source ----------
 src = open(os.path.join(TP, "outlook_digest.py"), encoding="utf-8").read()
 for needle, why in (("OutlookGraphSource", "construisez un OutlookGraphSource du kit"), ("GRAPH_URL", "l'adresse du serveur vient de la variable GRAPH_URL"),
-                    ("token_path", "passez token_path= (un fichier à côté du script, jamais ailleurs)"),
+                    ("GRAPH_TOKEN_PATH", "passez token_path=os.environ.get(\"GRAPH_TOKEN_PATH\") : l'emplacement du jeton vient de cette variable (sans elle, le kit choisit le dossier utilisateur)"),
                     ("auth", "passez auth= (un jeton fictif), pas de vraie connexion")):
     if needle not in src:
         fail(f"outlook_digest.py ne contient pas « {needle} » : {why}.")
+code_lines = [l.split("#")[0] for l in src.splitlines()]
+if not any("GRAPH_TOKEN_PATH" in l and re.search(r"os\.(environ|getenv)", l) for l in code_lines):
+    fail("lisez l'emplacement du jeton dans l'environnement : os.environ.get(\"GRAPH_TOKEN_PATH\") (pas dans un commentaire).")
+if any(re.search(r"token_path\s*=", l) and re.search(r"__file__|HERE|Path\(|/", l) for l in code_lines):
+    fail("token_path ne doit pas pointer vers un fichier du script ou un chemin écrit en dur : "
+         "token_path=os.environ.get(\"GRAPH_TOKEN_PATH\") (ou sa valeur dans une variable).")
 bad = re.search(r"graph\.microsoft\.com|login\.microsoftonline|Mail\.ReadWrite|Mail\.Send|\.config", src)
 if bad:
     fail(f"outlook_digest.py contient « {bad.group(0)} » : le TP n'utilise que le simulateur, en lecture seule (Mail.Read).")
@@ -157,7 +176,7 @@ def run(label, graph_url, ports, expect_ok):
         if os.path.exists(p):
             os.remove(p)
     env = {"PATH": os.environ["PATH"], "LANG": "C.UTF-8", "HOME": home, "NO_PROXY": "*", "no_proxy": "*",
-           "OLLAMA_URL": OURL, "PYTHONPATH": GUARD, "GUARD_PORT": ",".join(map(str, ports + [ollama.server_address[1]])),
+           "OLLAMA_URL": OURL, "OLLAMA_TIMEOUT": "5", "GRAPH_TOKEN_PATH": os.path.join(wd, "tok", "graph_token.json"), "PYTHONPATH": GUARD, "GUARD_PORT": ",".join(map(str, ports + [ollama.server_address[1]])),
            "GUARD_LOG": GUARD_LOG, "GET_LOG": GET_LOG, "TOKEN_LOG": TOKEN_LOG, "KIT_DIR": KIT}
     if graph_url is not None:
         env["GRAPH_URL"] = graph_url
@@ -179,21 +198,23 @@ def run(label, graph_url, ports, expect_ok):
     for t in tokens:
         if t in out + err:
             fail(f"{label} : le jeton apparaît dans la sortie du programme ; un jeton ne s'affiche ni ne se journalise jamais.")
-    # fichiers : seul digest.json dans le dossier courant ; dans le dossier du TP, seulement un fichier de jeton en 0600
-    extra = set(os.listdir(wd)) - {"home", "digest.json"}
+    # fichiers : seul digest.json dans le dossier courant ; rien de nouveau dans le dossier du TP ; jeton éventuel en 0600
+    extra = set(os.listdir(wd)) - {"home", "digest.json", "tok"}
     if extra or os.listdir(home):
         fail(f"{label} : fichiers inattendus ({sorted(extra) or os.listdir(home)}) ; seul digest.json est écrit dans le dossier courant.")
     after = snapshot(TP)
     for path in after:
         if path not in before:
-            name = os.path.basename(path)
-            mode = stat.S_IMODE(os.stat(path).st_mode)
-            if "token" not in name.lower():
-                fail(f"{label} : fichier créé dans le dossier du TP : {name}.")
-            if mode & 0o077:
-                fail(f"{label} : le fichier de jeton {name} a les droits {oct(mode)} ; il doit être en 0600.")
+            fail(f"{label} : fichier créé dans le dossier du TP : {os.path.basename(path)}. Un jeton se range à l'emplacement "
+                 "donné par GRAPH_TOKEN_PATH, jamais à côté du script.")
         elif after[path] != before[path]:
             fail(f"{label} : {os.path.basename(path)} a été modifié par le programme.")
+    tokdir = os.path.join(wd, "tok")
+    if os.path.isdir(tokdir):
+        for n in os.listdir(tokdir):
+            mode = stat.S_IMODE(os.stat(os.path.join(tokdir, n)).st_mode)
+            if mode & 0o077:
+                fail(f"{label} : le fichier de jeton {n} a les droits {oct(mode)} ; il doit être en 0600.")
     gets = open(GET_LOG).read().split() if os.path.exists(GET_LOG) else []
     digest = None
     if os.path.exists(os.path.join(wd, "digest.json")):
@@ -220,7 +241,8 @@ def norm(s):
 
 # ---------- attendu : le connecteur du kit + les fonctions de digest.py, même modèle factice ----------
 os.environ["OLLAMA_URL"] = OURL
-import digest as D  # noqa: E402  (fourni dans le dossier du TP)
+os.environ["OLLAMA_TIMEOUT"] = "5"
+import digest as D  # noqa: E402  (l'original de _starters/, pas la copie de l'apprenant)
 with mock_graph.serve(port=0, pages=2) as ref:
     mails = OutlookGraphSource("x", base_url=f"http://127.0.0.1:{ref.port}/v1.0", auth=lambda: "t",
                                token_path=os.path.join(TMP, "ref_token.json")).fetch(limit=10_000)

@@ -27,7 +27,7 @@ def main():
         return 1
     source = OutlookGraphSource(
         "client-id-fictif", tenant="consumers",
-        token_path=HERE / "graph_token.json",  # à côté du script, jamais dans un dépôt partagé
+        token_path=os.environ.get("GRAPH_TOKEN_PATH"),  # None : le kit range le jeton dans le dossier utilisateur (0600)
         base_url=url,
         auth=lambda: "jeton-fictif",  # le vrai device code flow est l'essai manuel facultatif
     )

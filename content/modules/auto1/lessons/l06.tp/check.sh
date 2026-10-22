@@ -14,6 +14,7 @@ TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(TP, "kit"))
 import mock_ollama
+mock_ollama.SLOW_SECONDS = 3.6  # juste au-dessus de 3 s : un timeout de 4 s laisserait passer la réponse tardive
 
 SECOURS = "(secours) Ollama indisponible"
 

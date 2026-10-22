@@ -268,12 +268,18 @@ def verify(digest, mails, truth, label, stub_mode=None, prompts=None):
             if copies(d["resume"], m["body"]) or "http" in d["resume"].lower() or ref_of(m) in d["resume"]:
                 fail(f"{label} : le résumé d'un mail suspect recopie le texte du mail (ordre injecté) : {d['resume'][:80]!r}. "
                      "Pour un mail suspect, mettez un texte neutre.")
+            if norm(m["subject"]).lower() in norm(d["resume"]).lower():
+                fail(f"{label} : le résumé d'un mail suspect recopie son objet ({m['subject']!r}) : l'objet peut porter l'injection. "
+                     "Mettez un texte neutre et constant.")
             if prompts is not None and any(ref_of(m) in p for p in prompts):
                 fail(f"{label} : un mail suspect a été envoyé au modèle ; il ne doit pas l'être (moindre privilège).")
         else:
             if d["suspect"] is not False:
                 fail(f"{label} : le mail normal « {norm(m['body'])[:90]}… » est marqué suspect à tort "
                      "(faux positif : relisez les règles de détection).")
+    suspects = {norm(d["resume"]) for d, h in zip(digest, truth) if h}
+    if len(suspects) > 1:
+        fail(f"{label} : le résumé des mails suspects doit être constant (le même texte neutre pour tous), obtenu {len(suspects)} variantes.")
 
 
 stub = Stub()
