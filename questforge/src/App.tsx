@@ -15,7 +15,7 @@ import {
   Target,
   Bot,
 } from 'lucide-react';
-import { api, isOfflineDemo, resetOfflineDemo, QuestData, TeamData, BossData, LessonData } from './api';
+import { api, isOfflineDemo, resetOfflineDemo, MODULES_CATALOG, ModuleItem, QuestData, TeamData, BossData, LessonData } from './api';
 import { QuestScreen } from './screens/Quest';
 import { LessonScreen } from './screens/Lesson';
 import { TeamScreen } from './screens/Team';
@@ -99,6 +99,7 @@ export function App() {
   // Feedback notification toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [offlineDemo, setOfflineDemo] = useState(false);
+  const [modules, setModules] = useState<ModuleItem[]>(MODULES_CATALOG);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -111,6 +112,7 @@ export function App() {
       const data = await api.getQuest(m);
       setOfflineDemo(isOfflineDemo());
       setQuest(data);
+      api.getModules().then(setModules).catch(() => {});
       if (data.profile.active_theme) {
         setActiveTheme(data.profile.active_theme);
       }
@@ -360,6 +362,7 @@ export function App() {
         {activeTab === 'quest' && (
           <QuestScreen
             quest={quest}
+            modules={modules}
             loading={questLoading}
             minutes={minutes}
             onMinutesChange={setMinutes}

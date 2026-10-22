@@ -148,6 +148,8 @@ export interface BossData {
 }
 
 export interface BossAttemptResult {
+  xpAwarded?: number;
+  tokensAwarded?: number;
   won: boolean;
   phase_reached: number;
   failed_pattern: string | null;
@@ -1572,6 +1574,64 @@ Pour superviser un service HTTP en production, concentrez-vous sur 3 métriques 
   ],
 };
 
+// --- Module Terraform : leçons de la démo construites depuis les fichiers du module (source unique de vérité) ---
+const TF_DIR = '../content/modules/terraform';
+const tfModule = (
+  import.meta.glob('../content/modules/terraform/module.json', { eager: true, import: 'default' }) as Record<string, any>
+)[`${TF_DIR}/module.json`];
+const tfMarkdown = import.meta.glob('../content/modules/terraform/lessons/*.md', {
+  eager: true,
+  query: '?raw',
+  import: 'default',
+}) as Record<string, string>;
+const tfQcm = import.meta.glob('../content/modules/terraform/lessons/*.qcm.json', {
+  eager: true,
+  import: 'default',
+}) as Record<string, Question[]>;
+const tfTp = import.meta.glob('../content/modules/terraform/lessons/*.tp/tp.json', {
+  eager: true,
+  import: 'default',
+}) as Record<string, any>;
+
+// Indices réels des TP (la démo les renvoie par niveau, comme le backend).
+const TP_HINTS: Record<string, string[]> = {};
+
+if (tfModule) {
+  MULTI_MODULE_LESSONS[tfModule.id] = tfModule.lessons.map((meta: any) => {
+    const tp = tfTp[`${TF_DIR}/lessons/${meta.id}.tp/tp.json`];
+    if (tp) TP_HINTS[tp.id] = tp.hints;
+    return {
+      id: meta.id,
+      title: meta.title,
+      module_id: tfModule.id,
+      module_title: tfModule.title,
+      skill: tfModule.skill,
+      minutes: meta.minutes,
+      body_md: tfMarkdown[`${TF_DIR}/lessons/${meta.id}.md`] ?? '',
+      qcm: tfQcm[`${TF_DIR}/lessons/${meta.id}.qcm.json`] ?? [],
+      tp: tp
+        ? {
+            id: tp.id,
+            title: tp.title,
+            instructions_md: tp.instructions_md,
+            timeout_s: tp.timeout_s,
+            total_hints: tp.hints.length,
+          }
+        : null,
+    } as LessonData;
+  });
+  MODULES_CATALOG.push({
+    id: tfModule.id,
+    title: tfModule.title,
+    skill: tfModule.skill,
+    description: tfModule.description ?? '',
+    icon: tfModule.icon ?? '📚',
+    lessonsCount: tfModule.lessons.length,
+    totalMinutes: tfModule.lessons.reduce((sum: number, l: any) => sum + l.minutes, 0),
+  });
+}
+
+
 function generateActivityHistory(): ActivityDayLog[] {
   const days: ActivityDayLog[] = [];
   const now = new Date();
@@ -1749,6 +1809,9 @@ function withBackendDefaults(pathname: string, data: any): any {
       profile: withProfileDefaults(data.profile),
     };
   }
+  if (pathname === '/api/modules') {
+    return data.map((m: any) => ({ description: '', icon: '📚', ...m }));
+  }
   if (pathname === '/api/reviews') {
     // Le backend renvoie `due` (identifiants) et `reviews` (questions) ; l'interface attend les questions dans `due`.
     return { ...data, due: data.reviews ?? data.due, boxesCount: data.boxesCount ?? [0, 0, 0, 0, 0] };
@@ -1809,6 +1872,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return executeFallback<T>(path, options);
 }
 
+// En démo, aucun script ne vérifie le travail : les combats sont des simulations et l'écran le dit.
+const simulatedBoss = (boss: BossEntity): BossEntity => ({
+  ...boss,
+  phases: boss.phases.map((ph) => ({ ...ph, check: 'Combat simulé (aucune vérification réelle en mode démo)' })),
+});
+
 function executeFallback<T>(path: string, options?: RequestInit): T {
   const state = getLocalState();
   const url = new URL(path, 'http://localhost');
@@ -1818,8 +1887,14 @@ function executeFallback<T>(path: string, options?: RequestInit): T {
     const minutes = Number(url.searchParams.get('minutes')) || 30;
     const currentModId = state.active_module_id || 'demo';
     const lessonsList = MULTI_MODULE_LESSONS[currentModId] || MULTI_MODULE_LESSONS['demo'];
-    const curLesson = lessonsList[0];
-    const nextLesson = lessonsList[1] || curLesson;
+    const stepDoneFor = (kind: string, lId: string) =>
+      state.completed_steps.some((s: any) => s.kind === kind && s.lesson_id === lId);
+    const firstOpenIdx = lessonsList.findIndex(
+      (les) => !['lesson', 'qcm', ...(les.tp ? ['tp'] : [])].every((kind) => stepDoneFor(kind, les.id))
+    );
+    const curIdx = firstOpenIdx === -1 ? lessonsList.length - 1 : firstOpenIdx;
+    const curLesson = lessonsList[curIdx];
+    const nextLesson = lessonsList[curIdx + 1] || curLesson;
 
     const isStepDone = (kind: string, lId: string) =>
       state.completed_steps.some((s: any) => s.kind === kind && s.lesson_id === lId);
@@ -1924,6 +1999,10 @@ function executeFallback<T>(path: string, options?: RequestInit): T {
     return { ok: true } as T;
   }
 
+  if (pathname === '/api/modules') {
+    return MODULES_CATALOG as T;
+  }
+
   if (pathname === '/api/module/switch') {
     const body = options?.body ? JSON.parse(options.body as string) : {};
     state.active_module_id = body.moduleId || 'demo';
@@ -2020,9 +2099,13 @@ function executeFallback<T>(path: string, options?: RequestInit): T {
       state.total_xp = Math.max(0, state.total_xp - 10);
     }
     saveLocalState(state);
+    const level = Math.max(1, Number(url.searchParams.get('level')) || 1);
+    const tpHints = TP_HINTS[pathname.split('/')[3]];
     return {
-      hint: "Examinez attentivement les paramètres de votre fichier et la sortie de retour du script.",
-      level: 1,
+      hint: tpHints
+        ? tpHints[Math.min(tpHints.length, level) - 1]
+        : "Examinez attentivement les paramètres de votre fichier et la sortie de retour du script.",
+      level,
       xp_cost: state.active_companion === 'char_hopper' ? 0 : 10,
     } as T;
   }
@@ -2116,12 +2199,16 @@ function executeFallback<T>(path: string, options?: RequestInit): T {
     return { ok: true } as T;
   }
 
+  if (pathname === '/api/bosses') {
+    return ALL_BOSSES.map(simulatedBoss) as T;
+  }
+
   if (pathname === '/api/boss') {
     const bossId = url.searchParams.get('id') || 'boss_k8s';
     const foundBoss = ALL_BOSSES.find((b) => b.id === bossId) || ALL_BOSSES[0];
 
     return {
-      boss: foundBoss,
+      boss: simulatedBoss(foundBoss),
       attempts_count: state.boss_attempts,
       history: state.boss_history,
     } as T;
@@ -2148,6 +2235,7 @@ function executeFallback<T>(path: string, options?: RequestInit): T {
       postMortem = `⚠️ Défaillance critique lors de la Phase 1 (${targetBoss.phases[0].pattern_id}). Une alerte PagerDuty a été déclenchée.`;
     }
 
+    postMortem = `[Simulation] ${postMortem}`;
     const result: BossAttemptResult = {
       won,
       phase_reached: won ? maxPhases : 1,
@@ -2669,9 +2757,8 @@ kill -l
   }
 
   if (pathname === '/api/guild/claim') {
-    state.tokens = (state.tokens || 0) + 1;
-    saveLocalState(state);
-    return { ok: true, tokensAwarded: 1 } as T;
+    // La guilde est fictive : aucune récompense (la réclamation était répétable à l'infini).
+    return { ok: true, tokensAwarded: 0 } as T;
   }
 
   return {} as T;
@@ -2695,6 +2782,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ topic }),
     }),
+
+  getModules: (): Promise<ModuleItem[]> => request('/api/modules'),
 
   switchModule: (moduleId: string): Promise<{ ok: boolean }> =>
     request('/api/module/switch', {
@@ -2769,6 +2858,8 @@ export const api = {
 
   completePodcastSession: (): Promise<{ ok: boolean }> =>
     request('/api/podcast/complete', { method: 'POST' }),
+
+  getBosses: (): Promise<BossEntity[]> => request('/api/bosses'),
 
   getBoss: (bossId: string = 'boss_k8s'): Promise<BossData> =>
     request(`/api/boss?id=${bossId}`),

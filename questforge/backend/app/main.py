@@ -33,6 +33,8 @@ from app.weekly import build_brief, import_module
 
 logger = logging.getLogger(__name__)
 
+BOSS_FIRST_WIN_XP = 150
+
 # Racine du projet (contient backend/ et content/), indépendante du dossier de lancement.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -60,6 +62,15 @@ class QcmAnswerRequest(BaseModel):
 class BriefRequest(BaseModel):
     topic: str
     format: str
+
+
+class BossAttemptRequest(BaseModel):
+    boss_id: str | None = None
+    crisis_mode: bool = False
+
+
+class ModuleSwitchRequest(BaseModel):
+    moduleId: str
 
 
 class ImportRequest(BaseModel):
@@ -110,6 +121,15 @@ def create_app(
                         logger.warning("Module ignoré (%s) : %s", entry.name, exc)
         return mods
 
+    def active_module(db, mods: list[Module]) -> Module:
+        """Parcours choisi par l'apprenant (persisté), sinon le premier module disponible."""
+        row = db.execute("SELECT value FROM settings WHERE key = 'active_module_id'").fetchone()
+        if row:
+            for mod in mods:
+                if mod.id == row["value"]:
+                    return mod
+        return mods[0]
+
     def find_lesson(lesson_id: str) -> tuple[Lesson, Module] | None:
         for mod in get_modules():
             for les in mod.lessons:
@@ -141,21 +161,46 @@ def create_app(
                 pass
         return []
 
-    def get_default_boss() -> tuple[dict, Path]:
+    def load_bosses() -> list[tuple[dict, Path]]:
+        bosses: list[tuple[dict, Path]] = []
         bosses_dir = content_path / "bosses"
         if bosses_dir.exists():
             for b_dir in sorted(bosses_dir.iterdir()):
                 boss_file = b_dir / "boss.json"
                 if b_dir.is_dir() and boss_file.exists():
                     try:
-                        return json.loads(boss_file.read_text(encoding="utf-8")), b_dir
-                    except Exception:
-                        pass
+                        bosses.append((json.loads(boss_file.read_text(encoding="utf-8")), b_dir))
+                    except Exception as exc:
+                        logger.warning("Boss ignoré (%s) : %s", b_dir.name, exc)
+        return bosses
+
+    def find_boss(boss_id: str | None) -> tuple[dict, Path]:
+        bosses = load_bosses()
+        if not bosses:
+            raise HTTPException(status_code=404, detail="Aucun boss disponible")
+        for boss, b_dir in bosses:
+            if boss.get("id") == boss_id:
+                return boss, b_dir
+        return bosses[0]
+
+    def public_boss(boss: dict) -> dict:
+        """Vue exposée à l'interface : jamais la commande de vérification, seulement sa description."""
         return {
-            "id": "default_boss",
-            "title": "Boss Par Défaut",
-            "phases": [{"pattern_id": "p1", "label": "Vérification standard", "check": "exit 0"}],
-        }, content_path
+            "id": boss.get("id"),
+            "title": boss.get("title", ""),
+            "description": boss.get("description", ""),
+            "avatar": boss.get("avatar", "👾"),
+            "color": boss.get("color", "from-rose-500/20 to-red-950/40 border-rose-700/50"),
+            "phases": [
+                {
+                    "pattern_id": ph.get("pattern_id"),
+                    "label": ph.get("label", ""),
+                    "check": ph.get("check_label", "Vérification automatique de votre dossier de travail"),
+                    "remedial_lesson_id": ph.get("remedial_lesson_id"),
+                }
+                for ph in boss.get("phases", [])
+            ],
+        }
 
     # Register terminal
     register_terminal(app, ws_path)
@@ -168,7 +213,7 @@ def create_app(
             # Fallback placeholder if no modules found
             default_mod = Module(id="default", title="Socle Initial", skill="devops", lessons=[])
         else:
-            default_mod = mods[0]
+            default_mod = active_module(db, mods)
 
         if not default_mod.lessons:
             raise HTTPException(status_code=503, detail=f"Aucun module de contenu disponible dans {content_path / 'modules'}")
@@ -237,6 +282,35 @@ def create_app(
                 add_tokens(db, 1)
                 tokens_awarded = 1
         return {"ok": True, "alreadyCompleted": not newly_awarded, "tokensAwarded": tokens_awarded}
+
+    @app.get("/api/modules")
+    def get_module_list():
+        return [
+            {
+                "id": mod.id,
+                "title": mod.title,
+                "skill": mod.skill,
+                "description": mod.description,
+                "icon": mod.icon,
+                "lessonsCount": len(mod.lessons),
+                "totalMinutes": sum(les.minutes for les in mod.lessons),
+            }
+            for mod in get_modules()
+        ]
+
+    @app.post("/api/module/switch")
+    def post_module_switch(payload: ModuleSwitchRequest, db=Depends(get_db)):
+        if not any(mod.id == payload.moduleId for mod in get_modules()):
+            raise HTTPException(status_code=404, detail="Parcours introuvable")
+        db.execute(
+            """
+            INSERT INTO settings (key, value) VALUES ('active_module_id', ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (payload.moduleId,),
+        )
+        db.commit()
+        return {"ok": True}
 
     @app.post("/api/rest")
     def post_rest(db=Depends(get_db)):
@@ -430,9 +504,13 @@ def create_app(
         }
 
     # Boss routes
+    @app.get("/api/bosses")
+    def list_bosses():
+        return [public_boss(boss) for boss, _ in load_bosses()]
+
     @app.get("/api/boss")
-    def get_boss_info(db=Depends(get_db)):
-        boss, _ = get_default_boss()
+    def get_boss_info(id: str | None = None, db=Depends(get_db)):
+        boss, _ = find_boss(id)
         attempts = count_attempts(db, boss.get("id"))
         history_rows = db.execute(
             """
@@ -444,20 +522,33 @@ def create_app(
             (boss.get("id"),),
         ).fetchall()
         return {
-            "boss": boss,
+            "boss": public_boss(boss),
             "attempts_count": attempts,
             "history": [dict(r) for r in history_rows],
         }
 
     @app.post("/api/boss/attempt", dependencies=[Depends(local_only)])
-    def post_boss_attempt(db=Depends(get_db)):
-        boss, boss_dir = get_default_boss()
+    def post_boss_attempt(payload: BossAttemptRequest | None = None, db=Depends(get_db)):
+        boss, boss_dir = find_boss(payload.boss_id if payload else None)
+        boss_id = boss.get("id")
+        prior_wins = db.execute(
+            "SELECT COUNT(*) AS c FROM boss_attempts WHERE boss_id = ? AND won = 1", (boss_id,)
+        ).fetchone()["c"]
         res = attempt_boss(db, boss, ws_path, boss_dir)
+
+        # Récompense à la première victoire seulement : rejouer le boss ne la redonne pas.
+        xp_awarded = tokens_awarded = 0
+        if res.won and prior_wins == 0:
+            award_xp(db, boss.get("skill", "general"), BOSS_FIRST_WIN_XP)
+            add_tokens(db, 1)
+            xp_awarded, tokens_awarded = BOSS_FIRST_WIN_XP, 1
         return {
             "won": res.won,
             "phase_reached": res.phase_reached,
             "failed_pattern": res.failed_pattern,
             "remedial_lesson_id": res.remedial_lesson_id,
+            "xpAwarded": xp_awarded,
+            "tokensAwarded": tokens_awarded,
         }
 
     # Weekly prep

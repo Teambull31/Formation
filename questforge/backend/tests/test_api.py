@@ -237,3 +237,46 @@ def test_due_review_answered_correctly_awards_xp_once(client, app_env):
 def test_first_correct_answer_awards_no_review_xp(client):
     res = client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1}).json()
     assert res["correct"] is True and res["xpAwarded"] == 0
+
+
+def _add_second_module(app_env):
+    import shutil
+
+    _, _, tmp_path = app_env
+    src = tmp_path / "content" / "modules" / "demo"
+    dest = tmp_path / "content" / "modules" / "second"
+    shutil.copytree(src, dest)
+    meta = json.loads((dest / "module.json").read_text(encoding="utf-8"))
+    meta.update({"id": "second", "title": "Second parcours", "icon": "🏗️", "description": "Un autre parcours"})
+    meta["lessons"] = [{"id": "s1", "title": "Première leçon", "minutes": 7}]
+    (dest / "module.json").write_text(json.dumps(meta), encoding="utf-8")
+    lessons = dest / "lessons"
+    (lessons / "s1.md").write_text("# Première leçon\n\n**Contenu**", encoding="utf-8")
+    for f in list(lessons.iterdir()):
+        if f.name.startswith(("l1", "l2")):
+            shutil.rmtree(f) if f.is_dir() else f.unlink()
+
+
+def test_modules_endpoint_lists_available_modules(client, app_env):
+    _add_second_module(app_env)
+    modules = client.get("/api/modules").json()
+    assert [m["id"] for m in modules] == ["demo", "second"]
+    second = modules[1]
+    assert second["icon"] == "🏗️" and second["lessonsCount"] == 1 and second["totalMinutes"] == 7
+
+
+def test_switching_module_changes_the_daily_quest_and_persists(client, app_env):
+    _add_second_module(app_env)
+    assert client.get("/api/quest").json()["steps"][0]["lesson_id"] == "l1"
+
+    assert client.post("/api/module/switch", json={"moduleId": "second"}).json() == {"ok": True}
+    quest = client.get("/api/quest").json()
+    assert quest["steps"][0]["lesson_id"] == "s1"
+    assert quest["profile"]["active_module_id"] == "second"
+    # le choix survit à une nouvelle requête (stocké en base)
+    assert client.get("/api/quest").json()["profile"]["active_module_id"] == "second"
+
+
+def test_switching_to_unknown_module_is_404(client):
+    assert client.post("/api/module/switch", json={"moduleId": "nope"}).status_code == 404
+    assert client.get("/api/quest").json()["profile"]["active_module_id"] == "demo"

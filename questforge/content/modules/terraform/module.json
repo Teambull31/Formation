@@ -2,6 +2,8 @@
   "id": "terraform",
   "title": "Terraform & Infrastructure as Code",
   "skill": "terraform",
+  "description": "Workflow init/plan/apply, contrat d'un module, secrets et state : trois TP guidés vérifiés par script.",
+  "icon": "🏗️",
   "lessons": [
     {
       "id": "tf1",

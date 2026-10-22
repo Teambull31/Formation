@@ -41,6 +41,8 @@ class Module:
     title: str
     skill: str
     lessons: list[Lesson] = field(default_factory=list)
+    description: str = ""
+    icon: str = ""
 
 
 class ModuleError(Exception):
@@ -191,4 +193,6 @@ def load_module(path: Path | str) -> Module:
         title=mod_title,
         skill=mod_skill,
         lessons=loaded_lessons,
+        description=str(mod_data.get("description", "")),
+        icon=str(mod_data.get("icon", "")),
     )

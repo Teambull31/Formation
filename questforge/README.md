@@ -68,8 +68,9 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
    - 100% cosmétique, aucun contenu de cours bloqué. Raretés pondérées : Commun (70%), Rare (25%), Épique (5%).
 
 5. **Affrontements de Boss** :
-   - Défis multi-phases contre des patterns réels d'incidents (CrashLoopBackOff, panne DNS, timeout SSL).
-   - Tentatives illimitées avec remédiation guidée vers les fiches techniques.
+   - Défis multi-phases vérifiés par script sur votre dossier de travail (boss `boss_terraform` : « Le Gardien du State »).
+   - Tentatives illimitées avec remédiation guidée vers la fiche de la phase échouée ; récompense (+150 XP, 1 jeton) à la première victoire seulement.
+   - Un boss se définit dans `content/bosses/<id>/boss.json` (phases avec un script `check`, `check_label` affiché à l'apprenant).
 
 6. **Rituel du Dimanche (Préparation Hebdomadaire)** :
    - Générateur de prompt pour **Claude Code** contextualisé avec vos erreurs récentes et niveaux de compétence.
@@ -93,3 +94,13 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
   ```bash
   npm run build
   ```
+
+---
+
+## 🧭 Parcours, modes et variables
+
+- **Parcours** : chaque dossier de `content/modules/<id>/` est un parcours (`module.json` accepte `description` et `icon`). Le parcours actif se choisit dans l'écran Quête et se conserve en base. Le module `terraform` fournit 3 leçons avec TP guidés vérifiés par `lessons/_hcl_check.py` (analyse statique, sans binaire Terraform ni réseau).
+- **Jetons de gacha** : 1 jeton quand toutes les étapes requises d'une leçon sont validées, +1 à la première victoire contre un boss.
+- **Mode démo hors-ligne** : sans backend (par exemple un déploiement Vercel statique), l'interface bascule sur des données locales simulées et l'indique par un bandeau. La progression reste dans le navigateur, les vérifications de TP et les combats de boss sont simulés, et le bouton « Réinitialiser » efface cet état.
+- **Fonctions annexes** (War Room, Ligues, Duels, Défis sur-mesure, etc.) : contenus embarqués dans le navigateur, sans IA ni serveur. La Ligue et la Guilde sont des simulations sans récompense.
+- **Variables d'environnement** : `QUESTFORGE_CONTENT_DIR` pour utiliser un autre dossier de contenu que `content/`.

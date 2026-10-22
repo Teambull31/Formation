@@ -28,7 +28,6 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
   const [leagueData, setLeagueData] = useState<LeagueData | null>(null);
   const [activeTab, setActiveTab] = useState<'league' | 'guild'>('league');
   const [loading, setLoading] = useState(true);
-  const [claimedMissions, setClaimedMissions] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     api
@@ -37,17 +36,6 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  const handleClaim = async (missionId: string) => {
-    try {
-      await api.claimGuildMission(missionId);
-      setClaimedMissions((prev) => ({ ...prev, [missionId]: true }));
-      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
-      if (onRefreshQuest) onRefreshQuest();
-    } catch (err: any) {
-      alert(err.message || 'Erreur lors de la réclamation');
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-slate-950/80 backdrop-blur-md animate-fade-in">
@@ -61,7 +49,7 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-slate-100">
-                  Ligue Hebdomadaire & Missions de Guilde SRE
+                  Ligue & Guilde SRE · Simulation
                 </h2>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
                   Division Or
@@ -109,7 +97,7 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
 
           <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>Reset dans {leagueData?.timeRemainingDays || 3} jours</span>
+            <span>Reset simulé dans {leagueData?.timeRemainingDays || 3} jours</span>
           </div>
         </div>
 
@@ -202,12 +190,11 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
             /* Guild Missions Tab */
             <div className="space-y-3">
               <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl text-xs text-indigo-200">
-                Participez à l'effort collectif SRE. Chaque mission accomplie offre des <strong>Jetons Gacha</strong> à tous les membres actifs de la guilde !
+                <strong>Simulation :</strong> ces missions et les autres joueurs sont fictifs (QuestForge est une application locale à un seul joueur). Aucune récompense n'est attribuée.
               </div>
 
               <div className="space-y-2.5">
                 {leagueData?.guildMissions.map((m) => {
-                  const isClaimed = Boolean(claimedMissions[m.id]);
                   const pct = Math.min(100, Math.round((m.current / m.target) * 100));
 
                   return (
@@ -228,10 +215,6 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
                           <p className="text-[11px] text-slate-400 mt-0.5">{m.description}</p>
                         </div>
 
-                        <div className="flex items-center gap-1 font-mono font-bold text-xs text-amber-300 bg-amber-500/10 px-2 py-1 rounded-xl border border-amber-500/30 flex-shrink-0">
-                          <Gift className="w-3.5 h-3.5 text-amber-400" />
-                          <span>+{m.rewardTokens} Jetons</span>
-                        </div>
                       </div>
 
                       {/* Progress Bar */}
@@ -253,19 +236,9 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
                       </div>
 
                       {m.completed && (
-                        <div className="pt-1 flex justify-end">
-                          <button
-                            onClick={() => handleClaim(m.id)}
-                            disabled={isClaimed}
-                            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all ${
-                              isClaimed
-                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>{isClaimed ? 'Récompense déjà perçue' : 'Réclamer les Jetons Gacha'}</span>
-                          </button>
+                        <div className="pt-1 flex justify-end text-[11px] font-bold text-emerald-300 items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Objectif atteint (fictif)</span>
                         </div>
                       )}
                     </div>
@@ -278,7 +251,7 @@ export const GuildLeaguesModal: React.FC<GuildLeaguesModalProps> = ({
 
         {/* Footer */}
         <div className="p-3 bg-slate-950/80 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
-          <span>Classement mis à jour en temps réel après chaque leçon ou TP.</span>
+          <span>Données fictives de démonstration : aucun autre joueur.</span>
           <button
             onClick={onClose}
             className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer font-medium"

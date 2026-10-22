@@ -32,10 +32,11 @@ import {
   Activity,
   Lightbulb,
 } from 'lucide-react';
-import { QuestData, Step, MODULES_CATALOG } from '../api';
+import { QuestData, Step, ModuleItem } from '../api';
 
 interface QuestProps {
   quest: QuestData | null;
+  modules: ModuleItem[];
   loading: boolean;
   minutes: number;
   onMinutesChange: (m: number) => void;
@@ -68,6 +69,7 @@ interface QuestProps {
 
 export const QuestScreen: React.FC<QuestProps> = ({
   quest,
+  modules,
   loading,
   minutes,
   onMinutesChange,
@@ -111,8 +113,9 @@ export const QuestScreen: React.FC<QuestProps> = ({
   }
 
   const { steps, bonus, streak, profile, imposed_topic, dueReviewsCount } = quest;
+  if (modules.length === 0) return null;
   const currentModule =
-    MODULES_CATALOG.find((m) => m.id === profile.active_module_id) || MODULES_CATALOG[0];
+    modules.find((m) => m.id === profile.active_module_id) || modules[0];
 
   const getRankBadgeColor = (rank: string) => {
     switch (rank) {
@@ -197,7 +200,7 @@ export const QuestScreen: React.FC<QuestProps> = ({
 
         {showModuleDropdown && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-2xl z-30 space-y-1 animate-fade-in">
-            {MODULES_CATALOG.map((mod) => (
+            {modules.map((mod) => (
               <div
                 key={mod.id}
                 onClick={() => {
@@ -280,204 +283,6 @@ export const QuestScreen: React.FC<QuestProps> = ({
               Terminer
             </button>
           </div>
-        )}
-      </div>
-
-      {/* Hub d'Activités & Outils Avancés */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            Centre d'Entraînement Avancé
-          </span>
-          <span className="text-[10px] text-amber-400 font-mono">6 modes interactifs</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          {/* Ligne 1 */}
-          <button
-            onClick={onOpenWarRoom}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-rose-500/30 hover:border-rose-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-          >
-            <AlertTriangle className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold text-rose-200">War Room P1</span>
-            <span className="text-[9px] text-slate-400">Simulateur Crise</span>
-          </button>
-
-          <button
-            onClick={onOpenSkillTree}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-          >
-            <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold text-amber-200">Arbre Talents</span>
-            <span className="text-[9px] text-slate-400">RPG & Perks</span>
-          </button>
-
-          <button
-            onClick={onOpenGhostDuel}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-indigo-500/30 hover:border-indigo-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-          >
-            <Swords className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold text-indigo-200">Duels Ghost</span>
-            <span className="text-[9px] text-slate-400">Contre-la-montre</span>
-          </button>
-
-          {/* Ligne 2 */}
-          <button
-            onClick={onOpenCustomChallenge}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-          >
-            <Wand2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold text-emerald-200">Défis Sur-Mesure</span>
-            <span className="text-[9px] text-slate-400">Générateur TP</span>
-          </button>
-
-          <button
-            onClick={onOpenSoundtrack}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-teal-500/30 hover:border-teal-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-          >
-            <Volume2 className="w-4 h-4 text-teal-400 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold text-teal-200">Lo-Fi Serveurs</span>
-            <span className="text-[9px] text-slate-400">Ambiance & Feynman</span>
-          </button>
-
-          <button
-            onClick={onOpenSkillMatrix}
-            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-          >
-            <TrendingUp className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-            <span className="text-[11px] font-bold text-slate-200">Matrice Radar</span>
-            <span className="text-[9px] text-slate-400">6 Compétences</span>
-          </button>
-
-          {/* Ligne 3 : Nouvelles Extensions SRE & Communauté */}
-          {onOpenTechTree && (
-            <button
-              onClick={onOpenTechTree}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-sky-500/30 hover:border-sky-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <GitFork className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-sky-200">Arbre Tech OCI</span>
-              <span className="text-[9px] text-slate-400">Branches & Déblocages</span>
-            </button>
-          )}
-
-          {onOpenGuildLeagues && (
-            <button
-              onClick={onOpenGuildLeagues}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <Trophy className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-amber-200">Ligues & Guilde</span>
-              <span className="text-[9px] text-slate-400">Divisions & Coop SRE</span>
-            </button>
-          )}
-
-          {onOpenInterviewSimulator && (
-            <button
-              onClick={onOpenInterviewSimulator}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <Mic className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-purple-200">Oral SRE (90s)</span>
-              <span className="text-[9px] text-slate-400">Mots-clés & Méthode</span>
-            </button>
-          )}
-
-          {onOpenRunbookExport && (
-            <button
-              onClick={onOpenRunbookExport}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-blue-500/30 hover:border-blue-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <FileText className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-blue-200">Runbooks SOP</span>
-              <span className="text-[9px] text-slate-400">Export Markdown</span>
-            </button>
-          )}
-
-          {/* Ligne 4 : Excellence SRE & Personnalisation */}
-          {onOpenPostMortem && (
-            <button
-              onClick={onOpenPostMortem}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <FileText className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-amber-200">Post-Mortem SRE</span>
-              <span className="text-[9px] text-slate-400">5 Pourquoi & Blameless</span>
-            </button>
-          )}
-
-          {onOpenSloSimulator && (
-            <button
-              onClick={onOpenSloSimulator}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-cyan-500/30 hover:border-cyan-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <Activity className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-cyan-200">Simulateur SLO</span>
-              <span className="text-[9px] text-slate-400">Error Budget 99.9%</span>
-            </button>
-          )}
-
-          {onOpenChaosTopology && (
-            <button
-              onClick={onOpenChaosTopology}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-rose-500/30 hover:border-rose-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <Layers className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-rose-200">Chaos Topologie</span>
-              <span className="text-[9px] text-slate-400">Pannes & Résilience</span>
-            </button>
-          )}
-
-          {onOpenFeynmanChallenge && (
-            <button
-              onClick={onOpenFeynmanChallenge}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <Lightbulb className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-purple-200">Défi Feynman</span>
-              <span className="text-[9px] text-slate-400">Explique à un Junior</span>
-            </button>
-          )}
-
-          {onOpenThemeSelector && (
-            <button
-              onClick={onOpenThemeSelector}
-              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
-            >
-              <Palette className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-bold text-emerald-200">Thèmes Terminal</span>
-              <span className="text-[9px] text-slate-400">Dracula, Nord, Matrix</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Raccourcis Complémentaires : Podcast Trajet, Bac à sable & Prompt Claude Code */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <button
-          onClick={onOpenPodcast}
-          className="p-2.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
-        >
-          <Headphones className="w-4 h-4 text-orange-400" />
-          <span className="text-xs font-semibold text-slate-300">Mode Podcast (45s)</span>
-        </button>
-
-        <button
-          onClick={onOpenSandbox}
-          className="p-2.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
-        >
-          <Code className="w-4 h-4 text-emerald-400" />
-          <span className="text-xs font-semibold text-slate-300">Bac à Sable</span>
-        </button>
-
-        {onOpenClaudePrompt && (
-          <button
-            onClick={onOpenClaudePrompt}
-            className="p-2.5 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/40 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all group"
-          >
-            <Bot className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-cyan-200">Prompt Claude Code</span>
-          </button>
         )}
       </div>
 
@@ -673,6 +478,204 @@ export const QuestScreen: React.FC<QuestProps> = ({
           <Coffee className="w-3.5 h-3.5 text-amber-400" />
           <span>Annoncer repos</span>
         </button>
+      </div>
+
+      {/* Hub d'Activités & Outils Avancés */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Centre d'Entraînement Avancé
+          </span>
+          <span className="text-[10px] text-amber-400 font-mono">15 modes annexes</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {/* Ligne 1 */}
+          <button
+            onClick={onOpenWarRoom}
+            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-rose-500/30 hover:border-rose-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+          >
+            <AlertTriangle className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold text-rose-200">War Room P1</span>
+            <span className="text-[9px] text-slate-400">Simulateur Crise</span>
+          </button>
+
+          <button
+            onClick={onOpenSkillTree}
+            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+          >
+            <Sparkles className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold text-amber-200">Arbre Talents</span>
+            <span className="text-[9px] text-slate-400">RPG & Perks</span>
+          </button>
+
+          <button
+            onClick={onOpenGhostDuel}
+            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-indigo-500/30 hover:border-indigo-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+          >
+            <Swords className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold text-indigo-200">Duels Ghost</span>
+            <span className="text-[9px] text-slate-400">Contre-la-montre</span>
+          </button>
+
+          {/* Ligne 2 */}
+          <button
+            onClick={onOpenCustomChallenge}
+            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+          >
+            <Wand2 className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold text-emerald-200">Défis Sur-Mesure</span>
+            <span className="text-[9px] text-slate-400">Générateur TP</span>
+          </button>
+
+          <button
+            onClick={onOpenSoundtrack}
+            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-teal-500/30 hover:border-teal-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+          >
+            <Volume2 className="w-4 h-4 text-teal-400 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold text-teal-200">Lo-Fi Serveurs</span>
+            <span className="text-[9px] text-slate-400">Ambiance & Feynman</span>
+          </button>
+
+          <button
+            onClick={onOpenSkillMatrix}
+            className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+          >
+            <TrendingUp className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <span className="text-[11px] font-bold text-slate-200">Matrice Radar</span>
+            <span className="text-[9px] text-slate-400">6 Compétences</span>
+          </button>
+
+          {/* Ligne 3 : Nouvelles Extensions SRE & Communauté */}
+          {onOpenTechTree && (
+            <button
+              onClick={onOpenTechTree}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-sky-500/30 hover:border-sky-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <GitFork className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-sky-200">Arbre Tech OCI</span>
+              <span className="text-[9px] text-slate-400">Branches & Déblocages</span>
+            </button>
+          )}
+
+          {onOpenGuildLeagues && (
+            <button
+              onClick={onOpenGuildLeagues}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <Trophy className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-amber-200">Ligues & Guilde</span>
+              <span className="text-[9px] text-slate-400">Divisions & Coop SRE</span>
+            </button>
+          )}
+
+          {onOpenInterviewSimulator && (
+            <button
+              onClick={onOpenInterviewSimulator}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <Mic className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-purple-200">Oral SRE (90s)</span>
+              <span className="text-[9px] text-slate-400">Mots-clés & Méthode</span>
+            </button>
+          )}
+
+          {onOpenRunbookExport && (
+            <button
+              onClick={onOpenRunbookExport}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-blue-500/30 hover:border-blue-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <FileText className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-blue-200">Runbooks SOP</span>
+              <span className="text-[9px] text-slate-400">Export Markdown</span>
+            </button>
+          )}
+
+          {/* Ligne 4 : Excellence SRE & Personnalisation */}
+          {onOpenPostMortem && (
+            <button
+              onClick={onOpenPostMortem}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <FileText className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-amber-200">Post-Mortem SRE</span>
+              <span className="text-[9px] text-slate-400">5 Pourquoi & Blameless</span>
+            </button>
+          )}
+
+          {onOpenSloSimulator && (
+            <button
+              onClick={onOpenSloSimulator}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-cyan-500/30 hover:border-cyan-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <Activity className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-cyan-200">Simulateur SLO</span>
+              <span className="text-[9px] text-slate-400">Error Budget 99.9%</span>
+            </button>
+          )}
+
+          {onOpenChaosTopology && (
+            <button
+              onClick={onOpenChaosTopology}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-rose-500/30 hover:border-rose-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <Layers className="w-4 h-4 text-rose-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-rose-200">Chaos Topologie</span>
+              <span className="text-[9px] text-slate-400">Pannes & Résilience</span>
+            </button>
+          )}
+
+          {onOpenFeynmanChallenge && (
+            <button
+              onClick={onOpenFeynmanChallenge}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-purple-500/30 hover:border-purple-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <Lightbulb className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-purple-200">Défi Feynman</span>
+              <span className="text-[9px] text-slate-400">Explique à un Junior</span>
+            </button>
+          )}
+
+          {onOpenThemeSelector && (
+            <button
+              onClick={onOpenThemeSelector}
+              className="p-3 bg-slate-900/90 hover:bg-slate-800 border border-emerald-500/30 hover:border-emerald-500/60 rounded-2xl flex flex-col items-center gap-1 text-center cursor-pointer transition-all group"
+            >
+              <Palette className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+              <span className="text-[11px] font-bold text-emerald-200">Thèmes Terminal</span>
+              <span className="text-[9px] text-slate-400">Dracula, Nord, Matrix</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Raccourcis Complémentaires : Podcast Trajet, Bac à sable & Prompt Claude Code */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <button
+          onClick={onOpenPodcast}
+          className="p-2.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+        >
+          <Headphones className="w-4 h-4 text-orange-400" />
+          <span className="text-xs font-semibold text-slate-300">Mode Podcast (45s)</span>
+        </button>
+
+        <button
+          onClick={onOpenSandbox}
+          className="p-2.5 bg-slate-900/60 hover:bg-slate-800 border border-slate-800 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+        >
+          <Code className="w-4 h-4 text-emerald-400" />
+          <span className="text-xs font-semibold text-slate-300">Bac à Sable</span>
+        </button>
+
+        {onOpenClaudePrompt && (
+          <button
+            onClick={onOpenClaudePrompt}
+            className="p-2.5 bg-cyan-950/40 hover:bg-cyan-900/50 border border-cyan-500/40 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all group"
+          >
+            <Bot className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-semibold text-cyan-200">Prompt Claude Code</span>
+          </button>
+        )}
       </div>
 
       {/* Modal Sujet imposé */}

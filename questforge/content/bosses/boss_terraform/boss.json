@@ -1,0 +1,31 @@
+{
+  "id": "boss_terraform",
+  "title": "Le Gardien du State Terraform",
+  "description": "Un dépôt d'infrastructure négligé : configuration cassée, module sans contrat, secret exposé. Remettez-le en état dans votre espace de travail.",
+  "avatar": "🐉",
+  "color": "from-violet-500/20 to-indigo-950/40 border-violet-700/50",
+  "skill": "terraform",
+  "phases": [
+    {
+      "pattern_id": "config_invalide",
+      "label": "Phase 1 : la configuration de base est cassée",
+      "check": "phase1.sh",
+      "check_label": "Le dossier de travail contient un main.tf valide (terraform, provider local versionné, ressource local_file)",
+      "remedial_lesson_id": "tf1"
+    },
+    {
+      "pattern_id": "contrat_module",
+      "label": "Phase 2 : le module n'a pas de contrat clair",
+      "check": "phase2.sh",
+      "check_label": "variables.tf et outputs.tf typés et documentés, avec une variable obligatoire",
+      "remedial_lesson_id": "tf2"
+    },
+    {
+      "pattern_id": "secret_expose",
+      "label": "Phase 3 : un secret fuit dans le dépôt",
+      "check": "phase3.sh",
+      "check_label": "secure.tf avec variable sensitive sans valeur par défaut, aucun secret en dur, state exclu de Git",
+      "remedial_lesson_id": "tf3"
+    }
+  ]
+}

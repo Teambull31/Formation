@@ -361,3 +361,80 @@ def test_gitignore_matcher(hcl):
     assert hcl.is_ignored(rules, ".terraform/providers/x")
     assert not hcl.is_ignored(rules, "keep.tfstate")
     assert not hcl.is_ignored(rules, "main.tf")
+
+
+# --- Boss : Le Gardien du State Terraform ------------------------------------
+
+CONTENT = MODULE.parents[1]
+
+
+@pytest.fixture
+def boss_env(tmp_path):
+    import shutil
+
+    from starlette.testclient import TestClient
+
+    from app.main import create_app
+
+    content = tmp_path / "content"
+    shutil.copytree(CONTENT / "modules" / "terraform", content / "modules" / "terraform")
+    shutil.copytree(CONTENT / "bosses" / "boss_terraform", content / "bosses" / "boss_terraform")
+    shutil.copy(CONTENT / "gacha.json", content / "gacha.json")
+    workspace = tmp_path / "workspace"
+    app = create_app(db_path=str(tmp_path / "boss.db"), content_dir=content, workspace=workspace)
+    return TestClient(app, client=("127.0.0.1", 50000)), workspace
+
+
+def write_solutions(workspace, *lesson_ids):
+    workspace.mkdir(parents=True, exist_ok=True)
+    for lid in lesson_ids:
+        for name, content in SOLUTIONS[lid].items():
+            (workspace / name).write_text(content, encoding="utf-8")
+
+
+def test_boss_is_listed_without_leaking_check_commands(boss_env):
+    client, _ = boss_env
+    bosses = client.get("/api/bosses").json()
+    assert [b["id"] for b in bosses] == ["boss_terraform"]
+    for phase in bosses[0]["phases"]:
+        assert not phase["check"].endswith(".sh")
+        assert phase["remedial_lesson_id"] in {"tf1", "tf2", "tf3"}
+    assert "skill" not in bosses[0]
+    assert client.get("/api/boss?id=boss_terraform").json()["boss"]["id"] == "boss_terraform"
+
+
+@pytest.mark.parametrize(
+    "solved, phase, pattern, remedial",
+    [
+        ((), 1, "config_invalide", "tf1"),
+        (("tf1",), 2, "contrat_module", "tf2"),
+        (("tf1", "tf2"), 3, "secret_expose", "tf3"),
+    ],
+)
+def test_boss_stops_at_the_first_unmet_phase(boss_env, solved, phase, pattern, remedial):
+    client, workspace = boss_env
+    write_solutions(workspace, *solved)
+    res = client.post("/api/boss/attempt", json={"boss_id": "boss_terraform"}).json()
+    assert res["won"] is False
+    assert (res["phase_reached"], res["failed_pattern"], res["remedial_lesson_id"]) == (phase, pattern, remedial)
+    assert res["xpAwarded"] == 0 and res["tokensAwarded"] == 0
+
+
+def test_boss_cannot_be_won_without_doing_the_work(boss_env):
+    client, _ = boss_env
+    results = [client.post("/api/boss/attempt", json={"boss_id": "boss_terraform"}).json()["won"] for _ in range(5)]
+    assert results == [False] * 5
+
+
+def test_boss_victory_rewards_only_the_first_time(boss_env):
+    client, workspace = boss_env
+    write_solutions(workspace, "tf1", "tf2", "tf3")
+    first = client.post("/api/boss/attempt", json={"boss_id": "boss_terraform"}).json()
+    assert first["won"] is True
+    assert (first["xpAwarded"], first["tokensAwarded"]) == (150, 1)
+    second = client.post("/api/boss/attempt", json={"boss_id": "boss_terraform"}).json()
+    assert second["won"] is True
+    assert (second["xpAwarded"], second["tokensAwarded"]) == (0, 0)
+    team = client.get("/api/team").json()["profile"]
+    assert team["tokens"] == 1 and team["skills"]["terraform"] == 150
+    assert client.get("/api/boss?id=boss_terraform").json()["attempts_count"] == 2

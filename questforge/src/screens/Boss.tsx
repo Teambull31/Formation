@@ -30,6 +30,7 @@ export const BossScreen: React.FC<BossProps> = ({
   onRefresh,
   onSelectLesson,
 }) => {
+  const [bosses, setBosses] = useState<BossEntity[]>(ALL_BOSSES);
   const [selectedBossId, setSelectedBossId] = useState<string>('boss_k8s');
   const [currentBossData, setCurrentBossData] = useState<BossData | null>(bossData);
   const [internalLoading, setInternalLoading] = useState(false);
@@ -52,6 +53,19 @@ export const BossScreen: React.FC<BossProps> = ({
     }
     return () => clearInterval(timer);
   }, [timerRunning, timeLeft]);
+
+  // La liste des boss vient du backend (vrais combats) ; sans backend, la démo simulée.
+  useEffect(() => {
+    api
+      .getBosses()
+      .then((list) => {
+        if (list.length === 0) return;
+        setBosses(list);
+        if (!list.some((b) => b.id === selectedBossId)) loadSpecificBoss(list[0].id);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadSpecificBoss = async (bId: string) => {
     setInternalLoading(true);
@@ -103,7 +117,7 @@ export const BossScreen: React.FC<BossProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const activeBoss = currentBossData?.boss || ALL_BOSSES[0];
+  const activeBoss = currentBossData?.boss || bosses[0];
   const attempts = currentBossData?.attempts_count || 0;
   const history = currentBossData?.history || [];
 
@@ -114,8 +128,8 @@ export const BossScreen: React.FC<BossProps> = ({
         <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
           <Skull className="w-4 h-4 text-rose-500" /> Bestiaire des Pannes Majeures (Sélectionner le Boss) :
         </span>
-        <div className="grid grid-cols-3 gap-2">
-          {ALL_BOSSES.map((b) => (
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(3, bosses.length)}, minmax(0, 1fr))` }}>
+          {bosses.map((b) => (
             <button
               key={b.id}
               onClick={() => loadSpecificBoss(b.id)}
@@ -163,7 +177,7 @@ export const BossScreen: React.FC<BossProps> = ({
             <Clock className={`w-4 h-4 ${crisisMode ? 'text-rose-400 animate-pulse' : 'text-slate-400'}`} />
             <div>
               <span className="text-xs font-bold text-slate-200 block">Mode Astreinte sous tension</span>
-              <span className="text-[10px] text-slate-400 block">Chronomètre 5 min (+100 XP & 1 jeton si réussi)</span>
+              <span className="text-[10px] text-slate-400 block">Chronomètre 5 min · première victoire : +150 XP & 1 jeton</span>
             </div>
           </div>
 
