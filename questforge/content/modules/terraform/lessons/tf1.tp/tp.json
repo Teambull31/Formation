@@ -1,7 +1,7 @@
 {
   "id": "tf1_tp",
   "title": "Écrire votre première configuration Terraform",
-  "instructions_md": "Dans votre espace de travail, créez un fichier `main.tf` qui contient :\n\n1. Un bloc `terraform` avec `required_version` et un bloc `required_providers` déclarant le provider `local` (source `hashicorp/local`) avec une contrainte de version.\n2. Une ressource `local_file` nommée `hello`, avec les attributs `filename` et `content`.\n\nAucun accès réseau n'est requis : la vérification analyse uniquement votre fichier. Si le binaire `terraform` est installé, `terraform fmt -check` sera aussi appliqué.",
+  "instructions_md": "Dans votre espace de travail, créez un fichier `main.tf` qui contient :\n\n1. Un bloc `terraform` avec `required_version` et un bloc `required_providers` déclarant le provider `local` (source `hashicorp/local`) avec une contrainte de version.\n2. Une ressource `local_file` nommée `hello`, avec les attributs `filename` et `content`.\n\nAucun accès réseau n'est requis : la vérification analyse uniquement votre fichier. Si le binaire `terraform` est installé, un conseil de formatage (`terraform fmt`) s'affichera sans bloquer la validation.",
   "check": "check.sh",
   "hints": [
     "Commencez par le bloc terraform { ... } : il contient required_version et, à l'intérieur, required_providers { local = { ... } }.",
