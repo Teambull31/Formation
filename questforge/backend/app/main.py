@@ -20,12 +20,13 @@ from app.quests import (
     announce_rest,
     set_imposed_topic,
     current_streak,
+    activity_history,
 )
-from app.review import record_answer, due_reviews
+from app.review import record_answer, due_reviews, weak_notions, box_counts, REVIEW_XP
 from app.llm import hint as get_llm_hint, explain_error as get_llm_explain
 from app.tp import run_check
 from app.terminal import register_terminal, is_local
-from app.gacha import pull, NoTokens
+from app.gacha import pull, add_tokens, NoTokens
 from app.boss import attempt_boss, count_attempts
 from app.audio import synthesize
 from app.weekly import build_brief, import_module
@@ -207,7 +208,10 @@ def create_app(
                 "rank": profile.rank,
                 "skills": profile.skills,
                 "tokens": profile.tokens,
+                "active_module_id": default_mod.id,
             },
+            "dueReviewsCount": len(due_reviews(db, today)),
+            "activityHistory": activity_history(db, today),
         }
 
     @app.post("/api/quest/step")
@@ -219,7 +223,20 @@ def create_app(
             raise HTTPException(status_code=404, detail="Leçon introuvable")
         skill = found[1].skill
         newly_awarded = complete_step(db, today, payload.kind, payload.lesson_id, skill=skill)
-        return {"ok": True, "alreadyCompleted": not newly_awarded}
+
+        # Jeton de gacha : une fois, quand la dernière étape requise de la leçon est validée.
+        tokens_awarded = 0
+        if newly_awarded:
+            lesson = found[0]
+            required = {"lesson", "qcm"} | ({"tp"} if lesson.tp else set())
+            done = {
+                r["kind"]
+                for r in db.execute("SELECT kind FROM quest_steps WHERE lesson_id = ?", (lesson.id,))
+            }
+            if payload.kind in required and required <= done:
+                add_tokens(db, 1)
+                tokens_awarded = 1
+        return {"ok": True, "alreadyCompleted": not newly_awarded, "tokensAwarded": tokens_awarded}
 
     @app.post("/api/rest")
     def post_rest(db=Depends(get_db)):
@@ -305,14 +322,18 @@ def create_app(
         found = find_question(payload.question_id)
         if not found:
             raise HTTPException(status_code=404, detail="Question introuvable")
-        q, _, _ = found
+        q, _, mod = found
 
         if not 0 <= payload.chosen < len(q.options):
             raise HTTPException(status_code=422, detail="Option de réponse invalide")
 
         today = date.today()
         correct = (payload.chosen == q.answer)
-        record_answer(db, q.id, correct, today)
+        review_success = record_answer(db, q.id, correct, today)
+        xp_awarded = 0
+        if review_success:
+            award_xp(db, mod.skill, REVIEW_XP)
+            xp_awarded = REVIEW_XP
 
         if correct:
             explanation = q.explain
@@ -323,12 +344,14 @@ def create_app(
             "correct": correct,
             "explanation": explanation,
             "remedial_lesson_id": q.remedial_lesson_id,
+            "xpAwarded": xp_awarded,
         }
 
     @app.get("/api/reviews")
     def get_reviews(db=Depends(get_db)):
         today = date.today()
         due_ids = due_reviews(db, today)
+        boxes = {r["question_id"]: r["box"] for r in db.execute("SELECT question_id, box FROM mistakes")}
         reviews = []
         for qid in due_ids:
             found = find_question(qid)
@@ -340,8 +363,10 @@ def create_app(
                     "options": q.options,
                     "lesson_id": les.id,
                     "module_title": mod.title,
+                    "remedial_lesson_id": q.remedial_lesson_id,
+                    "box": boxes.get(qid, 0),
                 })
-        return {"due": due_ids, "reviews": reviews}
+        return {"due": due_ids, "reviews": reviews, "boxesCount": box_counts(db)}
 
     # TP routes
     @app.get("/api/tp/{tp_id}/hint")
@@ -439,8 +464,7 @@ def create_app(
     @app.post("/api/weekly/brief")
     def post_weekly_brief(payload: BriefRequest, db=Depends(get_db)):
         profile = get_profile(db)
-        today = date.today()
-        weak_ids = due_reviews(db, today)
+        weak_ids = weak_notions(db)
         brief_text = build_brief(profile, payload.topic, payload.format, weak_ids)
         return {"brief": brief_text}
 

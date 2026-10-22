@@ -176,3 +176,64 @@ def test_connection_is_usable_from_another_thread(tmp_path):
     with ThreadPoolExecutor(max_workers=1) as pool:
         assert pool.submit(lambda: conn.execute("SELECT 1").fetchone()[0]).result() == 1
     conn.close()
+
+
+def test_quest_exposes_real_activity_history_and_due_reviews(client):
+    client.post("/api/quest/step", json={"kind": "lesson", "lesson_id": "l1"})
+    client.post("/api/rest")
+    data = client.get("/api/quest").json()
+    history = data["activityHistory"]
+    assert len(history) == 28
+    assert history[-1]["count"] == 1
+    # le repos annoncé aujourd'hui prime sur l'activité du jour
+    assert history[-1]["status"] == "rest"
+    assert all(day["status"] == "idle" for day in history[:-1])
+    assert data["dueReviewsCount"] == 0
+    assert data["profile"]["active_module_id"] == "demo"
+
+
+def test_completing_all_steps_of_a_lesson_awards_one_token(client):
+    def step(kind):
+        return client.post("/api/quest/step", json={"kind": kind, "lesson_id": "l1"}).json()
+
+    assert step("lesson")["tokensAwarded"] == 0
+    assert step("qcm")["tokensAwarded"] == 0
+    assert step("tp")["tokensAwarded"] == 1
+    # rejouer une étape ne redonne ni XP ni jeton
+    assert step("tp") == {"ok": True, "alreadyCompleted": True, "tokensAwarded": 0}
+    assert client.get("/api/team").json()["profile"]["tokens"] == 1
+    assert client.post("/api/gacha/pull").status_code == 200
+    assert client.get("/api/team").json()["profile"]["tokens"] == 0
+
+
+def test_weekly_brief_mentions_a_mistake_made_today(client):
+    client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 0})
+    brief = client.post("/api/weekly/brief", json={"topic": "Terraform", "format": "TP guidé"}).json()["brief"]
+    assert "q1" in brief
+
+
+def test_due_review_answered_correctly_awards_xp_once(client, app_env):
+    from datetime import date, timedelta
+    _, db_path, _ = app_env
+    client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 0})  # erreur : due demain
+    db = connect(db_path)
+    db.execute("UPDATE mistakes SET next_review = ? WHERE question_id = 'q1'", ((date.today() - timedelta(days=1)).isoformat(),))
+    db.commit()
+
+    due = client.get("/api/reviews").json()
+    assert due["due"] == ["q1"]
+    assert due["boxesCount"] == [1, 0, 0, 0, 0]
+    review = due["reviews"][0]
+    assert review["box"] == 0 and review["remedial_lesson_id"] == "l1"
+    assert "answer" not in review
+
+    res = client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1}).json()
+    assert res["correct"] is True and res["xpAwarded"] == 15
+    again = client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1}).json()
+    assert again["xpAwarded"] == 0
+    assert get_profile(connect(db_path)).total_xp == 15
+
+
+def test_first_correct_answer_awards_no_review_xp(client):
+    res = client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1}).json()
+    assert res["correct"] is True and res["xpAwarded"] == 0

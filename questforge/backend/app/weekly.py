@@ -1,9 +1,15 @@
 from __future__ import annotations
+import math
 import shutil
 import tempfile
 from pathlib import Path
 from app.content import load_module
 from app.progress import Profile
+
+
+def skill_level(xp: int) -> int:
+    """Même formule que l'écran Équipe : niveau = floor(sqrt(xp / 50)) + 1."""
+    return int(math.sqrt(max(0, xp) / 50)) + 1
 
 
 def build_brief(
@@ -12,7 +18,11 @@ def build_brief(
     fmt: str,
     weak_questions: list[str],
 ) -> str:
-    skills_summary = ", ".join(f"{s}: niveau {lvl}" for s, lvl in profile.skills.items()) if profile.skills else "Débutant"
+    skills_summary = (
+        ", ".join(f"{s}: niveau {skill_level(xp)} ({xp} XP)" for s, xp in profile.skills.items())
+        if profile.skills
+        else "Débutant"
+    )
     weak_summary = ", ".join(weak_questions) if weak_questions else "Aucune faiblesse signalée"
 
     return f"""# Brief de génération de module pour Claude Code

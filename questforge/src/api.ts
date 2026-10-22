@@ -1722,6 +1722,40 @@ function saveLocalState(state: any) {
   } catch {}
 }
 
+// Le backend FastAPI ne fournit qu'une partie des données attendues par l'interface :
+// on complète le reste avec des valeurs neutres plutôt que de laisser un écran planter.
+function withProfileDefaults(profile: any): Profile {
+  return {
+    active_theme: 'default',
+    active_module_id: 'demo',
+    achievements: INITIAL_ACHIEVEMENTS,
+    ...profile,
+  };
+}
+
+function withBackendDefaults(pathname: string, data: any): any {
+  if (pathname === '/api/quest') {
+    return {
+      ...data,
+      dueReviewsCount: data.dueReviewsCount ?? 0,
+      activityHistory: data.activityHistory ?? [],
+      profile: withProfileDefaults(data.profile),
+    };
+  }
+  if (pathname === '/api/team') {
+    return {
+      ...data,
+      inventory: data.inventory ?? [],
+      profile: withProfileDefaults(data.profile),
+    };
+  }
+  if (pathname === '/api/reviews') {
+    // Le backend renvoie `due` (identifiants) et `reviews` (questions) ; l'interface attend les questions dans `due`.
+    return { ...data, due: data.reviews ?? data.due, boxesCount: data.boxesCount ?? [0, 0, 0, 0, 0] };
+  }
+  return data;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
@@ -1734,7 +1768,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     });
 
     if (res.ok) {
-      return await res.json();
+      const data = await res.json();
+      return withBackendDefaults(new URL(path, 'http://localhost').pathname, data) as T;
     }
 
     let errorData: any = {};
@@ -1913,6 +1948,7 @@ function executeFallback<T>(path: string, options?: RequestInit): T {
     } else if (state.leitner_mistakes[body.question_id]) {
       const curBox = state.leitner_mistakes[body.question_id].box;
       state.leitner_mistakes[body.question_id].box = Math.min(4, curBox + 1);
+      state.total_xp += 15; // révision réussie (même règle que le backend)
     }
     saveLocalState(state);
 

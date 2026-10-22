@@ -34,6 +34,7 @@ export const LeitnerArena: React.FC<LeitnerArenaProps> = ({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [explanation, setExplanation] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sessionCompleted, setSessionCompleted] = useState(false);
 
@@ -60,18 +61,18 @@ export const LeitnerArena: React.FC<LeitnerArenaProps> = ({
     if (selectedOption === null || !currentQ) return;
     setSubmitting(true);
 
-    const correct = selectedOption === 1; // standard demo correct option index
-    setIsCorrect(correct);
-    setIsAnswered(true);
-
     try {
-      await api.answerReview(currentQ.id, correct);
-      if (correct) {
+      // Le verdict vient du serveur : l'interface ne connaît pas la bonne réponse.
+      const res = await api.answerQcm(currentQ.id, selectedOption);
+      setIsCorrect(res.correct);
+      setExplanation(res.explanation || currentQ.explain || '');
+      setIsAnswered(true);
+      if (res.correct) {
         confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
       }
       onRefreshQuest();
-    } catch {
-      // Ignored
+    } catch (err: any) {
+      alert(err?.message || 'Erreur lors de la validation de la réponse');
     } finally {
       setSubmitting(false);
     }
@@ -229,7 +230,7 @@ export const LeitnerArena: React.FC<LeitnerArenaProps> = ({
                       </>
                     )}
                   </div>
-                  <p>{currentQ.explain}</p>
+                  <p>{explanation}</p>
 
                   <div className="flex justify-between items-center pt-2 border-t border-slate-800">
                     {currentQ.remedial_lesson_id && (

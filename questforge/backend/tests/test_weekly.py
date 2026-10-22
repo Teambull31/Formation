@@ -42,3 +42,16 @@ def test_import_broken_module_creates_nothing(tmp_path):
         import_module(broken_src, dest_root)
 
     assert list(dest_root.iterdir()) == []
+
+
+def test_brief_shows_level_and_xp_for_each_skill(profile):
+    b = build_brief(profile, "Terraform", "TP guidé", [])
+    # 120 XP -> niveau 2 ; 80 XP -> niveau 2 (floor(sqrt(xp / 50)) + 1)
+    assert "automation: niveau 2 (120 XP)" in b
+    assert "docker: niveau 2 (80 XP)" in b
+
+
+def test_skill_level_matches_team_screen_formula():
+    from app.weekly import skill_level
+
+    assert [skill_level(x) for x in (0, 49, 50, 199, 200, 450)] == [1, 1, 2, 2, 3, 4]

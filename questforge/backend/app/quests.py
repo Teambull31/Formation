@@ -158,6 +158,26 @@ def set_imposed_topic(db: sqlite3.Connection, topic: str | None) -> None:
     db.commit()
 
 
+def activity_history(db: sqlite3.Connection, today: date, days: int = 28) -> list[dict]:
+    """Activité réelle des `days` derniers jours (étapes validées, jours de repos)."""
+    steps_by_day = {
+        r["day"]: r["n"] for r in db.execute("SELECT day, COUNT(*) AS n FROM quest_steps GROUP BY day")
+    }
+    active = {r["day"] for r in db.execute("SELECT day FROM activity_days")}
+    rest = {r["day"] for r in db.execute("SELECT day FROM rest_days")}
+    history = []
+    for offset in range(days - 1, -1, -1):
+        day = (today - timedelta(days=offset)).isoformat()
+        if day in rest:
+            status = "rest"
+        elif day in active or steps_by_day.get(day):
+            status = "active"
+        else:
+            status = "idle"
+        history.append({"date": day, "count": steps_by_day.get(day, 0), "status": status})
+    return history
+
+
 def current_streak(db: sqlite3.Connection, today: date) -> int:
     act_rows = db.execute("SELECT day FROM activity_days").fetchall()
     if not act_rows:
