@@ -7,14 +7,16 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; pkill -P $$ 2>/dev/null' EXIT
-TP="$TP" TMP="$TMP" timeout 55 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" timeout 55 python3 -I -B - <<'PY'
 import json, os, random, re, string, subprocess, sys, threading
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(TP, "kit"))
+REF_KIT = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "..", "kit"))  # simulateurs de référence, jamais ceux de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "_starters"))
+sys.path.insert(0, REF_KIT)
 import mock_ollama
 
 MARKER = "--- MAIL ---"
@@ -346,7 +348,7 @@ for p in stub.prompts:
         fail(f"délimiteur forgé : prompt de {len(p)} caractères ; découpez toujours le corps.")
 
 # ===== 5. mock_ollama en mode obey : hostile.json du kit, puis jeux générés =====
-fixture = os.path.join(TP, "kit", "fixtures", "hostile.json")
+fixture = os.path.join(REF_KIT, "fixtures", "hostile.json")
 with open(fixture, encoding="utf-8") as f:
     hostile_fix = sorted(json.load(f), key=lambda m: m["received"], reverse=True)  # ordre de la source du kit
 with mock_ollama.serve(port=0, mode="obey") as srv:

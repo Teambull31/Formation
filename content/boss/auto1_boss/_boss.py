@@ -304,7 +304,7 @@ def phase3():
         url = stub.url if stub else dead_url()
         _, secs = run(d, write_src(d, mails), url, otimeout=otimeout, limit=25)
         if secs > 20:
-            fail(f"Ollama en {name} : {secs:.0f} s pour le digest (il faut moins de 30 s, avec un seul essai).")
+            fail(f"Ollama en {name} : {secs:.0f} s pour le digest (il faut moins de 20 s, avec un seul essai).")
         if stub and stub.hits > 1:
             fail(f"Ollama en {name} : {stub.hits} tentatives de connexion, il n'en faut qu'une (pas un essai par mail).")
         _, rows = read_md(d)

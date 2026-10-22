@@ -7,7 +7,7 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; pkill -P $$ 2>/dev/null' EXIT
-TP="$TP" TMP="$TMP" timeout 55 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" timeout 55 python3 -I -B - <<'PY'
 import json, os, random, re, socket, stat, string, subprocess, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 

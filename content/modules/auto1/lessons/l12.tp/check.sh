@@ -7,15 +7,17 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; pkill -P $$ 2>/dev/null' EXIT
-TP="$TP" TMP="$TMP" LESSON_DIR="$LESSON_DIR" timeout 58 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" LESSON_DIR="$LESSON_DIR" timeout 58 python3 -I -B - <<'PY'
 import datetime as dt, hashlib, json, os, random, re, socket, string, subprocess, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-KIT = os.path.join(TP, "kit")
-sys.path.insert(0, KIT)
-sys.path.insert(0, TP)
+REF_KIT = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "..", "kit"))  # simulateurs de référence, jamais ceux de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "_starters"))
+KIT = REF_KIT
+sys.path.insert(0, REF_KIT)
+sys.path.insert(0, REF_DIGEST)
 import mock_ollama
 rnd = random.Random()
 

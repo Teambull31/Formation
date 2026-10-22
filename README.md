@@ -30,20 +30,15 @@ Variables d'environnement optionnelles (par défaut sous `~/.formation`) :
 
 - `FORMATION_DB` : base SQLite (défaut `~/.formation/formation.db`)
 - `FORMATION_WORKSPACE` : répertoire de travail des TP et du terminal (défaut `~/.formation/workspace`)
-- `FORMATION_CONTENT` : contenu (défaut `content/` du dépôt, qui ne contient que `gacha.json`)
+- `FORMATION_CONTENT` : contenu (défaut `content/` du dépôt : module auto1 et son boss)
 
-Sans module dans `<FORMATION_CONTENT>/modules/`, la quête est vide : importez un module (voir « Rituel du dimanche ») ou copiez `backend/tests/fixtures/demo_module` dans `<FORMATION_CONTENT>/modules/demo`.
+Le module auto1 se charge par défaut. Avec un `FORMATION_CONTENT` sans module, la quête est vide : importez un module (voir « Rituel du dimanche ») ou copiez `backend/tests/fixtures/demo_module` dans `<FORMATION_CONTENT>/modules/demo`.
 
 ## Module 1 : Automatisation et agents IA
 
-Disponible dans `content/modules/auto1` (12 leçons, boss `auto1_boss`). Pour le charger :
+Disponible dans `content/modules/auto1` (12 leçons, boss `auto1_boss`). Il se charge par défaut avec la commande de lancement ci-dessus (contenu = `content/` du dépôt).
 
-```bash
-cd backend
-FORMATION_CONTENT=../content uv run uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000
-```
-
-Parcours et mode d'emploi : `content/modules/auto1/README.md`. Non vérifié en réel : essai Outlook perso, Ollama réel `qwen3:14b` (délais à froid, texte de raisonnement cassant le JSON), téléphone, inscription d'application Microsoft/Google (tout est validé contre des faux serveurs).
+Parcours et mode d'emploi : `content/modules/auto1/README.md`. Non vérifié en réel : essai Outlook perso, Ollama réel (le kit envoie `think: false` ; modèle choisi par `OLLAMA_MODEL`, défaut `qwen3:14b` ; un modèle à froid peut dépasser 60 s, voir `OLLAMA_TIMEOUT`), téléphone, inscription d'application Microsoft/Google (tout est validé contre des faux serveurs).
 
 ## Accès téléphone
 

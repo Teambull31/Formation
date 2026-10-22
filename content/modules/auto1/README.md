@@ -15,8 +15,8 @@ Le boss (3 phases : injection, idempotence, résilience quand Ollama est en pann
 ## Prérequis
 
 - Linux/macOS avec bash, Python 3.12+ (la bibliothèque standard suffit pour les TP).
-- L'appli de formation lancée (voir le README racine) avec `FORMATION_CONTENT=./content`.
-- Optionnel : Ollama avec `qwen3:14b` pour les indices et explications d'erreurs. Les TP utilisent des faux serveurs locaux (Graph, Gmail, Ollama), donc Ollama réel n'est pas requis pour valider un TP.
+- L'appli de formation lancée (voir le README racine) : le module auto1 se charge par défaut depuis le `content/` du dépôt. Si vous définissez `FORMATION_CONTENT`, depuis `backend/` utilisez `../content`.
+- Optionnel : Ollama (modèle par défaut `qwen3:14b`, changez-le avec `OLLAMA_MODEL`) pour les indices et explications d'erreurs. Les TP utilisent des faux serveurs locaux (Graph, Gmail, Ollama), donc Ollama réel n'est pas requis pour valider un TP.
 
 ## Le kit (`kit/`)
 
@@ -37,6 +37,6 @@ Copié dans votre espace de travail par les TP : `mail_source.py` (interface), `
 Le module est validé de bout en bout contre des faux serveurs. Ces points n'ont **pas** été vérifiés en réel :
 
 - un vrai essai Outlook perso (inscription d'application, consentement, jeton) ;
-- Ollama réel avec `qwen3:14b` (délais à froid, texte de raisonnement qui casse l'analyse du JSON) ;
+- Ollama réel avec d'autres modèles que ceux essayés : le kit envoie `think: false` et lit `OLLAMA_MODEL`, mais un modèle froid peut mettre plus de 60 s (réchauffez-le d'abord ou augmentez `OLLAMA_TIMEOUT`) ;
 - l'usage sur téléphone (terminal, vérification et boss sont réservés au PC) ;
 - une vraie inscription d'application Microsoft ou Google.

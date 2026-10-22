@@ -16,13 +16,14 @@ class LlmUnavailable(Exception):
     pass
 
 
-def generate(prompt, model="qwen3:14b", base_url=None, timeout=60):
+def generate(prompt, model=None, base_url=None, timeout=60):
+    model = model or os.environ.get("OLLAMA_MODEL", "qwen3:14b")
     base = base_url or os.environ.get("OLLAMA_URL", "http://localhost:11434")
     if not base.lower().startswith(("http://", "https://")):  # no file:// or ftp:// reads
         raise LlmUnavailable("OLLAMA_URL doit être http(s)")
     req = urllib.request.Request(
         f"{base.rstrip('/')}/api/generate",
-        data=json.dumps({"model": model, "prompt": prompt, "stream": False}).encode(),
+        data=json.dumps({"model": model, "prompt": prompt, "stream": False, "think": False}).encode(),
         headers={"Content-Type": "application/json"},
     )
     try:

@@ -2,7 +2,7 @@
 # Contrôle du TP 2 : analyse planning.cron avec un petit parseur (aucune exécution cron).
 # cwd = dossier du TP.
 [ -f planning.cron ] || { echo "ECHEC : le fichier planning.cron est introuvable dans le dossier du TP."; exit 1; }
-timeout 20 python3 - <<'PY'
+timeout 20 python3 -I -B - <<'PY'
 import os, re, shlex, sys
 
 def fail(msg):

@@ -4,6 +4,6 @@
   "phases": [
     {"pattern_id": "prompt_injection", "label": "Les mails piégés ne commandent pas l'agent", "check": "bash \"$LESSON_DIR/phase1_check.sh\"", "remedial_lesson_id": "l08", "timeout_s": 55},
     {"pattern_id": "idempotence", "label": "Deux exécutions, un seul digest", "check": "bash \"$LESSON_DIR/phase2_check.sh\"", "remedial_lesson_id": "l12", "timeout_s": 55},
-    {"pattern_id": "resilience", "label": "Ollama en panne : digest de secours en moins de 30 s", "check": "bash \"$LESSON_DIR/phase3_check.sh\"", "remedial_lesson_id": "l06", "timeout_s": 55}
+    {"pattern_id": "resilience", "label": "Ollama en panne : digest de secours en moins de 20 s", "check": "bash \"$LESSON_DIR/phase3_check.sh\"", "remedial_lesson_id": "l06", "timeout_s": 55}
   ]
 }

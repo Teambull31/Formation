@@ -5,7 +5,7 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-TP="$TP" TMP="$TMP" timeout 40 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" timeout 40 python3 -I -B - <<'PY'
 import hashlib, json, os, random, subprocess, sys
 from datetime import datetime, timedelta
 

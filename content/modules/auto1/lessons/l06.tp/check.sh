@@ -7,12 +7,14 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; pkill -P $$ 2>/dev/null' EXIT
-TP="$TP" TMP="$TMP" timeout 50 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" timeout 50 python3 -I -B - <<'PY'
 import os, random, socket, string, subprocess, sys, time
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(TP, "kit"))
+REF_KIT = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "..", "kit"))  # simulateurs de référence, jamais ceux de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "_starters"))
+sys.path.insert(0, REF_KIT)
 import mock_ollama
 mock_ollama.SLOW_SECONDS = 3.6  # juste au-dessus de 3 s : un timeout de 4 s laisserait passer la réponse tardive
 

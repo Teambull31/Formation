@@ -7,7 +7,7 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; pkill -P $$ 2>/dev/null' EXIT
-TP="$TP" TMP="$TMP" timeout 55 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" timeout 55 python3 -I -B - <<'PY'
 import json, mailbox, os, random, re, socket, string, subprocess, sys, threading, time
 from email.message import EmailMessage
 from email.utils import format_datetime
@@ -16,7 +16,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(TP, "kit"))
+REF_KIT = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "..", "kit"))  # simulateurs de référence, jamais ceux de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "_starters"))
+sys.path.insert(0, REF_KIT)
 import mock_ollama
 
 MARKER = "--- MAIL ---"

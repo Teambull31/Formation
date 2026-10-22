@@ -394,3 +394,16 @@ def test_selftest_boss_failures(tmp_path):
         {"pattern_id": "p", "label": "L", "check": "test -f a.txt"}]}))
     (b / "phase1_solution.sh").write_text("true\n")  # does not satisfy the check
     assert any("après sa solution" in e for e in check_boss(b, tmp_path / 'w2'))
+
+
+@pytest.mark.parametrize("lid,target", [("l03", "client.py"), ("l08", "digest.py"), ("l12", "quotidien.py")])
+def test_check_immune_to_shadowed_stdlib(lid, target, tmp_path):
+    """A learner-dropped subprocess.py must not make a check pass (python -I)."""
+    lesson = CONTENT / "modules" / "auto1" / "lessons" / f"{lid}.tp"
+    for n in (target, "digest.py"):
+        (tmp_path / n).write_text("")
+    (tmp_path / "subprocess.py").write_text("raise SystemExit(0)\n")
+    subprocess.run(["cp", "-r", str(KIT), str(tmp_path / "kit")], check=True)
+    p = subprocess.run(["bash", str(lesson / "check.sh")], cwd=tmp_path, env={**os.environ, "LESSON_DIR": str(lesson)},
+                       capture_output=True, text=True, timeout=60)
+    assert p.returncode != 0 and "ECHEC" in p.stdout

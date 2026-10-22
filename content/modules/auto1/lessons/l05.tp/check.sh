@@ -7,7 +7,7 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-TP="$TP" TMP="$TMP" timeout 50 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" timeout 50 python3 -I -B - <<'PY'
 import json, mailbox, os, random, subprocess, sys
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
@@ -15,7 +15,9 @@ from email.utils import format_datetime
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(TP, "kit"))
+REF_KIT = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "..", "kit"))  # simulateurs de référence, jamais ceux de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "_starters"))
+sys.path.insert(0, REF_KIT)
 import mail_source
 
 def fail(msg):
@@ -95,7 +97,7 @@ for source in ("json", "mbox"):
              "sans relire lui-même le fichier ni coder la sortie.")
 
 # ---- 1. fixtures du kit : attendu calculé avec les sources du kit ----
-fx = os.path.join(TP, "kit", "fixtures")
+fx = os.path.join(REF_KIT, "fixtures")
 for source, name, cls in (("json", "mails.json", mail_source.JsonMailSource),
                           ("mbox", "inbox.mbox", mail_source.MboxMailSource)):
     want = [f"{m.sender} | {m.subject}" for m in cls(os.path.join(fx, name)).fetch(limit=5)]

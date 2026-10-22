@@ -7,15 +7,17 @@
 TP="$PWD"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"; pkill -P $$ 2>/dev/null' EXIT
-TP="$TP" TMP="$TMP" LESSON_DIR="$LESSON_DIR" timeout 55 python3 -B - <<'PY'
+TP="$TP" TMP="$TMP" LESSON_DIR="$LESSON_DIR" timeout 55 python3 -I -B - <<'PY'
 import base64, datetime as dt, email.utils, hashlib, json, os, random, re, socket, string, subprocess, sys, threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 TP, TMP = os.environ["TP"], os.environ["TMP"]
 sys.dont_write_bytecode = True
-sys.path.insert(0, os.path.join(TP, "kit"))
-sys.path.insert(0, TP)
+REF_KIT = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "..", "kit"))  # simulateurs de référence, jamais ceux de l'apprenant
+REF_DIGEST = os.path.normpath(os.path.join(os.environ["LESSON_DIR"], "..", "_starters"))
+sys.path.insert(0, REF_KIT)
+sys.path.insert(0, REF_DIGEST)
 from mail_source import JsonMailSource
 rnd = random.Random()
 
@@ -177,7 +179,11 @@ def deny(*a, **k):
 _real = (socket.socket.connect, socket.socket.connect_ex)
 socket.socket.connect = socket.socket.connect_ex = deny
 try:
-    import maison_source
+    import importlib.util  # chargement par chemin : le dossier de l'apprenant n'entre pas dans sys.path
+    _sp = importlib.util.spec_from_file_location("maison_source", os.path.join(TP, "maison_source.py"))
+    maison_source = importlib.util.module_from_spec(_sp)
+    sys.modules["maison_source"] = maison_source
+    _sp.loader.exec_module(maison_source)
 except Exception as e:  # noqa: BLE001
     fail(f"import de maison_source.py impossible ({type(e).__name__} : {e}). Le programme principal doit être sous "
          "if __name__ == \"__main__\": et le fichier ne doit rien exécuter à l'import.")

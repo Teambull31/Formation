@@ -24,7 +24,7 @@ echo "$out" | grep -qi 'usage' || fail "sans argument, affichez un message comme
 
 # 3) plusieurs jeux de fichiers aléatoires, dont des noms avec espaces
 export TMP SCRIPT
-timeout 50 python3 - <<'PY' || exit 1
+timeout 50 python3 -I -B - <<'PY' || exit 1
 import hashlib, os, random, subprocess, sys
 from pathlib import Path
 
