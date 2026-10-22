@@ -1,0 +1,18 @@
+{
+  "id": "l11-tp",
+  "title": "TP 11 : votre propre connecteur (maison_source.py)",
+  "instructions_md": "Le dossier contient le **kit**, **digest.py** (fourni, **à ne pas modifier**) et `boite/` : trois mails au format `.eml` et un `notes.txt` qui n'est pas un mail. Écrivez **maison_source.py** : une source de mails « maison » qui lit un dossier de fichiers `.eml`, et qui respecte le contrat `MailSource` du kit (`kit/FICHE_ecrire_un_connecteur.md`).\n\n**La classe** : `EmlDirSource(path)` avec `fetch(since=None, limit=50)` qui renvoie une liste de `Mail` (le `dataclass` de `mail_source`), **plus récents d'abord**. `path` peut être un `str` ou un `Path`.\n- Seuls les fichiers `*.eml` **directement** dans le dossier comptent : ni les autres extensions (`.txt`, `.eml.bak`), ni les sous-dossiers, ni un **dossier** qui s'appellerait `x.eml`. Un fichier illisible est sauté, il ne bloque pas les autres.\n- Un `.eml` est un message complet. Le kit sait le lire : `email.message_from_bytes(octets)` puis `message_to_mail(msg, id_de_repli)` (dans `mail_source`). L'identifiant de repli est le **nom du fichier sans `.eml`** (utilisé quand le mail n'a pas de `Message-ID`).\n- Le tri et les filtres `since` / `limit` sont ceux du kit : la fonction `_select(mails, since, limit)` de `mail_source` les fait. `limit <= 0`, dossier absent ou chemin qui n'est pas un dossier : liste vide, sans exception.\n- **Lecture seule** : n'écrivez, ne renommez, ne supprimez rien dans le dossier de mails. Pas de réseau, pas de commande externe.\n\n**Le programme** : `python3 maison_source.py --path DOSSIER [--out digest.json]` lit les mails avec `EmlDirSource(...).fetch(limit=10_000)` et écrit dans `--out` (défaut `digest.json` dans le **dossier courant**) la liste des `digest.digest_entry(mail)`, dans l'ordre de la source. Importez `digest` (cela ajoute `kit/` au chemin) et mettez le programme principal sous `if __name__ == \"__main__\":`. Affichez au plus un compteur, jamais le contenu d'un mail.\n\n**Le contrôle** fabrique un dossier de `.eml` au hasard (accents, fuseaux horaires variés, corps long, mail HTML seul, mail multipart, fichier vide, mail sans `Message-ID`, mail piégé, leurres) et l'équivalent en JSON. Il exige que votre source rende **exactement les mêmes `Mail`** que `JsonMailSource` sur les mêmes mails (mêmes champs, même ordre, avec `limit` et `since`), que le dossier reste intact, puis que votre programme produise le **même `digest.json`** que `digest.py` avec `JsonMailSource` (le mail piégé n'est jamais envoyé au modèle).",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Squelette : import email, json, sys, argparse ; from pathlib import Path ; import digest (ajoute kit/ au chemin) ; from mail_source import _select, message_to_mail. La classe garde self.path = Path(path). Dans fetch : if limit <= 0 or not self.path.is_dir(): return [].",
+    "La boucle : for f in sorted(self.path.glob(\"*.eml\")) : sautez ce qui n'est pas un fichier (f.is_file()), lisez les octets dans un try/except OSError, puis mails.append(message_to_mail(email.message_from_bytes(raw), f.stem)). f.stem est le nom sans l'extension.",
+    "Terminez fetch par return _select(mails, since, limit) (tri, since et limit comme JsonMailSource). Le main : argparse avec --path (obligatoire) et --out (défaut digest.json) ; mails = EmlDirSource(args.path).fetch(limit=10_000) ; json.dump([digest.digest_entry(m) for m in mails], f, ensure_ascii=False, indent=2). Finissez par if __name__ == \"__main__\": main()."
+  ],
+  "timeout_s": 60,
+  "workspace": "l11",
+  "seed": [
+    "../../kit",
+    "../_starters/digest.py",
+    "seed/boite"
+  ]
+}

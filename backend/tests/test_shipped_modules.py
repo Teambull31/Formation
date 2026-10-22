@@ -16,8 +16,10 @@ from app.tp import run_check, seed_workspace
 
 CONTENT = Path(__file__).resolve().parents[2] / "content"
 EXPECTED_LESSONS = [f"l{i:02d}" for i in range(1, 13)]
-# flipped to True by the last lesson task and boss task
-STRICT = False
+# STRICT: all twelve lessons required (flipped by the last lesson task).
+# BOSS_STRICT: a boss must exist (to be flipped to True by the boss task).
+STRICT = True
+BOSS_STRICT = False
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 
@@ -149,18 +151,12 @@ def check_boss(boss_dir: Path, tmp: Path) -> list[str]:
 
 # ---- shipped content ----
 
-@pytest.mark.skipif(STRICT, reason="strict mode: see test below")
-@pytest.mark.xfail(strict=False, reason="lessons added by later tasks")
-def test_all_twelve_lessons_present_pending():
-    assert _listed(CONTENT / "modules" / "auto1") == EXPECTED_LESSONS
-
-
 @pytest.mark.skipif(not STRICT, reason="enabled by the last lesson task")
 def test_all_twelve_lessons_present():
     assert _listed(CONTENT / "modules" / "auto1") == EXPECTED_LESSONS
 
 
-@pytest.mark.skipif(not STRICT, reason="enabled by the boss task")
+@pytest.mark.skipif(not BOSS_STRICT, reason="enabled by the boss task")
 def test_boss_exists():
     assert _boss_dirs()
 

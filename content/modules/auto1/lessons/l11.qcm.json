@@ -1,0 +1,67 @@
+[
+ {
+  "id": "l11-q1",
+  "text": "Quel droit Gmail demander pour un digest qui ne fait que lire les mails ?",
+  "options": [
+   "gmail.modify, pour pouvoir marquer les mails comme lus",
+   "gmail.readonly, le moindre privilège",
+   "https://mail.google.com/, l'accès complet, plus simple",
+   "gmail.send, au cas où on voudrait répondre un jour"
+  ],
+  "answer": 1,
+  "explain": "Le digest lit seulement : gmail.readonly suffit. Un droit plus large (modifier, envoyer, tout) augmente les dégâts possibles si le jeton fuite ou si le script est trompé par un mail piégé. On élargit le jour où un besoin réel existe.",
+  "remedial_lesson_id": "l10"
+ },
+ {
+  "id": "l11-q2",
+  "text": "Comment un connecteur IMAP doit-il recevoir le mot de passe de la boîte ?",
+  "options": [
+   "Écrit en clair dans le script, avec un commentaire d'avertissement",
+   "Passé en argument de la ligne de commande",
+   "Chiffré en base64 dans le script",
+   "Lu dans une variable d'environnement dont le script connaît seulement le nom"
+  ],
+  "answer": 3,
+  "explain": "Le script ne contient que le nom de la variable ; le secret vit hors du code. Un argument de ligne de commande est visible dans la liste des processus, et le base64 n'est pas du chiffrement : n'importe qui le décode.",
+  "remedial_lesson_id": "l10"
+ },
+ {
+  "id": "l11-q3",
+  "text": "Votre connecteur « dossier de .eml » est prêt. Comment prouver qu'il respecte le contrat MailSource ?",
+  "options": [
+   "Vérifier que le fichier se lance sans erreur",
+   "Lui donner les mêmes mails qu'à JsonMailSource et comparer les résultats champ par champ, avec limit et since",
+   "L'essayer une fois sur votre vraie boîte mail",
+   "Compter le nombre de fichiers du dossier"
+  ],
+  "answer": 1,
+  "explain": "Une source connue sert de référence : mêmes mails en entrée, résultats identiques (ordre, champs, limit, since). Lancer le fichier sans erreur ou compter les fichiers ne prouve rien sur le contenu ; tester sur la vraie boîte expose des mails réels, ce qu'on évite.",
+  "remedial_lesson_id": "l05"
+ },
+ {
+  "id": "l11-q4",
+  "text": "Dans le dossier de mails se trouvent notes.txt et un sous-dossier archive/. Que doit faire fetch ?",
+  "options": [
+   "Lire tous les fichiers du dossier, y compris notes.txt",
+   "Lever une erreur pour prévenir l'utilisateur",
+   "Ignorer notes.txt et archive/ : seuls les *.eml du dossier comptent",
+   "Descendre dans archive/ et lire aussi ce qui s'y trouve"
+  ],
+  "answer": 2,
+  "explain": "Le contrat dit quels fichiers sont des mails : les .eml directement dans le dossier. Lire un .txt fabriquerait de faux mails ; lever une erreur pour un simple intrus bloquerait tout le digest ; descendre dans les sous-dossiers n'est pas demandé.",
+  "remedial_lesson_id": "l11"
+ },
+ {
+  "id": "l11-q5",
+  "text": "Un .eml n'a pas d'en-tête Message-ID. Que fait un connecteur robuste ?",
+  "options": [
+   "Il lui donne un identifiant de repli stable, par exemple le nom du fichier sans .eml",
+   "Il saute ce mail, car il n'a pas d'identifiant",
+   "Il plante, pour que l'on corrige le fichier",
+   "Il invente un identifiant aléatoire à chaque lancement"
+  ],
+  "answer": 0,
+  "explain": "Un champ manquant reçoit une valeur de repli, sans exception, et l'identifiant doit rester le même d'un lancement à l'autre (la leçon 12 s'en sert pour ne pas traiter deux fois le même mail). Un identifiant aléatoire changerait à chaque passage ; sauter ou planter fait perdre un mail.",
+  "remedial_lesson_id": "l05"
+ }
+]
