@@ -1,0 +1,5 @@
+# HTTPS automatique (Let's Encrypt) : le domaine doit pointer vers l'IP du serveur, ports 80 et 443 ouverts.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy questforge:3000
+}

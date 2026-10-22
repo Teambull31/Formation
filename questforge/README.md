@@ -6,43 +6,31 @@ Application web locale de formation technique gamifiée pour suivre une quête q
 
 ## 🚀 Lancement Rapide
 
-### 1. Installation des dépendances
-
-- **Python (>= 3.11)** :
-  ```bash
-  uv sync
-  # ou avec pip
-  pip install -r backend/pyproject.toml
-  ```
-
-- **Frontend & Serveur Node (Node 22)** :
-  ```bash
-  npm install
-  ```
-
-### 2. Démarrage de l'application
-
-Pour lancer l'application complète (serveur full-stack avec interface web et backend FastAPI) :
+Prérequis : Node 22 et Python 3.11 ou plus récent.
 
 ```bash
-npm run dev
+python3 -m venv .venv
+.venv/bin/pip install fastapi "uvicorn[standard]" httpx websockets pydantic
+npm install
+PATH="$PWD/.venv/bin:$PATH" npm run dev
 ```
 
-L'application est immédiatement disponible sur :
-- **Navigateur local (Desktop)** : `http://localhost:3000`
-- **Réseau local (Téléphone / Tablette)** : `http://<ip-de-votre-machine>:3000`
+L'application est disponible sur http://localhost:3000. `npm run dev` lance le relais Node, le front et le backend
+FastAPI ; le relais appelle `python3`, le venv doit donc être dans le `PATH`.
 
-Pour lancer le backend FastAPI directement en mode autonome :
-```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
+Déploiement sur un PC ou un VPS (Docker, HTTPS, mot de passe, mises à jour, sauvegarde) : voir **[DEPLOY.md](DEPLOY.md)**.
+Consignes pour une session Claude Code : voir **[CLAUDE.md](CLAUDE.md)**.
 
 ---
 
-## 🔒 Sécurité et Garde Localhost
+## 🔒 Sécurité
 
-- Les fonctions à privilèges système (**terminal interactif pty**, **vérification par script de TP**, **tentatives de Boss**, **importation de modules**) n'acceptent que les connexions provenant de `127.0.0.1` ou `::1` (renvoient une erreur `403 Forbidden` pour tout client distant).
-- Le reste de l'API (lecture de cours, synthèse audio, quiz QCM, consultation de la quête et inventaire) est parfaitement consultable depuis un smartphone sur le réseau local.
+Le terminal interactif, la vérification des TP, les combats de boss et l'import de module **exécutent des commandes** sur la machine.
+
+- Sans `QUESTFORGE_PASSWORD`, le serveur n'écoute que sur `127.0.0.1`. Il refuse de démarrer si on l'ouvre au réseau sans mot de passe.
+- Avec `QUESTFORGE_PASSWORD` (12 caractères minimum), tout est protégé par HTTP Basic, y compris l'API et le terminal. Utilisez HTTPS dès que le serveur est joignable depuis Internet.
+- Le backend n'écoute que sur `127.0.0.1` et n'accepte ces actions que si le relais a authentifié la requête (secret interne) ou si elle vient directement de la machine.
+- Le reste de l'API (cours, QCM, quête) est en lecture seule pour un client authentifié.
 
 ---
 

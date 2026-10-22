@@ -1,0 +1,46 @@
+# Déploiement de QuestForge.
+#   Local ou VPS derrière SSH / Tailscale :  docker compose up -d --build
+#   VPS public avec HTTPS automatique     :  docker compose --profile https up -d --build
+# Variables dans .env (voir .env.example).
+
+services:
+  questforge:
+    build: .
+    image: questforge:latest
+    restart: unless-stopped
+    environment:
+      # Obligatoire : le terminal et les scripts de TP exécutent des commandes sur le serveur.
+      QUESTFORGE_PASSWORD: ${QUESTFORGE_PASSWORD:?Définissez QUESTFORGE_PASSWORD dans .env (12 caractères minimum)}
+    ports:
+      # Par défaut, uniquement sur la machine : accès à distance via HTTPS (profil https), SSH ou Tailscale.
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-3000}:3000"
+    volumes:
+      - questforge-data:/data
+      - ./content:/app/content
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1g
+    pids_limit: 256
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - questforge
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  questforge-data:
+  caddy-data:
+  caddy-config:

@@ -12,3 +12,4 @@ coverage/
 backend/workspace/
 backend/content/
 .audio_cache/
+backups/
