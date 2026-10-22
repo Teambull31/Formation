@@ -518,7 +518,6 @@ export function App() {
       {showTechTree && (
         <TechTreeModal
           onClose={() => setShowTechTree(false)}
-          onRefreshQuest={() => loadQuest()}
         />
       )}
 
@@ -533,10 +532,6 @@ export function App() {
       {showInterviewSimulator && (
         <InterviewSimulatorModal
           onClose={() => setShowInterviewSimulator(false)}
-          onRewardExp={(xp) => {
-            loadQuest();
-            showToast(`+${xp} XP Entretien SRE validé !`);
-          }}
         />
       )}
 
@@ -544,7 +539,7 @@ export function App() {
       {showRunbookExport && (
         <RunbookExportModal
           lessonId={runbookLessonId}
-          lessonTitle={runbookLessonTitle}
+          title={runbookLessonTitle}
           onClose={() => setShowRunbookExport(false)}
         />
       )}

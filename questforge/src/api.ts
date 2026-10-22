@@ -389,7 +389,7 @@ export interface LeagueParticipant {
   badgeTitle: string;
 }
 
-export interface LeagueData {
+export interface WeeklyLeagueData {
   division: 'Bronze' | 'Argent' | 'Or' | 'Platine' | 'Diamant';
   daysLeft: number;
   participants: LeagueParticipant[];
@@ -654,7 +654,7 @@ export const PACKET_SCENARIOS: PacketScenario[] = [
   },
 ];
 
-export const INITIAL_LEAGUE_DATA: LeagueData = {
+export const INITIAL_LEAGUE_DATA: WeeklyLeagueData = {
   division: 'Or',
   daysLeft: 3,
   playerWeeklyXp: 340,
