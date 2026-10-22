@@ -1,0 +1,67 @@
+[
+ {
+  "id": "l10-q1",
+  "text": "Quel droit demander pour lire les mails d'une boîte Outlook avec votre script de digest ?",
+  "options": [
+   "Mail.ReadWrite, au cas où on voudrait classer plus tard",
+   "Mail.Send, pour pouvoir répondre",
+   "Mail.Read seul : lecture seule, le moindre privilège",
+   "Tous les droits Mail, pour éviter les erreurs de permission"
+  ],
+  "answer": 2,
+  "explain": "Le digest ne fait que lire : Mail.Read suffit. Demander plus (écriture, envoi) élargit les dégâts possibles si le jeton fuite ou si le script est trompé. On ajoutera un droit le jour où un besoin réel existe.",
+  "remedial_lesson_id": "l10"
+ },
+ {
+  "id": "l10-q2",
+  "text": "Pourquoi le device code flow convient-il à un script sans navigateur ?",
+  "options": [
+   "Le script affiche une adresse et un code ; vous vous connectez dans un navigateur, sans mot de passe dans le script",
+   "Le script contient votre mot de passe chiffré",
+   "Microsoft envoie le jeton par mail",
+   "Le code remplace le jeton pour toujours"
+  ],
+  "answer": 0,
+  "explain": "Le device code déplace la saisie du mot de passe vers le navigateur de l'utilisateur : le script ne le voit jamais et reçoit seulement un jeton. Mettre un mot de passe, même chiffré, dans le script est justement ce qu'on évite.",
+  "remedial_lesson_id": "l10"
+ },
+ {
+  "id": "l10-q3",
+  "text": "Quels droits doit avoir le fichier qui contient le jeton ?",
+  "options": [
+   "0644, pour que le service puisse le lire",
+   "0777, pour éviter les erreurs d'accès",
+   "0600 : lisible et modifiable par vous seul",
+   "Peu importe, il est dans un dossier caché"
+  ],
+  "answer": 2,
+  "explain": "Le jeton donne accès aux mails sans mot de passe : seul son propriétaire doit pouvoir le lire, d'où 0600. Un point devant le nom du dossier le cache de la vue, pas des autres utilisateurs de la machine.",
+  "remedial_lesson_id": "l10"
+ },
+ {
+  "id": "l10-q4",
+  "text": "Erreur classique : pour déboguer, vous affichez dans le terminal l'objet et le début du corps de chaque mail récupéré, et vous gardez ce terminal dans un log. Quel est le problème ?",
+  "options": [
+   "Aucun : un log sert à tout garder",
+   "Le log contient maintenant des données privées recopiées : on y met des compteurs et des identifiants, jamais le contenu des mails",
+   "Le log devient trop lent",
+   "Graph interdit les logs"
+  ],
+  "answer": 1,
+  "explain": "Un log est copié, envoyé au support, sauvegardé : il ne doit pas devenir une seconde boîte mail. Journalisez « 12 mails traités » ou des identifiants, pas les corps. Ce n'est pas un problème de vitesse ni une règle de Graph.",
+  "remedial_lesson_id": "l09"
+ },
+ {
+  "id": "l10-q5",
+  "text": "Erreur classique : vous essayez votre script directement sur la boîte pro, « juste pour voir », sans prévenir le service informatique. Que faut-il faire ?",
+  "options": [
+   "Rien de spécial : la lecture seule est inoffensive",
+   "Demander l'accord écrit du service informatique, qui gère l'enregistrement de l'application et le consentement",
+   "Utiliser un VPN personnel pour passer inaperçu",
+   "Demander à un collègue son jeton"
+  ],
+  "answer": 1,
+  "explain": "Une boîte pro appartient à l'entreprise : consentement administrateur, règles d'accès et accord écrit sont nécessaires, même en lecture seule. Contourner ou emprunter le jeton d'un collègue aggrave la faute. Le compte perso sert d'essai, sans demander à personne.",
+  "remedial_lesson_id": "l10"
+ }
+]

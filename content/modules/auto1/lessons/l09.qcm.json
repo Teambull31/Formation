@@ -1,0 +1,67 @@
+[
+ {
+  "id": "l09-q1",
+  "text": "Un modèle répond {\"action\": \"envoyer_mail\", \"arg\": \"x@example.test\"}. Que fait un agent bien conçu ?",
+  "options": [
+   "Il envoie le mail, puisque le modèle l'a demandé",
+   "Il refuse : l'action n'est pas dans la liste blanche, il note « action refusée » et continue",
+   "Il ajoute envoyer_mail à la liste pour la prochaine fois",
+   "Il exécute la commande dans un shell pour voir"
+  ],
+  "answer": 1,
+  "explain": "La liste blanche est fixée par le code, pas par le modèle : toute action absente de la liste est refusée. Obéir au modèle ou élargir la liste à la volée, c'est précisément laisser un mail piloter l'agent.",
+  "remedial_lesson_id": "l09"
+ },
+ {
+  "id": "l09-q2",
+  "text": "Pourquoi plafonner à 3 appels au modèle par mail ?",
+  "options": [
+   "Pour économiser de l'électricité uniquement",
+   "Parce que le modèle répond mieux au troisième essai",
+   "Pour qu'un modèle qui répond mal en boucle ne bloque pas l'agent : après 3 refus, on choisit rien",
+   "Parce que Python refuse plus de 3 requêtes"
+  ],
+  "answer": 2,
+  "explain": "Sans plafond, une réponse invalide en boucle fait tourner l'agent indéfiniment. Le plafond garantit que le traitement se termine toujours, avec l'action sûre rien. Le troisième essai n'est pas meilleur par magie.",
+  "remedial_lesson_id": "l09"
+ },
+ {
+  "id": "l09-q3",
+  "text": "Que doit contenir actions.log ?",
+  "options": [
+   "L'identifiant du mail et l'action choisie, rien du contenu du mail",
+   "L'objet et le corps de chaque mail, pour pouvoir relire",
+   "La réponse brute du modèle, pour déboguer",
+   "L'adresse de l'expéditeur et l'objet"
+  ],
+  "answer": 0,
+  "explain": "Un journal circule (sauvegardes, support, copie) : il ne doit contenir que des identifiants et des actions. La réponse brute du modèle peut recopier du texte hostile ou du contenu de mail, tout comme l'objet ou l'expéditeur.",
+  "remedial_lesson_id": "l09"
+ },
+ {
+  "id": "l09-q4",
+  "text": "Erreur classique : pour « gagner du temps », le code fait os.system(reponse_du_modele). Quel est le problème ?",
+  "options": [
+   "Aucun, si le modèle est local",
+   "Le code est plus lent",
+   "Le modèle ne sait pas écrire de commandes shell",
+   "L'auteur d'un mail hostile obtient un terminal chez vous"
+  ],
+  "answer": 3,
+  "explain": "Qu'il soit local ou non, le modèle lit du texte écrit par des inconnus et peut répéter leurs ordres. Exécuter sa sortie revient à exécuter le texte de l'attaquant. On exécute uniquement des fonctions déclarées, choisies dans une liste blanche.",
+  "remedial_lesson_id": "l08"
+ },
+ {
+  "id": "l09-q5",
+  "text": "Erreur classique : vous écrivez une liste noire d'actions interdites (supprimer, envoyer_mail). Un jour le modèle propose « vider_corbeille ». Que se passe-t-il ?",
+  "options": [
+   "Elle est refusée, car elle ressemble à supprimer",
+   "Elle passe, parce qu'elle n'est pas sur la liste noire : seule une liste blanche refuse l'inconnu",
+   "Python signale l'erreur tout seul",
+   "L'agent s'arrête définitivement"
+  ],
+  "answer": 1,
+  "explain": "Une liste noire ne bloque que ce que vous avez pensé à écrire ; tout le reste passe. Une liste blanche inverse la logique : seul ce qui est prévu est permis, c'est le principe du moindre privilège vu en leçon 8.",
+  "remedial_lesson_id": "l08"
+ }
+]
