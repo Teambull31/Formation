@@ -5,8 +5,8 @@
   "options": [
    "Elle rend le script plus rapide",
    "Elle affiche chaque commande avant de l'exécuter",
-   "Elle arrête le script à la première erreur, refuse les variables inconnues et compte les erreurs dans un tube",
-   "Elle demande confirmation avant chaque suppression"
+   "Elle stoppe le script à la première erreur et refuse les variables non définies",
+   "Elle demande une confirmation avant chaque suppression de fichier"
   ],
   "answer": 2,
   "explain": "Le mode strict stoppe le script dès qu'une commande échoue (-e), signale une variable non définie (-u) et fait échouer un tube si une de ses étapes échoue (pipefail). Sans lui, un script continue après une erreur et peut agir sur de mauvaises données.",

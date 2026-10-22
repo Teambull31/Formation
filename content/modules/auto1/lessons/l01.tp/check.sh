@@ -30,7 +30,7 @@ from pathlib import Path
 
 tmp, script = Path(os.environ["TMP"]), os.environ["SCRIPT"]
 rnd = random.Random()
-EXTS = ["txt", "pdf", "jpg", "csv", "docx", "gz", "md", "log", "png"]
+EXTS = ["txt", "pdf", "jpg", "csv", "docx", "gz", "md", "log", "png", "PDF", "JPG", "Txt"]
 MOTS = ["facture", "rapport final", "photo  vacances", "notes d'équipe", "budget", "compte rendu", "x", "été 2026"]
 
 def fail(msg):
@@ -54,6 +54,7 @@ for n in range(4):
         names.add(mot + "." + rnd.choice(EXTS) if rnd.random() > 0.2 else mot)
     names.add("LISEZMOI")  # toujours un fichier sans extension
     names.add("archive.v2.tar.gz")
+    names.add("Scan Été.PDF")  # extension en majuscules : dossier en minuscules
     for nm in names:
         (box / nm).write_text(f"contenu {nm} {rnd.random()}\n", encoding="utf-8")
     (box / "déjà rangé").mkdir()  # un sous-dossier existant doit rester intact
@@ -61,7 +62,7 @@ for n in range(4):
 
     expected = {}
     for nm in names:
-        ext = nm.rsplit(".", 1)[1] if "." in nm else "sans_extension"
+        ext = nm.rsplit(".", 1)[1].lower() if "." in nm else "sans_extension"
         expected[f"{ext}/{nm}"] = hashlib.sha256((box / nm).read_bytes()).hexdigest()
     expected["déjà rangé/vieux.txt"] = hashlib.sha256(b"ancien\n").hexdigest()
 

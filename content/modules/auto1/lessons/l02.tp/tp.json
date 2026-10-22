@@ -1,14 +1,17 @@
 {
   "id": "l02-tp",
   "title": "TP 2 : une ligne cron pour tri.sh",
-  "instructions_md": "Le dossier contient votre **tri.sh** (point de départ fourni, solution de la leçon 1) et **inbox/**.\n\nÉcrivez le fichier **planning.cron** avec **une seule ligne de tâche** qui lance `tri.sh` sur `inbox/` :\n\n- du **lundi au vendredi**, à **12 h 15** ;\n- avec des **chemins absolus** (le script, le dossier à trier, le log) : utilisez `pwd` pour les connaître ;\n- avec la sortie ajoutée à un fichier de log : `>> …/tri.log 2>&1`.\n\nVous pouvez ajouter des commentaires (`#`) et une ligne `PATH=…`. Le contrôle lit les 5 champs ; il n'exécute pas cron.",
+  "instructions_md": "Le dossier contient votre **tri.sh** (point de départ fourni, solution de la leçon 1) et **inbox/**.\n\nÉcrivez le fichier **planning.cron** avec **une seule ligne de tâche** qui lance `tri.sh` sur `inbox/` :\n\n- du **lundi au vendredi**, à **12 h 15** ;\n- avec des **chemins absolus** (le script, le dossier à trier, le log) : utilisez `pwd` pour les connaître ;\n- avec la sortie ajoutée à un fichier de log : `>> …/tri.log 2>&1`.\n\nLe dossier à trier est le `inbox/` de ce TP. Si `tri.sh` n'est pas exécutable, lancez `chmod +x tri.sh`. Le log doit être dans ce dossier de TP et la ligne ne doit rien contenir après `2>&1`.\\n\\nVous pouvez ajouter des commentaires (`#`) et une ligne `PATH=…`. Le contrôle lit les 5 champs ; il n'exécute pas cron.",
   "check": "bash \"$LESSON_DIR/check.sh\"",
   "hints": [
     "Les 5 champs sont : minute, heure, jour du mois, mois, jour de la semaine. 12 h 15 = minute 15, heure 12.",
     "Lundi à vendredi s'écrit 1-5 dans le dernier champ. Les deux champs du milieu valent *.",
-    "Forme : 15 12 * * 1-5 /chemin/absolu/tri.sh /chemin/absolu/inbox >> /chemin/absolu/tri.log 2>&1. Le log : >> d'abord, 2>&1 ensuite."
+    "Forme : 15 12 * * 1-5 /chemin/absolu/tri.sh /chemin/absolu/inbox >> /chemin/absolu/tri.log 2>&1. Le log : >> d'abord, 2>&1 ensuite. Si le contrôle dit que tri.sh n'est pas exécutable : chmod +x tri.sh."
   ],
   "timeout_s": 30,
   "workspace": "l02",
-  "seed": ["../../kit", "seed/tri.sh", "../l01.tp/seed/inbox"]
+  "seed": [
+    "seed/tri.sh",
+    "seed/inbox"
+  ]
 }

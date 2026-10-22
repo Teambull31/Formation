@@ -78,40 +78,44 @@ if sem != {1, 2, 3, 4, 5}:
     print("ECHEC : jours attendus lundi à vendredi, obtenu : " + (", ".join(noms[d] for d in sorted(sem)) or "aucun") + ".")
     sys.exit(1)
 
-# commande : chemin absolu vers tri.sh, puis redirection de log >> fichier 2>&1
+# commande : exactement  <tri.sh> <inbox du TP> >> <log> 2>&1  (rien d'autre)
+if re.search(r"(?<!\\)%", cmd):
+    fail("un % non protégé dans la commande : cron le transforme en saut de ligne. Écrivez \\% ou évitez-le.")
 try:
     mots = shlex.split(cmd)
 except ValueError:
     fail("guillemets non fermés dans la commande.")
 if not mots:
     fail("commande vide.")
+tp = os.path.realpath(".")
 script = mots[0]
 if not os.path.isabs(script):
     fail(f"le chemin « {script} » doit être absolu : cron ne démarre pas dans votre dossier.")
 if os.path.basename(script) != "tri.sh":
     fail("la commande doit lancer votre tri.sh.")
-if not os.path.isfile(script) or not os.access(script, os.X_OK):
-    fail(f"{script} n'existe pas ou n'est pas exécutable.")
-if os.path.realpath(script) != os.path.realpath("tri.sh"):
+if not os.path.isfile(script):
+    fail(f"{script} n'existe pas.")
+if not os.access(script, os.X_OK):
+    fail(f"{script} n'est pas exécutable : lancez chmod +x tri.sh.")
+if os.path.realpath(script) != os.path.join(tp, "tri.sh"):
     fail("le chemin doit désigner le tri.sh de ce dossier de TP.")
-reste = mots[1:]
-# un argument-dossier est requis par tri.sh ; il doit lui aussi être absolu
-args = []
-for i, t in enumerate(reste):
-    if t in (">>", ">", "2>&1", "2>>"):
-        break
-    args.append(t)
-if not args or not all(os.path.isabs(a) for a in args):
-    fail("tri.sh a besoin du dossier à trier, en chemin absolu (ex. …/inbox).")
-if ">>" not in reste:
-    fail("redirigez la sortie vers un fichier de log avec >> (ajout, sans écraser).")
-i = reste.index(">>")
-if i + 1 >= len(reste) or not os.path.isabs(reste[i + 1]):
-    fail("le fichier de log après >> doit être un chemin absolu.")
+if len(mots) < 3 or mots[1] in (">>", ">", "2>&1"):
+    fail("tri.sh a besoin du dossier à trier, en chemin absolu (le inbox/ du TP), juste après le script.")
+if not os.path.isabs(mots[1]) or os.path.realpath(mots[1]) != os.path.join(tp, "inbox"):
+    fail("le dossier à trier doit être exactement le inbox/ de ce TP, en chemin absolu.")
+reste = mots[2:]
 if any(t in (">", "2>", "&>") for t in reste):
     fail("une seule redirection >> est attendue (un > simple écraserait le log).")
-if "2>&1" not in reste[i + 2:]:
-    fail("ajoutez 2>&1 APRÈS le fichier de log, pour y envoyer aussi les erreurs.")
+if len(reste) < 2 or reste[0] != ">>":
+    fail("après le dossier, redirigez la sortie vers un log avec >> (ajout, sans écraser).")
+log = reste[1]
+if not os.path.isabs(log):
+    fail("le fichier de log après >> doit être un chemin absolu.")
+rlog = os.path.realpath(log)
+if rlog == "/dev/null" or not rlog.startswith(tp + os.sep) or os.path.isdir(rlog):
+    fail("le log doit être un fichier dans le dossier du TP (pas /dev/null ni ailleurs).")
+if reste[2:] != ["2>&1"]:
+    fail("terminez la ligne par 2>&1 juste après le log, sans rien d'autre (pas de &&, ;, &).")
 
 print("OK : planning.cron — du lundi au vendredi à 12 h 15, chemin absolu et log en ajout.")
 PY
