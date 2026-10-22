@@ -19,7 +19,7 @@ EXPECTED_LESSONS = [f"l{i:02d}" for i in range(1, 13)]
 # STRICT: all twelve lessons required (flipped by the last lesson task).
 # BOSS_STRICT: a boss must exist (to be flipped to True by the boss task).
 STRICT = True
-BOSS_STRICT = False
+BOSS_STRICT = True
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 
 
