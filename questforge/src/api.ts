@@ -1756,7 +1756,19 @@ function withBackendDefaults(pathname: string, data: any): any {
   return data;
 }
 
+// Vrai quand le backend est injoignable et que l'interface tourne sur ses données locales simulées.
+let offlineDemo = false;
+export const isOfflineDemo = () => offlineDemo;
+export const resetOfflineDemo = () => {
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+  } catch {}
+};
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const isQuest = new URL(path, 'http://localhost').pathname === '/api/quest';
+  // Démo détectée : inutile d'interroger un backend absent à chaque action (la quête, elle, retente).
+  if (offlineDemo && !isQuest) return executeFallback<T>(path, options);
   try {
     const res = await fetch(`${BASE_URL}${path}`, {
       ...options,
@@ -1769,6 +1781,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
     if (res.ok) {
       const data = await res.json();
+      if (isQuest) offlineDemo = false;
       return withBackendDefaults(new URL(path, 'http://localhost').pathname, data) as T;
     }
 
@@ -1792,6 +1805,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
   }
 
+  if (isQuest) offlineDemo = true;
   return executeFallback<T>(path, options);
 }
 

@@ -15,7 +15,7 @@ import {
   Target,
   Bot,
 } from 'lucide-react';
-import { api, QuestData, TeamData, BossData, LessonData } from './api';
+import { api, isOfflineDemo, resetOfflineDemo, QuestData, TeamData, BossData, LessonData } from './api';
 import { QuestScreen } from './screens/Quest';
 import { LessonScreen } from './screens/Lesson';
 import { TeamScreen } from './screens/Team';
@@ -98,6 +98,7 @@ export function App() {
 
   // Feedback notification toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [offlineDemo, setOfflineDemo] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -108,6 +109,7 @@ export function App() {
     setQuestLoading(true);
     try {
       const data = await api.getQuest(m);
+      setOfflineDemo(isOfflineDemo());
       setQuest(data);
       if (data.profile.active_theme) {
         setActiveTheme(data.profile.active_theme);
@@ -247,6 +249,22 @@ export function App() {
       {toastMessage && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-slate-950 px-4 py-2 rounded-xl font-bold text-xs shadow-2xl animate-bounce">
           {toastMessage}
+        </div>
+      )}
+
+      {/* Mode démo : backend injoignable, données locales simulées */}
+      {offlineDemo && (
+        <div role="status" className="bg-amber-500/15 border-b border-amber-500/40 text-amber-200 text-[11px] px-4 py-1.5 text-center">
+          <strong>Mode démo hors-ligne</strong> : progression enregistrée dans ce navigateur, données pré-remplies et vérifications des TP simulées.{' '}
+          <button
+            onClick={() => {
+              resetOfflineDemo();
+              window.location.reload();
+            }}
+            className="underline font-bold cursor-pointer hover:text-amber-100"
+          >
+            Réinitialiser
+          </button>
         </div>
       )}
 
