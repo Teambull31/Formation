@@ -1,0 +1,6 @@
+{
+  "name": "QuestForge",
+  "description": "Application web de formation technique gamifiée avec quêtes quotidiennes, terminal interactif, répétition espacée Leitner, mascottes compagnons et combats de boss.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

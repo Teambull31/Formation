@@ -1,0 +1,14 @@
+[
+  {
+    "id": "q2",
+    "text": "Quel signal système signale une demande d'arrêt propre ?",
+    "options": [
+      "SIGKILL",
+      "SIGTERM",
+      "SIGSTOP"
+    ],
+    "answer": 1,
+    "explain": "SIGTERM permet au processus d'effectuer des opérations de nettoyage avant de s'arrêter proprement, contrairement à SIGKILL.",
+    "remedial_lesson_id": "l2"
+  }
+]

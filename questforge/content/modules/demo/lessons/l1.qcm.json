@@ -1,0 +1,15 @@
+[
+  {
+    "id": "q1",
+    "text": "Dans une architecture découplée, quelle est la raison d'être de l'interface abstraite MailSource ?",
+    "options": [
+      "Encapsuler directement le socket SMTP bas-niveau pour mutualiser les connexions TCP",
+      "Définir un contrat abstrait unifié isolant la logique métier du fournisseur sous-jacent",
+      "Optimiser la sérialisation binaire des pièces jointes avant écriture sur disque",
+      "Forcer le chiffrement asymétrique PGP de bout en bout de tous les courriels entrants"
+    ],
+    "answer": 1,
+    "explain": "MailSource définit une abstraction (Pattern Adaptateur/Port) permettant d'interchanger les fournisseurs (ex: Gmail, Outlook, IMAP mock) sans modifier le reste du système applicatif.",
+    "remedial_lesson_id": "l1"
+  }
+]

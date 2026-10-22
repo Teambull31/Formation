@@ -1,0 +1,14 @@
+[
+  {
+    "id": "q1",
+    "text": "Quel est le rôle principal de l'interface MailSource ?",
+    "options": [
+      "Stocker les identifiants en clair",
+      "Définir un contrat abstrait indépendant du fournisseur",
+      "Envoyer directement des spams en masse"
+    ],
+    "answer": 1,
+    "explain": "MailSource définit une abstraction qui permet d'interchanger les fournisseurs (ex: Gmail, Outlook) sans modifier le reste du système.",
+    "remedial_lesson_id": "l1"
+  }
+]

@@ -1,0 +1,21 @@
+[project]
+name = "questforge-backend"
+version = "0.1.0"
+description = "Backend pour appli de formation gamifiée"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "websockets",
+    "pydantic"
+]
+
+[dependency-groups]
+dev = [
+    "pytest"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

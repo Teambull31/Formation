@@ -1,0 +1,82 @@
+[
+  {
+    "id": "char_ada",
+    "name": "Ada la Pionnière",
+    "type": "character",
+    "rarity": "epic",
+    "avatar": "⚡",
+    "lore": "Visionnaire des algorithmes et maîtresse du calcul symbolique."
+  },
+  {
+    "id": "char_turing",
+    "name": "Alan le Décrypteur",
+    "type": "character",
+    "rarity": "epic",
+    "avatar": "🔮",
+    "lore": "Architecte de la machine universelle et briseur de codes impénétrables."
+  },
+  {
+    "id": "char_hopper",
+    "name": "Grace l'Amirale",
+    "type": "character",
+    "rarity": "rare",
+    "avatar": "⚓",
+    "lore": "Inventrice du compilateur et dompteuse de papillons de nuit."
+  },
+  {
+    "id": "char_torvalds",
+    "name": "Linus le Bâtisseur",
+    "type": "character",
+    "rarity": "rare",
+    "avatar": "🐧",
+    "lore": "Créateur du noyau moderne et maître du contrôle de version."
+  },
+  {
+    "id": "char_devops_junior",
+    "name": "Novice du Bash",
+    "type": "character",
+    "rarity": "common",
+    "avatar": "🌱",
+    "lore": "Apprenti enthousiaste armé d'un terminal et de curiosité infinie."
+  },
+  {
+    "id": "char_sysadmin_cat",
+    "name": "Chat Sysadmin",
+    "type": "character",
+    "rarity": "common",
+    "avatar": "🐱",
+    "lore": "Surveille les daemons et fait tomber les tasses sur les claviers."
+  },
+  {
+    "id": "skin_matrix_glow",
+    "name": "Thème Matrice Émeraude",
+    "type": "skin",
+    "rarity": "rare",
+    "avatar": "🟩",
+    "lore": "Caractères phosphorescents et ambiance de salle serveurs feutrée."
+  },
+  {
+    "id": "skin_cyber_neon",
+    "name": "Thème Cyberpunk 2088",
+    "type": "skin",
+    "rarity": "epic",
+    "avatar": "🌆",
+    "lore": "Néons magenta et cyan pulsant au rythme de la compilation."
+  },
+  {
+    "id": "skin_solarized_dark",
+    "name": "Thème Ambre Rétro",
+    "type": "skin",
+    "rarity": "common",
+    "avatar": "🟧",
+    "lore": "Couleurs douces et chaleureuses conçues pour les longues nuits de code."
+  },
+  {
+    "id": "skin_nordic_frost",
+    "name": "Thème Glace Arctique",
+    "type": "skin",
+    "rarity": "common",
+    "avatar": "❄️",
+    "lore": "Palette polaire apaisante inspirée des fjords et des aurores boréales."
+  }
+]

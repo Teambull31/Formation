@@ -1,0 +1,12 @@
+{
+  "id": "tp1",
+  "title": "Créer le fichier de configuration mail",
+  "instructions_md": "Créez un fichier `config.json` dans votre espace de travail contenant `{\"provider\": \"demo\", \"active\": true}`.",
+  "check": "check.sh",
+  "hints": [
+    "Utilisez la commande echo ou cat pour écrire dans config.json",
+    "Vérifiez que le JSON est valide avec jq ou python -m json.tool"
+  ],
+  "timeout_s": 5,
+  "workspace": "."
+}

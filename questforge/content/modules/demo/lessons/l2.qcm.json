@@ -1,0 +1,15 @@
+[
+  {
+    "id": "q2",
+    "text": "Quel signal POSIX le runtime d'orchestration (ex: Kubernetes, systemd) envoie-t-il en premier pour solliciter un arrêt gracieux ?",
+    "options": [
+      "SIGHUP (Signal 1 - Rechargement de configuration à chaud)",
+      "SIGTERM (Signal 15 - Demande de terminaison gracieuse interceptable)",
+      "SIGKILL (Signal 9 - Destruction matérielle immédiate non interceptable)",
+      "SIGQUIT (Signal 3 - Fermeture avec dump mémoire core)"
+    ],
+    "answer": 1,
+    "explain": "SIGTERM (Signal 15) est le signal standard de terminaison gracieuse : il laisse au processus le temps de fermer ses connexions et vider ses tampons avant un éventuel SIGKILL après expiration du grace period.",
+    "remedial_lesson_id": "l2"
+  }
+]

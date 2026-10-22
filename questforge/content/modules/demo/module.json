@@ -1,0 +1,17 @@
+{
+  "id": "demo",
+  "title": "Module Démo : Automatisation & Agents",
+  "skill": "automation",
+  "lessons": [
+    {
+      "id": "l1",
+      "title": "Introduction aux Agents et MailSource",
+      "minutes": 10
+    },
+    {
+      "id": "l2",
+      "title": "Connecteurs et CLI de Production",
+      "minutes": 20
+    }
+  ]
+}
