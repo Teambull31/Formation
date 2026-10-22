@@ -1,0 +1,41 @@
+[
+  {
+    "id": "tf2_q_contrat",
+    "text": "Dans la conception d'un module réutilisable, que représentent ses variables et ses outputs vis-à-vis des équipes qui l'appellent ?",
+    "options": [
+      "Un contrat stable qui isole les appelants de la structure interne des ressources du module",
+      "Un détail d'implémentation qui peut changer librement d'une version à l'autre sans prévenir les appelants",
+      "Une simple optimisation du temps de plan, sans incidence sur la compatibilité",
+      "Un mécanisme de chiffrement des valeurs échangées entre le module et le state"
+    ],
+    "answer": 0,
+    "explain": "Variables et outputs sont l'interface publique du module. Tant que ce contrat est respecté, le contenu interne peut évoluer sans casser les appelants, à l'image d'une interface abstraite qui découple un consommateur de son implémentation.",
+    "remedial_lesson_id": "tf2"
+  },
+  {
+    "id": "tf2_q_doc",
+    "text": "Quel est l'intérêt principal de renseigner type et description sur chaque variable d'un module partagé ?",
+    "options": [
+      "Terraform refuse de fonctionner sans description, ce qui évite les oublis",
+      "Le type valide les entrées dès le plan, et la description sert de documentation consultable par les utilisateurs du module",
+      "La description est chiffrée dans le state pour tracer l'origine de chaque valeur",
+      "Le type permet de paralléliser la création des ressources dépendant de cette variable"
+    ],
+    "answer": 1,
+    "explain": "Le type rejette tôt les valeurs invalides avant toute modification d'infrastructure, et la description documente l'usage attendu. Les outils comme terraform-docs en génèrent la documentation automatiquement. Terraform n'exige pourtant aucune des deux.",
+    "remedial_lesson_id": "tf2"
+  },
+  {
+    "id": "tf2_q_obligatoire",
+    "text": "Une variable est déclarée sans attribut default. Que se passe-t-il lors de terraform plan si aucune valeur n'est fournie ?",
+    "options": [
+      "Terraform utilise la chaîne vide ou zéro selon le type déclaré",
+      "Terraform ignore la variable et supprime les ressources qui en dépendent",
+      "Terraform prend automatiquement la valeur de la variable du même nom dans le state",
+      "Terraform demande la valeur de façon interactive, ou échoue en mode non interactif tel qu'en CI"
+    ],
+    "answer": 3,
+    "explain": "Sans default, la variable est obligatoire. En local Terraform pose la question sur le terminal ; en CI (-input=false) le plan échoue. Cela évite d'appliquer silencieusement une valeur arbitraire.",
+    "remedial_lesson_id": "tf2"
+  }
+]

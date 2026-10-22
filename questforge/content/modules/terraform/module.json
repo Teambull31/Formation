@@ -1,0 +1,22 @@
+{
+  "id": "terraform",
+  "title": "Terraform & Infrastructure as Code",
+  "skill": "terraform",
+  "lessons": [
+    {
+      "id": "tf1",
+      "title": "IaC déclaratif et workflow init / plan / apply",
+      "minutes": 15
+    },
+    {
+      "id": "tf2",
+      "title": "Variables, outputs et contrat d'un module",
+      "minutes": 20
+    },
+    {
+      "id": "tf3",
+      "title": "Sécurité : secrets, state et moindre privilège",
+      "minutes": 20
+    }
+  ]
+}

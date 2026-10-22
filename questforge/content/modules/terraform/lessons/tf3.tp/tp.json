@@ -1,0 +1,13 @@
+{
+  "id": "tf3_tp",
+  "title": "Sécuriser un secret et protéger le state",
+  "instructions_md": "Dans votre espace de travail :\n\n1. Créez `secure.tf` avec :\n   - une variable `db_password` de `type = string`, marquée `sensitive = true` et **sans** `default` ;\n   - une ressource `local_sensitive_file` nommée `db` qui utilise `var.db_password` dans son `content`.\n2. Créez `.gitignore` excluant au minimum `*.tfstate`, `*.tfstate.*`, `.terraform/` et `*.tfvars`.\n\nAttention : aucun mot de passe ne doit apparaître en dur dans vos fichiers `.tf`. La vérification analyse les fichiers, sans accès réseau.",
+  "check": "check.sh",
+  "hints": [
+    "Ajoutez sensitive = true dans le bloc variable, et retirez tout attribut default : le secret ne doit venir que de l'extérieur.",
+    "Le contenu de la ressource doit référencer la variable avec une interpolation, par exemple content = \"password=${var.db_password}\".",
+    "Dans .gitignore, une règle par ligne : *.tfstate, *.tfstate.*, .terraform/ et *.tfvars."
+  ],
+  "timeout_s": 10,
+  "workspace": "."
+}

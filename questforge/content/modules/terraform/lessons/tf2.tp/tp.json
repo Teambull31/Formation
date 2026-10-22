@@ -1,0 +1,13 @@
+{
+  "id": "tf2_tp",
+  "title": "Définir le contrat d'un module : variables et outputs",
+  "instructions_md": "Dans votre espace de travail, créez deux fichiers :\n\n**`variables.tf`**\n- une variable `app_name` avec `type = string`, une `description` non vide et un `default` ;\n- une variable `environment` avec `type = string` et une `description` non vide, **sans** `default` (elle est obligatoire).\n\n**`outputs.tf`**\n- un output `config_path` avec une `description` non vide et un `value` qui référence une variable ou une ressource (par exemple `local_file.config.filename`).\n\nLa vérification analyse la structure de vos fichiers, sans accès réseau.",
+  "check": "check.sh",
+  "hints": [
+    "Un bloc variable s'écrit variable \"nom\" { type = string description = \"...\" } avec un attribut par ligne.",
+    "Pour rendre environment obligatoire, ne mettez simplement aucun attribut default dans son bloc.",
+    "Un output se déclare output \"config_path\" { description = \"...\" value = ... } : value est l'expression exposée."
+  ],
+  "timeout_s": 10,
+  "workspace": "."
+}

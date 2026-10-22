@@ -1,0 +1,54 @@
+[
+  {
+    "id": "tf3_q_secret",
+    "text": "Un mot de passe de base de données doit être fourni à Terraform pour une ressource de production. Quelle pratique respecte les principes DevSecOps ?",
+    "options": [
+      "Le déclarer avec un default dans variables.tf et versionner le fichier pour que toute l'équipe l'ait",
+      "L'écrire dans un fichier terraform.tfvars commité sur une branche privée du dépôt",
+      "Le fournir à l'exécution via TF_VAR_* ou un gestionnaire de secrets, sur une variable marquée sensitive sans valeur par défaut",
+      "L'encoder en base64 dans le code HCL pour qu'il ne soit pas lisible en clair"
+    ],
+    "answer": 2,
+    "explain": "Un secret doit être injecté dynamiquement à l'exécution (variable d'environnement ou coffre-fort) et jamais figurer dans le dépôt, même privé ou encodé. Le base64 n'est pas du chiffrement, et un historique Git conserve tout.",
+    "remedial_lesson_id": "tf3"
+  },
+  {
+    "id": "tf3_q_state",
+    "text": "Une variable est marquée sensitive = true. Que garantit exactement cette option au sujet du fichier de state ?",
+    "options": [
+      "La valeur est masquée dans les sorties du plan, mais reste stockée en clair dans le state, qui doit donc être protégé",
+      "La valeur est chiffrée automatiquement dans le state avec une clé gérée par Terraform",
+      "La valeur n'est jamais enregistrée dans le state et ne peut donc pas fuiter",
+      "La valeur est remplacée par un hash irréversible lors du terraform apply"
+    ],
+    "answer": 0,
+    "explain": "sensitive agit sur l'affichage uniquement. Le state conserve la valeur réelle en clair, d'où la nécessité d'un backend distant chiffré, verrouillé et à accès restreint, et de ne jamais commiter *.tfstate.",
+    "remedial_lesson_id": "tf3"
+  },
+  {
+    "id": "tf3_q_privilege",
+    "text": "Pourquoi l'identité qui exécute Terraform en CI doit-elle être limitée aux seules permissions nécessaires, plutôt que d'être administrateur global ?",
+    "options": [
+      "Parce qu'un compte administrateur ralentit les appels d'API et allonge le temps d'apply",
+      "Parce que Terraform refuse de s'exécuter avec des droits supérieurs à ceux de ses providers",
+      "Parce que les permissions étendues empêchent l'écriture du state sur un backend distant",
+      "Parce que cela restreint la surface d'attaque : si les identifiants du pipeline sont compromis, les dégâts restent limités au périmètre autorisé"
+    ],
+    "answer": 3,
+    "explain": "Le moindre privilège limite l'impact d'une compromission, comme l'exécution d'un conteneur en non-root limite ce qu'un attaquant peut atteindre. Un pipeline compromis avec des droits globaux donnerait accès à tout le compte cloud.",
+    "remedial_lesson_id": "tf3"
+  },
+  {
+    "id": "tf3_q_gitignore",
+    "text": "Lequel de ces ensembles doit impérativement figurer dans le .gitignore d'un dépôt Terraform ?",
+    "options": [
+      "*.tf, *.tf.json et .terraform.lock.hcl",
+      "*.tfstate, *.tfstate.*, .terraform/ et les fichiers *.tfvars contenant des valeurs d'environnement",
+      "variables.tf, outputs.tf et le dossier modules/",
+      "README.md, *.md et les fichiers de documentation générés"
+    ],
+    "answer": 1,
+    "explain": "Le state et le cache .terraform/ peuvent contenir des secrets et des binaires de providers, et les fichiers *.tfvars portent souvent des valeurs sensibles. Les fichiers .tf sont le code source et .terraform.lock.hcl doit au contraire être versionné.",
+    "remedial_lesson_id": "tf3"
+  }
+]

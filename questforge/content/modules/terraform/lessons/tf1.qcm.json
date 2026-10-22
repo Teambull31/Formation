@@ -1,0 +1,41 @@
+[
+  {
+    "id": "tf1_q_declaratif",
+    "text": "Vous relancez terraform apply sans avoir modifié le code ni l'infrastructure. Quel est le comportement attendu et pourquoi ?",
+    "options": [
+      "Terraform recrée toutes les ressources pour garantir un état propre à chaque exécution",
+      "Terraform recalcule uniquement les ressources les plus anciennes selon leur date de création",
+      "Aucune modification : l'approche déclarative compare l'état désiré à l'état réel et ne planifie aucun changement",
+      "Terraform échoue car le state est considéré comme verrouillé après un premier apply"
+    ],
+    "answer": 2,
+    "explain": "Terraform est déclaratif et idempotent : il compare le code, le state et la réalité. S'ils concordent, le plan est vide (No changes) et rien n'est modifié.",
+    "remedial_lesson_id": "tf1"
+  },
+  {
+    "id": "tf1_q_plan",
+    "text": "Quel est le rôle exact de terraform plan dans un pipeline de changement d'infrastructure ?",
+    "options": [
+      "Appliquer les changements en mode simulation tout en écrivant le nouveau state",
+      "Télécharger les providers et initialiser le backend de stockage du state",
+      "Valider uniquement la syntaxe HCL sans interroger ni le state ni le provider",
+      "Afficher les actions que apply exécuterait, sans modifier l'infrastructure, afin de les relire et valider"
+    ],
+    "answer": 3,
+    "explain": "plan produit un aperçu des créations, modifications et destructions à venir. Il sert de point de contrôle humain ou automatisé avant apply. La validation de syntaxe relève de validate, et le téléchargement des providers de init.",
+    "remedial_lesson_id": "tf1"
+  },
+  {
+    "id": "tf1_q_contrat",
+    "text": "Pourquoi déclarer required_providers avec une contrainte de version plutôt que de laisser Terraform choisir la dernière version disponible ?",
+    "options": [
+      "Pour que le code HCL puisse s'abstraire du fournisseur et basculer de cloud sans modification",
+      "Pour garantir des déploiements reproductibles : le contrat de version isole votre code des changements incompatibles d'un provider",
+      "Pour accélérer terraform plan en évitant de contacter l'API du fournisseur",
+      "Pour permettre à plusieurs équipes d'écrire simultanément dans le même state"
+    ],
+    "answer": 1,
+    "explain": "Épingler les versions crée un contrat explicite entre votre code et le provider, comme une interface abstraite isole un consommateur de son implémentation. Une montée de version majeure peut introduire des ruptures ; elle doit être un choix délibéré.",
+    "remedial_lesson_id": "tf1"
+  }
+]
