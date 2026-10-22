@@ -60,7 +60,8 @@ CREATE TABLE IF NOT EXISTS settings (
 """
 
 def connect(path: str | Path = ":memory:") -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path))
+    # Une connexion par requête : FastAPI l'ouvre et l'utilise dans des threads différents.
+    conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
     # Ensure tokens row exists

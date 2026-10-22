@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Données d'exécution du backend
+*.db
+backend/workspace/
+backend/content/
+.audio_cache/

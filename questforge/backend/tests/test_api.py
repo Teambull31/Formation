@@ -114,3 +114,65 @@ def test_import_broken_module_is_422_with_errors(client, tmp_path):
     r = client.post("/api/weekly/import", json={"path": str(broken_dir)})
     assert r.status_code == 422
     assert r.json()["errors"]
+
+
+def test_step_with_unknown_kind_is_rejected(client):
+    res = client.post("/api/quest/step", json={"kind": "nimportequoi", "lesson_id": "l1"})
+    assert res.status_code == 422
+
+
+def test_step_with_unknown_lesson_is_404_and_awards_nothing(client, app_env):
+    _, db_path, _ = app_env
+    res = client.post("/api/quest/step", json={"kind": "lesson", "lesson_id": "zzz"})
+    assert res.status_code == 404
+    assert get_profile(connect(db_path)).total_xp == 0
+
+
+def test_qcm_answer_out_of_range_is_422_and_not_recorded(client, app_env):
+    _, db_path, _ = app_env
+    res = client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 99})
+    assert res.status_code == 422
+    assert connect(db_path).execute("SELECT COUNT(*) FROM mistakes").fetchone()[0] == 0
+
+
+def test_audio_without_speech_engine_is_503(client, monkeypatch):
+    def missing_engine(*args, **kwargs):
+        raise FileNotFoundError("espeak-ng")
+
+    monkeypatch.setattr("app.main.synthesize", missing_engine)
+    res = client.get("/api/audio/l1.wav")
+    assert res.status_code == 503
+    assert "espeak-ng" in res.json()["detail"]
+
+
+def test_quest_without_any_module_is_503_not_500(tmp_path):
+    content_dir = tmp_path / "content"
+    (content_dir / "modules").mkdir(parents=True)
+    app = create_app(db_path=str(tmp_path / "t.db"), content_dir=content_dir, workspace=tmp_path / "ws")
+    res = TestClient(app, client=("127.0.0.1", 50000)).get("/api/quest")
+    assert res.status_code == 503
+
+
+def test_default_content_dir_does_not_depend_on_cwd(monkeypatch, tmp_path):
+    import importlib
+
+    import app.main as main_module
+
+    monkeypatch.chdir(tmp_path)
+    reloaded = importlib.reload(main_module)
+    try:
+        res = TestClient(reloaded.app, client=("127.0.0.1", 50000)).get("/api/lesson/l1")
+        assert res.status_code == 200
+    finally:
+        monkeypatch.undo()
+        importlib.reload(main_module)
+
+
+def test_connection_is_usable_from_another_thread(tmp_path):
+    """FastAPI ouvre la connexion (dépendance) et exécute l'endpoint dans des threads différents."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    conn = connect(tmp_path / "threads.db")
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        assert pool.submit(lambda: conn.execute("SELECT 1").fetchone()[0]).result() == 1
+    conn.close()

@@ -1,8 +1,11 @@
 from __future__ import annotations
 import json
+import logging
+import os
+import subprocess
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -27,6 +30,11 @@ from app.boss import attempt_boss, count_attempts
 from app.audio import synthesize
 from app.weekly import build_brief, import_module
 
+logger = logging.getLogger(__name__)
+
+# Racine du projet (contient backend/ et content/), indépendante du dossier de lancement.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 def local_only(request: Request):
     client_host = request.client.host if request.client else None
@@ -35,7 +43,7 @@ def local_only(request: Request):
 
 
 class StepRequest(BaseModel):
-    kind: str
+    kind: Literal["lesson", "qcm", "tp", "bonus"]
     lesson_id: str
 
 
@@ -97,8 +105,8 @@ def create_app(
                 if entry.is_dir() and (entry / "module.json").exists():
                     try:
                         mods.append(load_module(entry))
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Module ignoré (%s) : %s", entry.name, exc)
         return mods
 
     def find_lesson(lesson_id: str) -> tuple[Lesson, Module] | None:
@@ -135,7 +143,7 @@ def create_app(
     def get_default_boss() -> tuple[dict, Path]:
         bosses_dir = content_path / "bosses"
         if bosses_dir.exists():
-            for b_dir in bosses_dir.iterdir():
+            for b_dir in sorted(bosses_dir.iterdir()):
                 boss_file = b_dir / "boss.json"
                 if b_dir.is_dir() and boss_file.exists():
                     try:
@@ -160,6 +168,9 @@ def create_app(
             default_mod = Module(id="default", title="Socle Initial", skill="devops", lessons=[])
         else:
             default_mod = mods[0]
+
+        if not default_mod.lessons:
+            raise HTTPException(status_code=503, detail=f"Aucun module de contenu disponible dans {content_path / 'modules'}")
 
         today = date.today()
         quest = build_daily_quest(db, default_mod, today, minutes=minutes)
@@ -204,7 +215,9 @@ def create_app(
         today = date.today()
         # Find skill associated with lesson
         found = find_lesson(payload.lesson_id)
-        skill = found[1].skill if found else "general"
+        if not found:
+            raise HTTPException(status_code=404, detail="Leçon introuvable")
+        skill = found[1].skill
         newly_awarded = complete_step(db, today, payload.kind, payload.lesson_id, skill=skill)
         return {"ok": True, "alreadyCompleted": not newly_awarded}
 
@@ -270,7 +283,15 @@ def create_app(
 
         wav_path = audio_cache / f"{lesson_id}.wav"
         if not wav_path.exists():
-            synthesize(les.body_md, wav_path)
+            try:
+                synthesize(les.body_md, wav_path)
+            except (OSError, subprocess.CalledProcessError) as exc:
+                wav_path.unlink(missing_ok=True)
+                logger.warning("Synthèse vocale indisponible : %s", exc)
+                raise HTTPException(
+                    status_code=503,
+                    detail="Synthèse vocale indisponible : installez espeak-ng pour activer l'audio.",
+                )
 
         return FileResponse(
             wav_path,
@@ -285,6 +306,9 @@ def create_app(
         if not found:
             raise HTTPException(status_code=404, detail="Question introuvable")
         q, _, _ = found
+
+        if not 0 <= payload.chosen < len(q.options):
+            raise HTTPException(status_code=422, detail="Option de réponse invalide")
 
         today = date.today()
         correct = (payload.chosen == q.answer)
@@ -441,6 +465,6 @@ def create_app(
 # Default instance for uvicorn
 app = create_app(
     db_path="questforge.db",
-    content_dir=Path("content"),
+    content_dir=os.environ.get("QUESTFORGE_CONTENT_DIR", PROJECT_ROOT / "content"),
     workspace=Path("workspace"),
 )
