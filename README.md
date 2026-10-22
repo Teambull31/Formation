@@ -34,6 +34,17 @@ Variables d'environnement optionnelles (par défaut sous `~/.formation`) :
 
 Sans module dans `<FORMATION_CONTENT>/modules/`, la quête est vide : importez un module (voir « Rituel du dimanche ») ou copiez `backend/tests/fixtures/demo_module` dans `<FORMATION_CONTENT>/modules/demo`.
 
+## Module 1 : Automatisation et agents IA
+
+Disponible dans `content/modules/auto1` (12 leçons, boss `auto1_boss`). Pour le charger :
+
+```bash
+cd backend
+FORMATION_CONTENT=../content uv run uvicorn app.main:app_factory --factory --host 0.0.0.0 --port 8000
+```
+
+Parcours et mode d'emploi : `content/modules/auto1/README.md`. Non vérifié en réel : essai Outlook perso, Ollama réel `qwen3:14b` (délais à froid, texte de raisonnement cassant le JSON), téléphone, inscription d'application Microsoft/Google (tout est validé contre des faux serveurs).
+
 ## Accès téléphone
 
 Sur le même réseau : `http://<ip-du-pc>:8000`. Quête, leçons, QCM, audio, équipe et boss (consultation) fonctionnent.
