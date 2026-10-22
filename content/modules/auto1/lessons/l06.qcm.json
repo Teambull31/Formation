@@ -1,0 +1,67 @@
+[
+ {
+  "id": "l06-q1",
+  "text": "Pourquoi envoyer `\"stream\": false` à /api/generate ?",
+  "options": [
+   "Pour que le modèle réponde plus vite",
+   "Pour recevoir une seule réponse JSON complète plutôt qu'un flux de morceaux",
+   "Pour désactiver la mémoire du modèle",
+   "Pour chiffrer la requête"
+  ],
+  "answer": 1,
+  "explain": "Avec stream:false, Ollama renvoie un seul objet JSON dont le champ response contient tout le texte, simple à lire dans un script. Le flux est plus lourd à assembler ; le paramètre ne change ni la vitesse du modèle ni le chiffrement.",
+  "remedial_lesson_id": "l06"
+ },
+ {
+  "id": "l06-q2",
+  "text": "Que se passe-t-il quand Ollama est éteint, trop lent ou renvoie une réponse invalide, avec llm.generate ?",
+  "options": [
+   "Python s'arrête avec une trace différente selon l'erreur",
+   "generate renvoie une chaîne vide",
+   "generate lève toujours LlmUnavailable, qu'on peut attraper une seule fois",
+   "generate réessaie sans fin jusqu'à ce que ça marche"
+  ],
+  "answer": 2,
+  "explain": "Le kit regroupe toutes les pannes dans LlmUnavailable : un seul except suffit pour prévoir le secours. Une chaîne vide masquerait la panne, et une boucle infinie bloquerait le script, comme un appel sans timeout (leçon 3).",
+  "remedial_lesson_id": "l06"
+ },
+ {
+  "id": "l06-q3",
+  "text": "Erreur classique : pour déboguer un échec, vous écrivez `print(f\"échec, prompt = {prompt}\")` dans le journal. Quel est le problème ?",
+  "options": [
+   "Le prompt est trop long pour un print",
+   "L'accent dans « échec » casse l'affichage",
+   "Aucun, un journal sert à tout noter",
+   "Le prompt contient des mails privés : il recopie des données confidentielles dans un fichier"
+  ],
+  "answer": 3,
+  "explain": "Un journal se garde, se copie et se partage souvent. Logguez le type de l'erreur et un identifiant, jamais le contenu des mails. Le problème n'est ni la longueur ni l'accent, c'est la confidentialité.",
+  "remedial_lesson_id": "l05"
+ },
+ {
+  "id": "l06-q4",
+  "text": "Erreur classique : vous appelez generate avec le timeout par défaut de 60 s pour un simple test, et le serveur est lent. Quelle conséquence ?",
+  "options": [
+   "Le script attend jusqu'à 60 s avant de basculer sur le secours ; il faut un timeout court",
+   "Le script passe tout de suite au secours",
+   "Le modèle répond plus vite quand on attend",
+   "Le timeout par défaut est toujours le bon choix"
+  ],
+  "answer": 0,
+  "explain": "Le secours ne se déclenche qu'à l'expiration du timeout : avec 60 s, l'utilisateur patiente une minute. Réglez un timeout court en test et adapté au modèle en production. L'attente n'accélère pas le modèle.",
+  "remedial_lesson_id": "l03"
+ },
+ {
+  "id": "l06-q5",
+  "text": "Quel comportement de secours est correct quand l'IA est indisponible ?",
+  "options": [
+   "Afficher une fausse réponse plausible pour ne pas inquiéter",
+   "Afficher un résultat de secours explicite, une raison courte sur stderr, et sortir proprement",
+   "Quitter avec une trace Python complète",
+   "Réessayer indéfiniment en boucle"
+  ],
+  "answer": 1,
+  "explain": "Le secours doit être clairement marqué comme tel, pour que personne ne prenne une absence de résumé pour un vrai résumé. Une fausse réponse trompe, une trace brute n'aide pas et une boucle infinie gèle l'automatisation.",
+  "remedial_lesson_id": "l06"
+ }
+]

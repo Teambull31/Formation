@@ -1,0 +1,16 @@
+{
+  "id": "l05-tp",
+  "title": "TP 5 : lister les mails, quelle que soit la source",
+  "instructions_md": "Le dossier contient le **kit**, avec `kit/mail_source.py` (`JsonMailSource`, `MboxMailSource`) et deux fixtures fictives : `kit/fixtures/mails.json` et `kit/fixtures/inbox.mbox`.\n\nÉcrivez **lister.py**, lancé ainsi : `python3 lister.py --source json --path FICHIER` ou `python3 lister.py --source mbox --path FICHIER`. Il affiche les **5 mails les plus récents**, une ligne par mail, au format exact `expéditeur | sujet` (par exemple `compta@example.test | Facture n° 2026-0412 à régler avant le 15`).\n\nRègles, toutes vérifiées :\n\n- Utilisez `JsonMailSource` et `MboxMailSource` du kit (importez `mail_source` depuis le dossier `kit` situé à côté de `lister.py`, pas depuis le répertoire courant). Le code d'affichage doit être **le même** pour les deux sources : seule la création de la source diffère. Le contrôle donne les mêmes mails en JSON puis en mbox et compare les deux sorties.\n- Demandez au plus 5 mails (`limit=5`) ; moins de 5 mails dans la source : affichez-les tous.\n- Source vide (aucun mail) : affichez `(aucun mail)` et sortez avec le code 0.\n- Chemin qui n'existe pas : message lisible en français sur **stderr** (une phrase, pas de trace Python), **rien sur stdout**, code de sortie **non nul**. Les sources du kit renvoient simplement une liste vide dans ce cas : à vous de tester le fichier avant.\n- Le contrôle utilise des fichiers générés au hasard (autres expéditeurs, sujets, dates et accents que ceux du kit) : une sortie codée en dur ne passera pas.\n\nRappel : les mails réels restent en local. Ici, tout est fictif (`@example.test`).",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Au début du script : sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kit')), puis from mail_source import JsonMailSource, MboxMailSource. Lisez les options avec argparse (--source avec choices=['json', 'mbox'], --path).",
+    "Une seule ligne dépend du format : source = JsonMailSource(args.path) if args.source == 'json' else MboxMailSource(args.path). Ensuite, quel que soit le choix, appelez mails = source.fetch(limit=5) et affichez avec une seule boucle. Avant, vérifiez os.path.isfile(args.path).",
+    "Si le fichier est absent : print(f'Erreur : fichier introuvable : {args.path}', file=sys.stderr) puis sys.exit(2). Si la liste mails est vide : print('(aucun mail)'). Sinon : for m in mails: print(f'{m.sender} | {m.subject}')."
+  ],
+  "timeout_s": 40,
+  "workspace": "l05",
+  "seed": [
+    "../../kit"
+  ]
+}
