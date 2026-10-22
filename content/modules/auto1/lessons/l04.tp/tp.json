@@ -1,0 +1,16 @@
+{
+  "id": "l04-tp",
+  "title": "TP 4 : un rapport Markdown des mails",
+  "instructions_md": "Le dossier contient le **kit** ; le fichier `kit/fixtures/mails.json` est une liste de mails fictifs (clés `id`, `sender`, `subject`, `received`, `body`). Dans la vraie vie, les lignes sont moins propres.\n\nÉcrivez **rapport.py**, lancé ainsi : `python3 rapport.py chemin/vers/mails.json`. Il lit le fichier donné en **argument** (le contrôle l'appelle avec d'autres fichiers que celui du kit, dans un dossier dont le nom contient une espace) et écrit **rapport.md dans le dossier courant**. Il ne modifie jamais le fichier lu.\n\nFormat exact du rapport :\n\n```\n# Rapport des mails\n\nTotal : 5 mails\n\n## claire.martin (2)\n- 2026-03-05 14:30 — Réunion jeudi\n- 2026-03-02 08:15 — Point budget\n\n## compta (3)\n- ...\n```\n\n- Ligne 1 `# Rapport des mails`, ligne vide, `Total : N mails`, ligne vide (écrivez `Total : 1 mail` au singulier, `Total : 0 mail` pour une liste vide).\n- Un groupe par **nom d'expéditeur** : la partie avant `@`, **en minuscules**. `Claire.Martin@example.test` et `claire.martin@example.test` forment un seul groupe. Expéditeur absent ou vide : groupe `inconnu`.\n- Groupes classés par ordre alphabétique. Titre `## nom (N)` avec le nombre de mails, puis une ligne vide entre groupes.\n- Dans un groupe : **le plus récent d'abord** (tri sur `received`, texte ISO). Chaque ligne : `- AAAA-MM-JJ HH:MM — sujet` (date et heure prises dans `received`, séparateur « — » entouré d'espaces).\n- Le sujet est sa **première ligne non vide**, sans espaces autour, **coupée à 40 caractères** : au-delà de 40, gardez les 40 premiers et ajoutez `…`. Sujet absent, `null`, vide ou non texte : `(sans objet)`.\n\nLe contrôle compare votre rapport, ligne à ligne, à celui qu'il calcule lui-même sur plusieurs jeux de données différents : un rapport écrit à la main ne passera pas. Vous pouvez comparer avec `jq` : `jq -r '.[].sender' kit/fixtures/mails.json`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Commencez par lire le fichier : mails = json.load(open(sys.argv[1], encoding='utf-8')). Puis une boucle qui range chaque mail dans un dict de listes : groupes.setdefault(nom, []).append(mail).",
+    "Le nom : sender = m.get('sender'); nom = sender.split('@')[0].lower() si c'est une chaîne non vide, sinon 'inconnu'. Le sujet : s = m.get('subject'); si ce n'est pas une chaîne, '(sans objet)' ; sinon prenez la première ligne non vide de s.splitlines() après strip().",
+    "Pour chaque nom dans sorted(groupes) : sorted(groupes[nom], key=lambda m: m['received'], reverse=True). La date : m['received'][:10] + ' ' + m['received'][11:16]. Troncature : if len(sujet) > 40: sujet = sujet[:40] + '…'. Collectez des lignes dans une liste puis open('rapport.md', 'w', encoding='utf-8').write('\\n'.join(lignes) + '\\n')."
+  ],
+  "timeout_s": 40,
+  "workspace": "l04",
+  "seed": [
+    "../../kit"
+  ]
+}

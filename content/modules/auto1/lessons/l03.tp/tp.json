@@ -1,0 +1,16 @@
+{
+  "id": "l03-tp",
+  "title": "TP 3 : un client API robuste",
+  "instructions_md": "Le dossier contient le **kit** (dont le serveur de test `test_api`). Le contrôle le démarre lui-même et vous donne son adresse dans la variable d'environnement **API_URL** (par exemple `http://127.0.0.1:41233`, sans `/` final). Votre script ne doit jamais coder un port en dur.\n\nÉcrivez **client.py** (Python, bibliothèque standard, lancé par `python3 client.py`) qui, dans cet ordre :\n\n1. lit `GET /tasks` et affiche **une ligne par tâche** : `id: title` (ex. `1: Écrire le rapport`) ;\n2. lit `GET /flaky`, qui échoue (503) deux fois sur trois, et affiche `flaky: ` suivi de la réponse JSON ;\n3. ajoute une tâche avec `POST /tasks`, corps JSON `{\"title\": \"Relancer le client\"}` et en-tête `Content-Type: application/json`, puis affiche `créée: ` suivi de l'id reçu.\n\nRègles, toutes vérifiées :\n\n- **Timeout de 2 secondes** à chaque appel.\n- Un **GET** est tenté **3 fois au plus**, avec une pause qui double entre les essais (0,2 s puis 0,4 s). On réessaie sur un 5xx, un timeout ou une connexion refusée. On ne réessaie **jamais un 4xx** : un seul essai.\n- Le **POST** n'est tenté **qu'une seule fois** (il n'est pas idempotent).\n- Si l'appel échoue définitivement : un **message lisible** (une phrase, pas de trace Python) et un **code de sortie 1**. Succès : code 0. Si `API_URL` manque, même traitement.\n\nPour tester à la main, dans un terminal : `python3 -c \"import sys,time; sys.path.insert(0,'kit'); import test_api; h=test_api.serve(); print(h.port, flush=True); time.sleep(300)\"`. Puis dans un autre : `API_URL=http://127.0.0.1:PORT python3 client.py`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Écrivez une fonction get(chemin) qui fait une boucle de 3 tentatives autour de urllib.request.urlopen(url, timeout=2). Lisez l'adresse avec os.environ.get('API_URL').",
+    "Dans la boucle, attrapez urllib.error.HTTPError (lisez e.code : réessayez seulement si >= 500), puis urllib.error.URLError et TimeoutError (réessayez). Entre deux essais : time.sleep(0.2 * 2 ** essai). Au dernier échec, affichez un message et faites sys.exit(1).",
+    "Le POST : urllib.request.Request(url, data=json.dumps({'title': 'Relancer le client'}).encode(), headers={'Content-Type': 'application/json'}, method='POST'), un seul urlopen(..., timeout=2) dans un try/except qui affiche un message et sort avec sys.exit(1). Les lignes de tâches : print(f\"{t['id']}: {t['title']}\")."
+  ],
+  "timeout_s": 60,
+  "workspace": "l03",
+  "seed": [
+    "../../kit"
+  ]
+}
