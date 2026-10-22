@@ -12,13 +12,7 @@ import termios
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
-
-
-def is_local(host: str | None) -> bool:
-    if not host:
-        return False
-    return host in LOCAL_HOSTS
+from app.security import LOCAL_HOSTS, clean_env, is_local, is_trusted  # noqa: F401  (réexportés)
 
 
 def register_terminal(app: FastAPI, workspace: Path | str) -> None:
@@ -28,7 +22,7 @@ def register_terminal(app: FastAPI, workspace: Path | str) -> None:
     @app.websocket("/ws/terminal")
     async def terminal_endpoint(websocket: WebSocket):
         client_host = websocket.client.host if websocket.client else None
-        if not is_local(client_host):
+        if not is_trusted(client_host, websocket.headers):
             await websocket.close(code=1008)
             return
 
@@ -42,7 +36,7 @@ def register_terminal(app: FastAPI, workspace: Path | str) -> None:
             pass
 
         shell = os.environ.get("SHELL", "/bin/bash")
-        term_env = dict(os.environ)
+        term_env = clean_env()
         term_env["TERM"] = "xterm-256color"
         term_env["COLORTERM"] = "truecolor"
         term_env["LANG"] = "C.UTF-8"

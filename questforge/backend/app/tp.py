@@ -5,6 +5,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from app.content import Tp
+from app.security import clean_env
 
 MAX_OUTPUT_CHARS = 4000
 
@@ -33,6 +34,7 @@ def run_check(tp: Tp, workspace: Path | str, lesson_dir: Path | str) -> CheckRes
         proc = subprocess.Popen(
             cmd,
             cwd=str(ws_path),
+            env=clean_env(),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

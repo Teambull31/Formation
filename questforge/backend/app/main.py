@@ -25,7 +25,8 @@ from app.quests import (
 from app.review import record_answer, due_reviews, weak_notions, box_counts, REVIEW_XP
 from app.llm import hint as get_llm_hint, explain_error as get_llm_explain
 from app.tp import run_check
-from app.terminal import register_terminal, is_local
+from app.terminal import register_terminal
+from app.security import is_trusted
 from app.gacha import pull, add_tokens, NoTokens
 from app.boss import attempt_boss, count_attempts
 from app.audio import synthesize
@@ -41,7 +42,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def local_only(request: Request):
     client_host = request.client.host if request.client else None
-    if not is_local(client_host):
+    if not is_trusted(client_host, request.headers):
         raise HTTPException(status_code=403, detail="Accès réservé à localhost")
 
 
@@ -578,8 +579,12 @@ def create_app(
 
 
 # Default instance for uvicorn
+# Données d'exécution (base SQLite, dossier de travail des TP) : QUESTFORGE_DATA_DIR, sinon le dossier courant.
+DATA_DIR = Path(os.environ.get("QUESTFORGE_DATA_DIR", "."))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 app = create_app(
-    db_path="questforge.db",
+    db_path=str(DATA_DIR / "questforge.db"),
     content_dir=os.environ.get("QUESTFORGE_CONTENT_DIR", PROJECT_ROOT / "content"),
-    workspace=Path("workspace"),
+    workspace=DATA_DIR / "workspace",
 )
