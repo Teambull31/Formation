@@ -37,7 +37,7 @@ def terminal_remote_client(tmp_path):
     return _terminal_client(tmp_path, "192.168.1.20")
 
 
-def app_client(tmp_path, host, static_dir=None):
+def app_client(tmp_path, host, static_dir=None, base_url="http://localhost", **kw):
     import shutil
     from pathlib import Path
 
@@ -52,8 +52,8 @@ def app_client(tmp_path, host, static_dir=None):
     shutil.copy(Path(__file__).parents[2] / "content" / "gacha.json", content / "gacha.json")
     ws = tmp_path / "ws"
     ws.mkdir()
-    app = create_app(str(tmp_path / "f.db"), content, ws, static_dir=static_dir)
-    return TestClient(app, base_url="http://localhost", client=(host, 50000))
+    app = create_app(str(tmp_path / "f.db"), content, ws, static_dir=static_dir, **kw)
+    return TestClient(app, base_url=base_url, client=(host, 50000))
 
 
 @pytest.fixture

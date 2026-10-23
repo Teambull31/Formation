@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import llm
+from app.auth import BasicAuth, make_security, security_from_env
 from app.audio import strip_markdown, synthesize
 from app.boss import attempt_boss, count_attempts
 from app.content import Module, ModuleError, load_module
@@ -21,7 +22,7 @@ from app.gacha import NoTokens, pull
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import due_reviews, record_answer
-from app.terminal import _origin_ok, is_local, register_terminal
+from app.terminal import exec_ok, register_terminal
 from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
 
@@ -57,12 +58,14 @@ class ImportIn(BaseModel):
 
 
 def local_only(request: Request) -> None:
-    # peer IP + Host/Origin (anti DNS rebinding / cross-site); _origin_ok only reads .headers
-    if not is_local(request.client.host if request.client else None) or not _origin_ok(request):
+    # peer IP + Host/Origin (anti DNS rebinding / cross-site); opt-in distant: Host autorise (mot de passe exige)
+    if not exec_ok(request, request.app.state.remote_hosts):
         raise HTTPException(403, "Réservé à la machine locale")
 
 
-def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Path | None = None) -> FastAPI:
+def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Path | None = None,
+               password: str | None = None, remote_exec: bool = False, allowed_hosts=()) -> FastAPI:
+    sec = make_security(password, remote_exec, allowed_hosts)
     content_dir, workspace = Path(content_dir), Path(workspace)
     connect(db_path).close()  # schema must exist at startup
     pool = json.loads((content_dir / "gacha.json").read_text(encoding="utf-8"))
@@ -71,6 +74,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     boss = json.loads(boss_dirs[0].read_text(encoding="utf-8")) if boss_dirs else None
     rng = random.Random()
     app = FastAPI()
+    app.state.remote_hosts = sec.allowed_hosts
 
     @app.middleware("http")
     async def same_origin_writes(request: Request, call_next):
@@ -265,19 +269,23 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             return JSONResponse({"errors": e.errors}, status_code=422)
         return {"module_id": final.name}
 
-    register_terminal(app, workspace)
+    register_terminal(app, workspace, sec.allowed_hosts)
 
     static = static_dir if static_dir is not None else Path(__file__).resolve().parents[2] / "frontend" / "dist"
     if static.is_dir():
         app.mount("/", StaticFiles(directory=static, html=True), name="static")
+    if sec.password is not None:
+        app.add_middleware(BasicAuth, password=sec.password)  # ajouté en dernier = le plus externe
     return app
 
 
 def app_factory() -> FastAPI:
+    sec = security_from_env()  # avant tout effet de bord disque
     home = Path.home() / ".formation"
     workspace = Path(os.environ.get("FORMATION_WORKSPACE", home / "workspace"))
     workspace.mkdir(parents=True, exist_ok=True)
     db = Path(os.environ.get("FORMATION_DB", home / "formation.db"))
     db.parent.mkdir(parents=True, exist_ok=True)
     default_content = Path(__file__).resolve().parents[2] / "content"
-    return create_app(str(db), Path(os.environ.get("FORMATION_CONTENT", default_content)), workspace)
+    return create_app(str(db), Path(os.environ.get("FORMATION_CONTENT", default_content)), workspace,
+                      password=sec.password, remote_exec=sec.remote_exec, allowed_hosts=sec.allowed_hosts)

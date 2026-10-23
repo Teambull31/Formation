@@ -33,10 +33,10 @@ def _hostname(netloc: str) -> str | None:
         return None
 
 
-def _origin_ok(ws: WebSocket) -> bool:
-    """Host doit etre local; un Origin eventuel doit etre same-origin (anti CSWSH / DNS rebinding)."""
+def _origin_ok(ws: WebSocket, hosts=LOCAL_HOSTNAMES) -> bool:
+    """Host doit etre dans `hosts` (local par defaut); un Origin eventuel doit etre same-origin (anti CSWSH / DNS rebinding)."""
     host = ws.headers.get("host", "")
-    if _hostname(host) not in LOCAL_HOSTNAMES:
+    if _hostname(host) not in hosts:
         return False
     origin = ws.headers.get("origin")
     if origin is None:
@@ -44,9 +44,17 @@ def _origin_ok(ws: WebSocket) -> bool:
     try:
         o = urlsplit(origin)
         return (o.scheme in ("http", "https") and o.netloc.lower() == host.lower()
-                and o.hostname in LOCAL_HOSTNAMES)
+                and o.hostname in hosts)
     except ValueError:
         return False
+
+
+def exec_ok(conn, remote_hosts=frozenset()) -> bool:
+    """Execution de commandes : pair loopback + Host local, ou (opt-in FORMATION_REMOTE_EXEC) Host autorise.
+    Le mot de passe est deja verifie par le middleware BasicAuth, obligatoire des que remote_hosts est non vide."""
+    if is_local(conn.client.host if conn.client else None) and _origin_ok(conn):
+        return True
+    return bool(remote_hosts) and _origin_ok(conn, remote_hosts)
 
 
 def _resize(fd: int, rows: int, cols: int) -> None:
@@ -58,10 +66,10 @@ def _write_all(fd: int, data: bytes) -> None:
         data = data[os.write(fd, data):]
 
 
-def register_terminal(app: FastAPI, workspace: Path) -> None:
+def register_terminal(app: FastAPI, workspace: Path, remote_hosts=frozenset()) -> None:
     @app.websocket("/ws/terminal")
     async def terminal(ws: WebSocket) -> None:
-        if not is_local(ws.client.host if ws.client else None) or not _origin_ok(ws):
+        if not exec_ok(ws, remote_hosts):
             await ws.close(code=1008)
             return
         await ws.accept()
