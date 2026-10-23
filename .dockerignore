@@ -1,0 +1,10 @@
+.git
+.superpowers
+.env
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.db
+frontend/dist
+backend/tests
+docs

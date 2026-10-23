@@ -1,0 +1,48 @@
+# Déploiement de Formation (voir DEPLOY.md). Variables dans .env (voir .env.example).
+#   PC / VPS derrière SSH ou Tailscale :  docker compose up -d --build
+#   VPS public avec HTTPS automatique  :  docker compose --profile https up -d --build
+
+services:
+  formation:
+    build: .
+    image: formation:latest
+    restart: unless-stopped
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      FORMATION_PASSWORD: ${FORMATION_PASSWORD:?Définissez FORMATION_PASSWORD dans .env (12 caractères minimum)}
+      # DANGEREUX : donne un shell à quiconque connaît le mot de passe. Voir DEPLOY.md avant d'activer.
+      FORMATION_REMOTE_EXEC: ${FORMATION_REMOTE_EXEC:-0}
+      FORMATION_ALLOWED_HOSTS: ${FORMATION_ALLOWED_HOSTS:-}
+    ports:
+      # Par défaut uniquement sur la machine ; l'accès distant passe par le profil https, SSH ou Tailscale.
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8000}:8000"
+    volumes:
+      - formation-data:/data
+      - ./content:/app/content   # imports hebdo et cache ; doit appartenir à APP_UID
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1g
+    pids_limit: 256
+
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    restart: unless-stopped
+    depends_on:
+      - formation
+    environment:
+      DOMAIN: ${DOMAIN:?Définissez DOMAIN dans .env pour le profil https}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  formation-data:
+  caddy-data:
+  caddy-config:

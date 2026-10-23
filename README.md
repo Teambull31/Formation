@@ -80,3 +80,7 @@ Exemple complet : `backend/tests/fixtures/demo_module`.
 cd backend && uv run pytest -q
 cd frontend && npm test -- --run
 ```
+
+## Déploiement
+
+Mot de passe, Docker, HTTPS, Tailscale, sauvegarde et mise à jour : voir [DEPLOY.md](DEPLOY.md).
