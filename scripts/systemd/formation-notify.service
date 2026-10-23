@@ -1,0 +1,10 @@
+[Unit]
+Description=Rappel quotidien Formation (notification Web Push)
+
+[Service]
+Type=oneshot
+# Adaptez User et chemins ; reprenez les Environment= de formation.service (FORMATION_DB surtout :
+# le rappel doit lire la même base que l'appli).
+User=teambull
+WorkingDirectory=/home/teambull/Formation/backend
+ExecStart=/usr/bin/env uv run python -m app.notify

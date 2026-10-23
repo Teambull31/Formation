@@ -66,6 +66,10 @@ export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: nu
 export const getReviews = () => call<Reviews>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
+export const getPushKey = () => call<{ key: string; subscribed: boolean }>('GET', '/api/push/key')
+export const pushSubscribe = (sub: PushSubscriptionJSON) => call<Ok>('POST', '/api/push/subscribe', sub)
+export const pushUnsubscribe = (endpoint: string) => call<Ok>('POST', '/api/push/unsubscribe', { endpoint })
+export const pushTest = () => call<{ sent: number }>('POST', '/api/push/test')
 export interface InterviewQuestion { id: string; role: string; question: string; time_limit: number; best: number | null }
 export interface InterviewResult {
   score: number; xp: number; best: number; mode: string; feedback: string; missing: string[]; model_answer: string

@@ -104,6 +104,20 @@ systemctl list-timers formation-backup.timer   # prochaine exécution
 
 `KEEP_DAYS=N scripts/backup.sh` supprime à la main les sauvegardes plus vieilles que N jours.
 
+## Rappel quotidien (notification)
+
+Écran Équipe, carte « Rappel quotidien » : « Activer le rappel » (il faut l'appli en https ; sur iPhone, installée sur l'écran d'accueil). Le serveur envoie ensuite une notification par jour si tu n'as rien fait et n'as pas annoncé de repos. Il doit pouvoir joindre le service push de ton navigateur (fcm.googleapis.com, updates.push.services.mozilla.com, push.apple.com) en sortie. Seuls ces services sont acceptés.
+
+Le rappel part d'une tâche planifiée :
+
+```bash
+sudo cp scripts/systemd/formation-notify.* /etc/systemd/system/   # adaptez User, chemins, Environment=
+sudo systemctl daemon-reload && sudo systemctl enable --now formation-notify.timer
+sudo systemctl start formation-notify.service                      # essai immédiat (n'envoie que si un rappel est dû)
+```
+
+Avec Docker : `docker compose exec -T formation python -m app.notify` dans un cron. Variable facultative : `FORMATION_PUSH_CONTACT` (`mailto:toi@exemple.fr`), exigée par le protocole VAPID. Les clés VAPID sont créées au premier usage et gardées dans la base : une restauration de sauvegarde les conserve, mais il faudra réactiver le rappel si tu repars d'une base vide.
+
 ## Mise à jour
 
 ```bash

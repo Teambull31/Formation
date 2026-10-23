@@ -28,3 +28,18 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(req).then((hit) => hit || caches.match('/'))),
   )
 })
+
+// Rappel quotidien (Web Push) : le serveur envoie {title, body} chiffré.
+self.addEventListener('push', (event) => {
+  let d = {}
+  try { d = event.data.json() } catch { /* message vide ou en texte brut */ }
+  event.waitUntil(self.registration.showNotification(d.title || 'Formation', {
+    body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: 'daily',
+  }))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then((cs) => (cs.length ? cs[0].focus() : self.clients.openWindow('/'))))
+})

@@ -20,6 +20,7 @@ from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
 from app.interview import keyword_grade, load_questions
+from app import push
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import INTERVALS, box_counts, due_reviews, record_answer
@@ -58,6 +59,20 @@ class FeynmanIn(BaseModel):
 
 class InterviewIn(BaseModel):
     answer: str = Field(min_length=20, max_length=llm.MAX_EXPLANATION)
+
+
+class PushKeys(BaseModel):
+    p256dh: str = Field(max_length=200)
+    auth: str = Field(max_length=100)
+
+
+class PushSub(BaseModel):
+    endpoint: str = Field(max_length=1000)
+    keys: PushKeys
+
+
+class PushOut(BaseModel):
+    endpoint: str = Field(max_length=1000)
 
 
 class HintIn(BaseModel):
@@ -230,6 +245,29 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
         return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
+
+    @app.get("/api/push/key")
+    def push_key(db=Depends(get_db)):
+        return {"key": push.vapid(db)[1], "subscribed": push.count_subs(db) > 0}
+
+    @app.post("/api/push/subscribe")
+    def push_subscribe(body: PushSub, db=Depends(get_db)):
+        if not push.endpoint_ok(body.endpoint):
+            raise HTTPException(422, "Service de notification non pris en charge")
+        push.subscribe(db, body.model_dump())
+        return {"ok": True}
+
+    @app.post("/api/push/unsubscribe")
+    def push_unsubscribe(body: PushOut, db=Depends(get_db)):
+        push.unsubscribe(db, body.endpoint)
+        return {"ok": True}
+
+    @app.post("/api/push/test")
+    def push_test(db=Depends(get_db)):
+        sent = push.send_all(db, "Formation", "Les rappels fonctionnent.")
+        if not sent:
+            raise HTTPException(503, "Aucune notification envoyée : abonne-toi d'abord, puis vérifie la connexion du serveur.")
+        return {"sent": sent}
 
     @app.get("/api/interview")
     def interview_list(db=Depends(get_db)):

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ApiError, getTeam, pullGacha, type Team as T } from '../api'
+import Reminders from './Reminders'
 
 export default function Team() {
   const [team, setTeam] = useState<T | null>(null)
@@ -24,6 +25,7 @@ export default function Team() {
         {team?.rank_capped && <p className="note">Rang plafonné : bats un boss pour monter.</p>}
         {team && <p className="stat">niveau {team.level} · {team.xp} XP · série {team.streak} j</p>}
       </div>
+      <Reminders />
       {team && (
         <>
           <div className="card">

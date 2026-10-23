@@ -1,0 +1,9 @@
+[Unit]
+Description=Rappel quotidien Formation à 18h30
+
+[Timer]
+OnCalendar=*-*-* 18:30:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

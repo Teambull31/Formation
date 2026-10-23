@@ -5,6 +5,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.146.0",
     "httpx>=0.28.1",
+    "pywebpush>=2.5.0",
     "uvicorn[standard]>=0.54.0",
     "websockets>=17.2",
 ]
