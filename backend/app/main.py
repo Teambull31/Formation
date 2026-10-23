@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -20,7 +20,7 @@ from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
 from app.interview import keyword_grade, load_questions
-from app import push
+from app import portfolio, push
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import INTERVALS, box_counts, due_reviews, record_answer
@@ -245,6 +245,14 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
         return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
+
+    @app.get("/api/portfolio.zip")
+    def portfolio_zip(db=Depends(get_db)):
+        won = [r[0] for r in db.execute("SELECT DISTINCT boss_id FROM boss_attempts WHERE won = 1 ORDER BY boss_id")]
+        titles = [json.loads((bosses[b] / "boss.json").read_text(encoding="utf-8"))["title"] for b in won if b in bosses]
+        data, _ = portfolio.build_zip(db, get_profile(db), modules(), workspace, titles)
+        return Response(data, media_type="application/zip",
+                        headers={"Content-Disposition": 'attachment; filename="portfolio.zip"'})
 
     @app.get("/api/push/key")
     def push_key(db=Depends(get_db)):
