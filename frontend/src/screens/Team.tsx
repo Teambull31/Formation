@@ -21,6 +21,7 @@ export default function Team() {
       <div className="card">
         <p className="tag">Profil</p>
         <h2>{team ? team.rank : '…'}</h2>
+        {team?.rank_capped && <p className="note">Rang plafonné : bats un boss pour monter.</p>}
         {team && <p className="stat">niveau {team.level} · {team.xp} XP · série {team.streak} j</p>}
       </div>
       {team && (

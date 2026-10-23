@@ -337,3 +337,26 @@ def test_two_bosses_selectable_by_id(tmp_path):
     assert c.post("/api/boss/attempt", params={"id": "zz_boss"}).json()["attempts"] == 1
     assert c.get("/api/boss").json()["attempts"] == 0  # attempts counted per boss
     assert c.get("/api/boss", params={"id": "nope"}).status_code == 404
+
+
+def test_qcm_xp_scales_with_first_try_answers(client):
+    client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 0})  # wrong
+    client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1})  # right later: first try counts
+    client.post("/api/quest/step", json={"kind": "qcm", "lesson_id": "l1"})
+    assert client.get("/api/team").json()["xp"] == 0
+
+
+def test_qcm_xp_full_when_first_try_right(client):
+    client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1})
+    client.post("/api/qcm/answer", json={"question_id": "q2", "chosen": 1})  # wrong: half the XP
+    client.post("/api/quest/step", json={"kind": "qcm", "lesson_id": "l1"})
+    assert client.get("/api/team").json()["xp"] == 20
+
+
+def test_removed_question_not_counted_as_due(client, tmp_path):
+    from app.db import connect
+    db = connect(str(tmp_path / "t.db"))
+    db.execute("INSERT OR REPLACE INTO mistakes(question_id, box, due) VALUES ('gone', 0, '2000-01-01')")
+    db.commit()
+    r = client.get("/api/reviews").json()
+    assert "gone" not in r["due"] and len(r["due"]) == len(r["questions"])

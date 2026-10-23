@@ -145,7 +145,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         if body.kind == "tp" and les.tp:
             if db.execute("SELECT 1 FROM settings WHERE key = ?", (f"tp_passed:{les.tp.id}",)).fetchone() is None:
                 raise HTTPException(409, "TP non validé : lancez la vérification d'abord")
-        complete_step(db, date.today(), body.kind, body.lesson_id, m.skill, applicable_kinds(les))
+        xp = None
+        if body.kind == "qcm" and les.qcm:  # XP scales with first-try right answers; wrong ones go to the reviews
+            right = sum(1 for q in les.qcm if (r := db.execute(
+                "SELECT correct FROM qcm_first WHERE question_id = ?", (q.id,)).fetchone()) and r[0])
+            xp = round(XP["qcm"] * right / len(les.qcm))
+        complete_step(db, date.today(), body.kind, body.lesson_id, m.skill, applicable_kinds(les), xp)
         return {"ok": True}
 
     @app.post("/api/rest")
@@ -192,6 +197,8 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         if not 0 <= body.chosen < len(q.options):
             raise HTTPException(400, "Choix hors des options")
         correct = body.chosen == q.answer
+        db.execute("INSERT OR IGNORE INTO qcm_first(question_id, correct) VALUES (?, ?)", (q.id, int(correct)))
+        db.commit()  # record_answer returns early on a right answer with nothing tracked
         record_answer(db, q.id, correct, date.today())
         return {
             "correct": correct,
@@ -201,16 +208,16 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/reviews")
     def reviews(db=Depends(get_db)):
-        due = due_reviews(db, date.today())
+        due = []
         boxes = dict(db.execute("SELECT question_id, box FROM mistakes").fetchall())
         questions = []
-        for qid in due:
+        for qid in due_reviews(db, date.today()):
             try:
                 q = find_question(qid)
-            except HTTPException:  # question removed from content: skip it
+            except HTTPException:  # question removed from content: not due anymore
                 continue
+            due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
-        # "due" (ids) kept as is for older clients
         return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
 
     @app.post("/api/tp/{tp_id}/hint", dependencies=[Depends(local_only)])
@@ -241,7 +248,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def team(db=Depends(get_db)):
         p = get_profile(db)
         inv = [dict(r) for r in db.execute("SELECT item_id, name, type, rarity, obtained_at FROM inventory")]
-        return {"xp": p.total_xp, "level": level_for_xp(p.total_xp), "rank": p.rank, "skills": p.skills,
+        return {"xp": p.total_xp, "level": level_for_xp(p.total_xp), "rank": p.rank, "rank_capped": p.rank_capped, "skills": p.skills,
                 "skill_levels": {k: level_for_xp(v) for k, v in p.skills.items()}, "tokens": p.tokens, "streak": current_streak(db, date.today()), "inventory": inv}
 
     @app.post("/api/gacha/pull")

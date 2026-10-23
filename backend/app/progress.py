@@ -9,8 +9,10 @@ def level_for_xp(xp: int) -> int:
     return int((xp / 50) ** 0.5) + 1
 
 
-def rank_for_total_xp(total: int) -> str:
-    return RANKS[min(total // XP_PER_RANK, len(RANKS) - 1)]
+def rank_for_total_xp(total: int, bosses_won: int | None = None) -> str:
+    """Rank by XP; with bosses_won, rank n needs n different bosses beaten."""
+    idx = min(total // XP_PER_RANK, len(RANKS) - 1)
+    return RANKS[idx if bosses_won is None else min(idx, bosses_won)]
 
 
 def award_xp(db: sqlite3.Connection, skill: str, amount: int) -> None:
@@ -25,10 +27,13 @@ class Profile:
     rank: str
     skills: dict[str, int]
     tokens: int
+    rank_capped: bool = False
 
 
 def get_profile(db: sqlite3.Connection) -> Profile:
     skills = {r["skill"]: r["xp"] for r in db.execute("SELECT skill, xp FROM skills")}
     total = sum(skills.values())
     tokens = db.execute("SELECT count FROM tokens WHERE id = 1").fetchone()["count"]
-    return Profile(total, rank_for_total_xp(total), skills, tokens)
+    won = db.execute("SELECT COUNT(DISTINCT boss_id) FROM boss_attempts WHERE won = 1").fetchone()[0]
+    rank = rank_for_total_xp(total, won)
+    return Profile(total, rank, skills, tokens, rank != rank_for_total_xp(total))

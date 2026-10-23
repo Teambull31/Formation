@@ -27,7 +27,13 @@ def test_profile_totals_and_tokens(db):
     award_xp(db, "docker", 600)
     award_xp(db, "git", 500)
     p = get_profile(db)
-    assert (p.total_xp, p.rank, p.tokens) == (1100, "Argent", 0)
+    assert (p.total_xp, p.rank, p.tokens) == (1100, "Bronze", 0)  # no boss beaten yet
+    assert p.rank_capped
+    db.execute("INSERT INTO boss_attempts(boss_id, phase_reached, won, at) VALUES ('b1', 3, 1, 'x')")
+    p = get_profile(db)
+    assert (p.rank, p.rank_capped) == ("Argent", False)
+    db.execute("INSERT INTO boss_attempts(boss_id, phase_reached, won, at) VALUES ('b1', 3, 1, 'y')")
+    assert get_profile(db).rank == "Argent"  # same boss twice counts once
 
 
 def test_connect_idempotent_on_file(tmp_path):

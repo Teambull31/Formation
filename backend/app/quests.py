@@ -62,7 +62,7 @@ def build_daily_quest(db: sqlite3.Connection, module: Module, today: date, minut
 
 
 def complete_step(db: sqlite3.Connection, today: date, kind: str, lesson_id: str, skill: str,
-                  kinds: tuple[str, ...] = KINDS) -> None:
+                  kinds: tuple[str, ...] = KINDS, xp: int | None = None) -> None:
     first = not _is_done(db, kind, lesson_id)
     db.execute(
         "INSERT OR REPLACE INTO quest_steps(day, kind, lesson_id, done) VALUES (?, ?, ?, 1)",
@@ -73,7 +73,7 @@ def complete_step(db: sqlite3.Connection, today: date, kind: str, lesson_id: str
         # one token per finished lesson (all applicable steps) and per bonus; same commit as the XP
         if kind == "bonus" or (kind in kinds and all(_is_done(db, k, lesson_id) for k in kinds)):
             db.execute("UPDATE tokens SET count = count + 1 WHERE id = 1")
-        award_xp(db, skill, XP[kind])  # commits the step rows and the XP in one transaction
+        award_xp(db, skill, XP[kind] if xp is None else xp)  # commits the step rows and the XP in one transaction
     else:
         db.commit()
 
