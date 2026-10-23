@@ -14,9 +14,14 @@ MAX_FILE = 200_000
 MAX_TOTAL = 5_000_000
 KEEP_DOTFILES = {".gitignore", ".dockerignore"}
 SKIP_DIRS = {".git", ".terraform", "__pycache__", "node_modules", ".venv"}
-SKIP_SUFFIXES = (".tfstate", ".tfstate.backup", ".tfvars", ".pem", ".key", ".pyc", ".log")
+SKIP_SUFFIXES = (".pem", ".key", ".pyc", ".log")
+SKIP_INFIXES = (".tfstate", ".tfvars")  # aussi .tfvars.json, .auto.tfvars, terraform.tfstate.backup
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-SECRET = re.compile(r"(pass(?:word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)\s*[=:]\s*['\"]?([^\s'\"]{6,})", re.I)
+KEYWORDS = r"(?:pass(?:word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)"
+SECRET = re.compile(KEYWORDS + r"[\w-]*['\"]?\s*[=:]\s*['\"]?([^\s'\"]{6,})", re.I)
+DOCKER_ENV = re.compile(r"^\s*(?:ENV|ARG)\s+\w*" + KEYWORDS + r"\w*\s+['\"]?([^\s'\"]{6,})", re.I | re.M)
+SENSITIVE_DEFAULT = re.compile(r"sensitive\s*=\s*true", re.I)
+ANY_DEFAULT = re.compile(r"^\s*default\s*=", re.M)
 PLACEHOLDER = re.compile(r"^(\$\{|\$[A-Z_]|var\.|<|\{\{|changeme|example|xxx|\*+$)", re.I)
 
 
@@ -26,8 +31,13 @@ def leak_reason(text: str) -> str | None:
         if not m.group(0).lower().endswith("@example.test"):
             return "adresse e-mail"
     for m in SECRET.finditer(text):
-        if not PLACEHOLDER.match(m.group(2)):
+        if not PLACEHOLDER.match(m.group(1)):
             return "secret en clair"
+    for m in DOCKER_ENV.finditer(text):
+        if not PLACEHOLDER.match(m.group(1)):
+            return "secret en clair"
+    if SENSITIVE_DEFAULT.search(text) and ANY_DEFAULT.search(text):  # variable sensible avec valeur par défaut : écartée par prudence
+        return "secret en clair"
     return None
 
 
@@ -67,7 +77,7 @@ def build_zip(db: sqlite3.Connection, profile: Profile, modules: list[tuple[Path
                 for p in _files(ws):
                     rel = p.relative_to(ws).as_posix()
                     name = f"{mod.id}/{tp.workspace}/{rel}"
-                    if (p.name.startswith(".") and p.name not in KEEP_DOTFILES) or p.name.endswith(SKIP_SUFFIXES):
+                    if (p.name.startswith(".") and p.name not in KEEP_DOTFILES) or (p.name.lower().endswith(SKIP_SUFFIXES) or any(i in p.name.lower() for i in SKIP_INFIXES)):
                         excluded.append(f"{name} (fichier d'état ou de secrets)")
                         continue
                     if p.stat().st_size > MAX_FILE or total + p.stat().st_size > MAX_TOTAL:
