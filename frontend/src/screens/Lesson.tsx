@@ -4,6 +4,7 @@ import {
   type Lesson as L, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
+import Feynman from './Feynman'
 import Terminal from './Terminal'
 
 const RATES = [1, 1.5, 2]
@@ -131,6 +132,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
           {check && <><p>{check.passed ? 'TP validé.' : 'TP non validé.'}</p><pre className="out">{check.output}</pre></>}
         </>
       )}
+      {local && <Feynman lessonId={les.id} title={les.title} />}
       {kind === 'bonus' && (
         <button className="btn" disabled={done.includes('bonus')} onClick={() => mark('bonus')}>
           {done.includes('bonus') ? 'Bonus terminé' : 'Terminer le bonus'}

@@ -55,6 +55,7 @@ nav .inner { display: flex; width: 100%; max-width: 480px; }
 nav button { flex: 1; background: none; border: 0; padding: 8px 4px; font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--muted); border-radius: 8px; min-height: 44px; }
 nav button[aria-selected="true"] { color: var(--gold); background: var(--surface-2); }
 
+.area { font: inherit; width: 100%; box-sizing: border-box; resize: vertical; background: var(--surface-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 0; }
 .opt { text-align: left; width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 44px; font-size: 14px; }
 .opt.right { border-color: var(--term); }
 .opt.wrong { border-color: var(--bad); }

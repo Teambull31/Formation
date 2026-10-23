@@ -105,13 +105,13 @@ def test_quest_step_tp_requires_passing_check(client, tmp_path):
 
 
 BAD = [("post", "/api/tp/t1/check"), ("post", "/api/boss/attempt"),
-       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint")]
+       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"), ("post", "/api/feynman/l1")]
 
 
 @pytest.mark.parametrize("method,url", BAD)
 @pytest.mark.parametrize("headers", [{"origin": "http://evil.com"}, {"host": "evil.com"}])
 def test_local_peer_with_bad_origin_or_host_is_403(client, method, url, headers):
-    kw = {"json": {"path": "/tmp/x"}} if "import" in url else {"json": {"level": 1}} if "hint" in url else {}
+    kw = {"json": {"path": "/tmp/x"}} if "import" in url else {"json": {"level": 1}} if "hint" in url else {"json": {"explanation": "x" * 50}} if "feynman" in url else {}
     assert getattr(client, method)(url, headers=headers, **kw).status_code == 403
 
 
@@ -360,3 +360,42 @@ def test_removed_question_not_counted_as_due(client, tmp_path):
     db.commit()
     r = client.get("/api/reviews").json()
     assert "gone" not in r["due"] and len(r["due"]) == len(r["questions"])
+
+
+EXPL = {"explanation": "Une image est un modèle figé, un conteneur est une instance qui tourne à partir d'elle."}
+
+
+def _grade(monkeypatch, *scores):
+    import app.llm as llm
+    it = iter(scores)
+    monkeypatch.setattr(llm, "grade_explanation", lambda *a, **k: {"score": next(it), "missing": ["x"], "feedback": "ok"})
+
+
+def test_feynman_pays_only_improvements(client, monkeypatch):
+    _grade(monkeypatch, 50, 50, 100, 20)
+    xps = [client.post("/api/feynman/l1", json=EXPL).json() for _ in range(4)]
+    assert [x["xp"] for x in xps] == [30, 0, 30, 0]  # 60 max per lesson, never negative
+    assert [x["best"] for x in xps] == [50, 50, 100, 100]
+    assert client.get("/api/team").json()["xp"] == 60
+
+
+def test_feynman_validation_and_unknown_lesson(client, monkeypatch):
+    _grade(monkeypatch, 80)
+    assert client.post("/api/feynman/l1", json={"explanation": "trop court"}).status_code == 422
+    assert client.post("/api/feynman/zz", json=EXPL).status_code == 404
+
+
+def test_feynman_503_when_ollama_down(client, monkeypatch):
+    import app.llm as llm
+
+    def down(*a, **k):
+        raise llm.LlmUnavailable("Ollama indisponible")
+
+    monkeypatch.setattr(llm, "grade_explanation", down)
+    r = client.post("/api/feynman/l1", json=EXPL)
+    assert r.status_code == 503 and "Ollama" in r.json()["detail"]
+    assert client.get("/api/team").json()["xp"] == 0
+
+
+def test_remote_cannot_feynman(remote_client):
+    assert remote_client.post("/api/feynman/l1", json=EXPL).status_code == 403

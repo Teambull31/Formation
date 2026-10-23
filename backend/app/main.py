@@ -27,6 +27,7 @@ from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
 
 HINT_COST = 10
+FEYNMAN_XP = 60  # max par leçon ; seules les améliorations de score rapportent
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
 
 
@@ -47,6 +48,10 @@ class AnswerIn(BaseModel):
 class BriefIn(BaseModel):
     topic: str
     format: str
+
+
+class FeynmanIn(BaseModel):
+    explanation: str = Field(min_length=40, max_length=llm.MAX_EXPLANATION)
 
 
 class HintIn(BaseModel):
@@ -219,6 +224,24 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
         return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
+
+    @app.post("/api/feynman/{lesson_id}", dependencies=[Depends(local_only)])
+    def feynman(lesson_id: str, body: FeynmanIn, db=Depends(get_db)):
+        _, m, les = find_lesson(lesson_id)
+        try:
+            g = llm.grade_explanation(les.title, les.body_md, body.explanation)
+        except llm.LlmUnavailable as e:
+            raise HTTPException(503, str(e))
+        row = db.execute("SELECT best FROM feynman WHERE lesson_id = ?", (les.id,)).fetchone()
+        best = row[0] if row else 0
+        top = max(g["score"], best)
+        xp = round(FEYNMAN_XP * top / 100) - round(FEYNMAN_XP * best / 100)
+        db.execute("INSERT OR REPLACE INTO feynman(lesson_id, best) VALUES (?, ?)", (les.id, top))
+        if xp:
+            award_xp(db, m.skill, xp)  # commits the score row too
+        else:
+            db.commit()
+        return {**g, "xp": xp, "best": top}
 
     @app.post("/api/tp/{tp_id}/hint", dependencies=[Depends(local_only)])
     def tp_hint(tp_id: str, body: HintIn, db=Depends(get_db)):
