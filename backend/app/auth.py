@@ -5,6 +5,7 @@ import binascii
 import hmac
 import os
 import time
+from collections import deque
 from dataclasses import dataclass
 
 MIN_PASSWORD = 12
@@ -44,31 +45,29 @@ class BasicAuth:
 
     def __init__(self, app, password: str, clock=time.monotonic, sleep=asyncio.sleep):
         self.app, self.password, self.clock, self.sleep = app, password.encode(), clock, sleep
-        self.fails: list[float] = []  # horodatages des mauvais mots de passe récents, tous clients confondus
-        self.waiting = 0  # mauvais essais en attente de leur tour
+        self.fails: deque[float] = deque(maxlen=MAX_FAILS)  # horodatages des derniers mauvais mots de passe, tous clients
+        self.waiting = 0  # requêtes avec identifiants en attente de leur tour
         self.slow = asyncio.Lock()
 
-    def _creds(self, scope) -> bool | None:
-        """None = pas d'identifiants (le navigateur les demande), False = mauvais, True = bons."""
-        for k, v in scope["headers"]:
-            if k == b"authorization":
-                scheme, _, token = v.partition(b" ")
-                if scheme.lower() != b"basic":
-                    return False
-                try:
-                    _, sep, pw = base64.b64decode(token.strip(), validate=True).partition(b":")
-                except (binascii.Error, ValueError):
-                    return False
-                return bool(sep) and hmac.compare_digest(pw, self.password)
-        return None
+    @staticmethod
+    def _header(scope) -> bytes | None:
+        return next((v for k, v in scope["headers"] if k == b"authorization"), None)
 
-    async def _throttle(self) -> bool:
-        """Après MAX_FAILS échecs récents, les mauvais essais passent un par un, 1 s chacun. False = file pleine."""
-        now = self.clock()
-        self.fails = [t for t in self.fails if now - t < WINDOW]
-        self.fails.append(now)
-        if len(self.fails) <= MAX_FAILS:
-            return True
+    def _check(self, header: bytes) -> bool:
+        scheme, _, token = header.partition(b" ")
+        if scheme.lower() != b"basic":
+            return False
+        try:
+            _, sep, pw = base64.b64decode(token.strip(), validate=True).partition(b":")
+        except (binascii.Error, ValueError):
+            return False
+        return bool(sep) and hmac.compare_digest(pw, self.password)
+
+    def _under_attack(self) -> bool:
+        return len(self.fails) == MAX_FAILS and self.clock() - self.fails[0] < WINDOW
+
+    async def _wait_turn(self) -> bool:
+        """En rafale d'échecs, chaque essai attend son tour (1 s) AVANT d'être vérifié. False = file pleine (non vérifié)."""
         if self.waiting >= MAX_WAITING:
             return False
         self.waiting += 1
@@ -82,12 +81,15 @@ class BasicAuth:
     async def __call__(self, scope, receive, send):
         if scope["type"] not in ("http", "websocket"):
             return await self.app(scope, receive, send)
-        # Le bon mot de passe passe toujours : un blocage par adresse verrouillerait le vrai utilisateur derrière un proxy
-        # (Caddy, tailscale serve) où tous les clients partagent la même adresse. On ralentit seulement les mauvais essais.
-        ok = self._creds(scope)
-        if ok:
-            return await self.app(scope, receive, send)
-        full = ok is False and not await self._throttle()
+        header = self._header(scope)
+        # Pas de blocage par adresse : derrière un proxy (Caddy, tailscale serve) tous les clients la partagent et un
+        # attaquant verrouillerait le vrai utilisateur. On plafonne plutôt le débit global des essais, vérification comprise.
+        # Un 429 ne dit donc rien du mot de passe : l'essai n'a pas été vérifié.
+        full = header is not None and self._under_attack() and not await self._wait_turn()
+        if not full and header is not None:
+            if self._check(header):
+                return await self.app(scope, receive, send)
+            self.fails.append(self.clock())
         if scope["type"] == "websocket":
             await receive()  # websocket.connect
             return await send({"type": "websocket.close", "code": 1008})

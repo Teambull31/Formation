@@ -121,7 +121,7 @@ def test_remote_exec_ws(tmp_path):
                 pass
 
 
-def test_correct_password_never_locked_out(secured):
+def test_correct_password_still_works_after_failures(secured):
     for _ in range(7):
         secured.get("/api/quest", headers=basic("wrong-password-xx"))
     assert secured.get("/api/quest", headers=basic(PW)).status_code == 200
@@ -141,7 +141,11 @@ def _drive(a, headers, results):
     asyncio.run(a({"type": "http", "client": ("1.2.3.4", 1), "headers": headers}, None, send))
 
 
-def test_wrong_passwords_are_slowed_after_threshold():
+BAD = [(b"authorization", basic("nope-nope-nope")["Authorization"].encode())]
+GOOD = [(b"authorization", basic(PW)["Authorization"].encode())]
+
+
+def test_attempts_wait_their_turn_once_under_attack():
     from app.auth import DELAY, MAX_FAILS, BasicAuth
     slept, out = [], []
 
@@ -149,22 +153,41 @@ def test_wrong_passwords_are_slowed_after_threshold():
         slept.append(s)
 
     a = BasicAuth(None, PW, sleep=fake_sleep)
-    bad = [(b"authorization", basic("nope-nope-nope")["Authorization"].encode())]
     for _ in range(MAX_FAILS):
-        _drive(a, bad, out)
+        _drive(a, BAD, out)
     assert slept == []  # under the threshold: no delay
-    _drive(a, bad, out)
+    _drive(a, BAD, out)
     assert slept == [DELAY] and out[-1] == 401
+    _drive(a, GOOD, out)  # the right password is delayed too, but passes
+    assert slept == [DELAY, DELAY] and out[-1] == "app"
 
 
-def test_throttle_queue_full_returns_429():
+def test_full_queue_answers_429_without_checking_the_password():
     from app.auth import MAX_FAILS, MAX_WAITING, BasicAuth
-    a = BasicAuth(None, PW, sleep=lambda s: None)
-    a.fails = [a.clock()] * MAX_FAILS
+
+    async def fake_sleep(s):
+        pass
+
+    a = BasicAuth(None, PW, sleep=fake_sleep)
+    a.fails.extend([a.clock()] * MAX_FAILS)
     a.waiting = MAX_WAITING
     out = []
-    _drive(a, [(b"authorization", basic("nope-nope-nope")["Authorization"].encode())], out)
-    assert out == [429]
+    _drive(a, BAD, out)
+    _drive(a, GOOD, out)  # an unchecked 429 never reveals whether the guess was right
+    assert out == [429, 429]
+
+
+def test_failure_log_is_bounded():
+    from app.auth import MAX_FAILS, BasicAuth
+
+    async def fake_sleep(s):
+        pass
+
+    a = BasicAuth(None, PW, sleep=fake_sleep)
+    out = []
+    for _ in range(MAX_FAILS * 4):
+        _drive(a, BAD, out)
+    assert len(a.fails) == MAX_FAILS
 
 
 def test_missing_credentials_do_not_count(secured):
