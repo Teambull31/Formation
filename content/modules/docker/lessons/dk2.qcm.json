@@ -1,0 +1,67 @@
+[
+ {
+  "id": "dk2-q1",
+  "text": "Que se passe-t-il dans le cache quand une couche change ?",
+  "options": [
+   "Seule cette couche est reconstruite",
+   "Cette couche et toutes les suivantes sont reconstruites",
+   "Tout le build repart de zéro, y compris les couches précédentes",
+   "Rien : le cache ignore les modifications de fichiers"
+  ],
+  "answer": 1,
+  "explain": "Les couches s'empilent : si l'une change, toutes celles qui viennent après sont invalidées, pas celles d'avant. C'est pourquoi on place ce qui change rarement en premier.",
+  "remedial_lesson_id": "dk2"
+ },
+ {
+  "id": "dk2-q2",
+  "text": "Dans quel ordre écrire les instructions pour un build rapide ?",
+  "options": [
+   "COPY . . puis pip install, pour que tout le code soit déjà présent au moment de l'installation",
+   "pip install puis COPY requirements.txt, afin d'installer avant de connaître la liste des dépendances",
+   "COPY requirements.txt, pip install, puis COPY . .",
+   "L'ordre n'a aucune influence sur le cache, Docker compare seulement le contenu final de l'image"
+  ],
+  "answer": 2,
+  "explain": "Les dépendances changent rarement, le code souvent. En copiant d'abord requirements.txt puis en installant, la couche des dépendances reste en cache quand seul le code bouge. Avec COPY . . en premier, chaque modification relance l'installation.",
+  "remedial_lesson_id": "dk2"
+ },
+ {
+  "id": "dk2-q3",
+  "text": "Pourquoi faire rm -rf /var/lib/apt/lists/* dans le même RUN que apt-get install ?",
+  "options": [
+   "Parce que Docker refuse deux instructions RUN consécutives dans un même Dockerfile multi-stage",
+   "Pour éviter qu'ils restent enregistrés dans la couche : un RUN ultérieur ne la réduit pas",
+   "Parce que apt-get a besoin que ce dossier soit vide pour pouvoir installer les paquets suivants",
+   "Pour accélérer le téléchargement des paquets en évitant de relire l'index à chaque build"
+  ],
+  "answer": 1,
+  "explain": "Une couche n'efface rien des couches précédentes : supprimer le cache apt dans un RUN séparé laisse sa place occupée dans l'image. Le nettoyage dans la même couche évite que les fichiers y soient enregistrés.",
+  "remedial_lesson_id": "dk2"
+ },
+ {
+  "id": "dk2-q4",
+  "text": "À quoi sert le fichier .dockerignore ?",
+  "options": [
+   "Il liste les images de base que Docker ne doit jamais télécharger depuis un registre public",
+   "Il supprime automatiquement les conteneurs arrêtés et les volumes inutilisés de la machine",
+   "Il interdit à Docker de relire le Dockerfile depuis son cache pendant la construction",
+   "Il exclut des fichiers du contexte de build, comme .git ou .env"
+  ],
+  "answer": 3,
+  "explain": "Le contexte de build est tout ce que COPY peut voir. .dockerignore en retire .git, les caches et surtout .env : un secret copié dans l'image part avec elle.",
+  "remedial_lesson_id": "dk2"
+ },
+ {
+  "id": "dk2-q5",
+  "text": "Quel est l'intérêt d'un build multi-stage ?",
+  "options": [
+   "Construire plusieurs applications différentes avec un seul Dockerfile, en parallèle sur la machine",
+   "Garder dans l'image finale seulement le résultat, sans les outils de build",
+   "Doubler la vitesse de démarrage du conteneur en préchargeant toutes les couches en mémoire",
+   "Stocker automatiquement l'image sur plusieurs serveurs pour la rendre plus disponible"
+  ],
+  "answer": 1,
+  "explain": "Une première étape installe et compile avec tous les outils ; l'étape finale ne récupère que le résultat (COPY --from=build). L'image est plus petite et expose moins de logiciels à attaquer.",
+  "remedial_lesson_id": "dk2"
+ }
+]

@@ -1,0 +1,17 @@
+{
+  "id": "dk1-tp",
+  "title": "TP 1 : votre premier Dockerfile",
+  "instructions_md": "Le dossier contient **app.py** (un petit serveur web sur le port 8000) et un **Dockerfile** à corriger. Il doit :\n\n1. Partir d'une image de base **avec une version précise** (par exemple `python:3.12-slim`), jamais `latest`.\n2. Fixer le dossier de travail avec `WORKDIR` et un chemin absolu (par exemple `/app`).\n3. Copier `app.py` dans l'image avec `COPY`.\n4. Documenter le port avec `EXPOSE 8000`.\n5. Lancer l'application avec un `CMD` en **forme exec** (liste JSON, guillemets doubles) qui exécute `python app.py`.\n\nLe contrôle lit vos fichiers sans rien construire : pas de démon Docker, pas de réseau.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Ligne par ligne : FROM, WORKDIR, COPY, EXPOSE, CMD. L'ordre des instructions compte pour la lisibilité, pas pour ce contrôle.",
+    "Remplacez python:latest par python:3.12-slim : le tag est ce qui suit les deux-points.",
+    "La forme exec s'écrit CMD [\"python\", \"app.py\"] : crochets, guillemets doubles, virgule entre les mots."
+  ],
+  "timeout_s": 20,
+  "workspace": "dk1",
+  "seed": [
+    "seed/Dockerfile",
+    "seed/app.py"
+  ]
+}

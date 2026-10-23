@@ -1,0 +1,67 @@
+[
+ {
+  "id": "dk3-q1",
+  "text": "Pourquoi ajouter USER dans le Dockerfile ?",
+  "options": [
+   "Pour que l'application tourne sans droits root",
+   "Pour donner l'accès root à l'application",
+   "Pour nommer l'image avec le nom de l'utilisateur",
+   "Pour que l'image ne puisse être lancée que par son auteur"
+  ],
+  "answer": 0,
+  "explain": "Sans USER, le processus est root dans le conteneur. En cas de faille et d'évasion, l'attaquant garde ces droits. Un utilisateur dédié limite les dégâts.",
+  "remedial_lesson_id": "dk3"
+ },
+ {
+  "id": "dk3-q2",
+  "text": "Pourquoi ENV DB_PASSWORD=hunter2 dans un Dockerfile est-il une faute grave ?",
+  "options": [
+   "Parce que l'instruction ENV ne supporte que des valeurs numériques et refuse le texte libre",
+   "Parce que le mot de passe devient plus long que la limite autorisée pour une variable",
+   "Parce que le secret reste lisible dans l'image (docker history) et dans les registres",
+   "Parce que Docker ignore silencieusement toutes les variables dont le nom contient PASSWORD"
+  ],
+  "answer": 2,
+  "explain": "Une valeur écrite dans le Dockerfile fait partie de l'image : quiconque la récupère la lit. Le secret doit être fourni à l'exécution, par variable passée au lancement ou fichier monté.",
+  "remedial_lesson_id": "dk3"
+ },
+ {
+  "id": "dk3-q3",
+  "text": "Que garantit HEALTHCHECK ?",
+  "options": [
+   "Que l'image ne contient aucune faille connue, vérifiée à chaque démarrage du conteneur",
+   "Que Docker vérifie que l'application répond, pas seulement qu'elle tourne",
+   "Que le conteneur est redémarré automatiquement à chaque modification du code source monté",
+   "Que le port d'écoute est protégé par un mot de passe généré par Docker"
+  ],
+  "answer": 1,
+  "explain": "Un processus peut tourner sans servir personne. HEALTHCHECK exécute une commande périodique et marque le conteneur en bonne santé ou non, ce qu'un orchestrateur peut utiliser pour redémarrer.",
+  "remedial_lesson_id": "dk3"
+ },
+ {
+  "id": "dk3-q4",
+  "text": "Que fait cap_drop: [ALL] dans un fichier compose ?",
+  "options": [
+   "Il supprime tous les volumes et toutes les données persistantes rattachés au conteneur",
+   "Il retire toutes les capacités Linux spéciales du processus",
+   "Il coupe totalement l'accès au réseau pour empêcher toute connexion sortante ou entrante",
+   "Il efface les images inutilisées et les couches en cache sur la machine hôte"
+  ],
+  "answer": 1,
+  "explain": "Les capacités sont les fragments de pouvoir de root (changer le propriétaire d'un fichier, ouvrir un port bas, etc.). cap_drop ALL les retire toutes ; on n'en rend que si l'application en a besoin.",
+  "remedial_lesson_id": "dk3"
+ },
+ {
+  "id": "dk3-q5",
+  "text": "Quelle ligne publie un port sur la machine seule ?",
+  "options": [
+   "- \"8000:8000\"",
+   "- \"127.0.0.1:8000:8000\"",
+   "- \"0.0.0.0:8000:8000\"",
+   "- \"192.168.1.10:8000:8000\""
+  ],
+  "answer": 1,
+  "explain": "Sans préfixe, Docker publie sur toutes les interfaces, parfois jusqu'à Internet. Le préfixe 127.0.0.1 limite l'accès à la machine ; un reverse proxy ou un tunnel fait le reste.",
+  "remedial_lesson_id": "dk3"
+ }
+]

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "dk1-q1",
+  "text": "Quelle est la différence entre une image et un conteneur ?",
+  "options": [
+   "L'image est une machine virtuelle complète avec son propre noyau, le conteneur n'est qu'un simple fichier texte de configuration",
+   "Le conteneur est un modèle figé et partageable, l'image est son exécution en cours avec ses processus et son réseau",
+   "Une image est un modèle en lecture seule, un conteneur en est une instance en cours d'exécution",
+   "Il n'y a aucune différence : ce sont deux noms pour la même chose, selon que l'on parle de build ou de run"
+  ],
+  "answer": 2,
+  "explain": "L'image est le modèle figé (système de base, fichiers, commande de démarrage) ; le conteneur est ce modèle en train de tourner. D'une même image on lance autant de conteneurs qu'on veut. Piège : inverser les deux rôles, ou croire qu'un conteneur est une machine virtuelle.",
+  "remedial_lesson_id": "dk1"
+ },
+ {
+  "id": "dk1-q2",
+  "text": "Pourquoi éviter FROM python:latest dans un Dockerfile ?",
+  "options": [
+   "Parce que le tag latest n'existe pas sur Docker Hub et provoque une erreur au moment du build",
+   "Parce que la version change sans prévenir et rend le build non reproductible",
+   "Parce que latest est toujours beaucoup plus lent à télécharger que les tags de versions précises",
+   "Parce que latest interdit d'utiliser WORKDIR et EXPOSE dans le reste du Dockerfile"
+  ],
+  "answer": 1,
+  "explain": "latest désigne la dernière version publiée : le build de lundi peut différer de celui de vendredi sans que le Dockerfile ait bougé. Un tag précis (python:3.12-slim) rend le build reproductible. Latest existe bel et bien, et la vitesse n'est pas le sujet.",
+  "remedial_lesson_id": "dk1"
+ },
+ {
+  "id": "dk1-q3",
+  "text": "Que fait EXPOSE 8000 dans un Dockerfile ?",
+  "options": [
+   "Il documente le port d'écoute, sans l'ouvrir réellement vers l'extérieur",
+   "Il publie automatiquement le port 8000 sur la machine hôte dès le démarrage du conteneur",
+   "Il démarre l'application sur le port 8000 si aucun autre port n'a été configuré dans le code",
+   "Il protège le port 8000 par un pare-feu intégré à l'image du conteneur"
+  ],
+  "answer": 0,
+  "explain": "EXPOSE est une documentation : il indique le port prévu. Pour joindre le conteneur depuis la machine il faut publier le port au lancement (docker run -p 8000:8000). Beaucoup de débutants croient à tort que EXPOSE suffit.",
+  "remedial_lesson_id": "dk1"
+ },
+ {
+  "id": "dk1-q4",
+  "text": "Quelle ligne est un CMD en forme exec correcte ?",
+  "options": [
+   "CMD python app.py",
+   "CMD ['python', 'app.py']",
+   "CMD [\"python\", \"app.py\"]",
+   "CMD (python, app.py)"
+  ],
+  "answer": 2,
+  "explain": "La forme exec est une liste JSON : guillemets doubles obligatoires. Elle lance directement le processus, qui reçoit alors les signaux d'arrêt. La forme texte passe par un shell, et les guillemets simples rendent le JSON invalide.",
+  "remedial_lesson_id": "dk1"
+ },
+ {
+  "id": "dk1-q5",
+  "text": "Où mettre les données qui doivent survivre à la suppression d'un conteneur ?",
+  "options": [
+   "Dans un volume",
+   "Dans la couche d'écriture du conteneur, c'est suffisant",
+   "Dans une instruction RUN du Dockerfile",
+   "Dans le tag de l'image"
+  ],
+  "answer": 0,
+  "explain": "Ce qu'un conteneur écrit dans son propre système de fichiers disparaît avec lui. Un volume vit en dehors du conteneur et se rattache à un nouveau.",
+  "remedial_lesson_id": "dk1"
+ }
+]

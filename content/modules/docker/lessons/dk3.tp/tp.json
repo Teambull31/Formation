@@ -1,0 +1,18 @@
+{
+  "id": "dk3-tp",
+  "title": "TP 3 : durcir un conteneur",
+  "instructions_md": "Le **Dockerfile** et le **docker-compose.yml** fournis sont fonctionnels mais dangereux. Corrigez-les.\n\n**Dockerfile :**\n1. Retirez le secret en clair (`ENV DB_PASSWORD=...`) : il se fournira à l'exécution.\n2. Créez un utilisateur (`useradd`) puis activez-le avec `USER` dans l'image finale.\n3. Ajoutez un `HEALTHCHECK`.\n\n**docker-compose.yml :**\n4. Retirez `privileged: true` et le montage de `docker.sock`.\n5. Ajoutez `read_only: true`, `cap_drop` avec `ALL`, et `security_opt` avec `no-new-privileges:true`.\n6. Publiez le port sur `127.0.0.1` seulement.\n7. Remplacez le mot de passe en clair par `${DB_PASSWORD}`.\n\nLe contrôle lit vos fichiers sans rien exécuter.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans le Dockerfile : RUN useradd --uid 1000 --create-home app, puis USER app après la copie du code. Supprimez la ligne ENV DB_PASSWORD.",
+    "HEALTHCHECK --interval=30s CMD [\"python\", \"-c\", \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000')\"] : la commande est une liste JSON.",
+    "Dans le compose, supprimez les lignes privileged et volumes. Ajoutez read_only: true, cap_drop avec - ALL, security_opt avec - no-new-privileges:true, et \"127.0.0.1:8000:8000\" pour le port."
+  ],
+  "timeout_s": 20,
+  "workspace": "dk3",
+  "seed": [
+    "seed/Dockerfile",
+    "seed/docker-compose.yml",
+    "seed/app.py"
+  ]
+}
