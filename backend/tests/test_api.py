@@ -41,6 +41,27 @@ def test_wrong_answer_returns_explanation_and_remedial(client):
     assert client.get("/api/reviews").status_code == 200
 
 
+def test_reviews_lists_due_questions_and_box_counts(client, monkeypatch):
+    from datetime import date, timedelta
+
+    import app.main as m
+
+    class Tomorrow(date):
+        @classmethod
+        def today(cls):
+            return date.today() + timedelta(days=1)
+
+    r = client.get("/api/reviews").json()
+    assert r["due"] == [] and r["questions"] == [] and r["boxes"] == [0] * 5 and r["intervals"] == [1, 2, 4, 7, 14]
+    client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 0})  # wrong -> box 0, due tomorrow
+    monkeypatch.setattr(m, "date", Tomorrow)
+    r = client.get("/api/reviews").json()
+    assert r["due"] == ["q1"]
+    q = r["questions"][0]
+    assert q["id"] == "q1" and q["options"] and q["box"] == 0 and "answer" not in q and "explain" not in q
+    assert r["boxes"] == [1, 0, 0, 0, 0]
+
+
 def test_right_answer(client):
     r = client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 1}).json()
     assert r["correct"] is True and r["remedial_lesson_id"] is None

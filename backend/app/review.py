@@ -27,3 +27,12 @@ def due_reviews(db: sqlite3.Connection, today: date) -> list[str]:
         "SELECT question_id FROM mistakes WHERE due <= ? ORDER BY due, question_id", (today.isoformat(),)
     )
     return [r[0] for r in rows]
+
+
+def box_counts(db: sqlite3.Connection) -> list[int]:
+    """Tracked mistakes per Leitner box (all of them, due or not)."""
+    counts = [0] * len(INTERVALS)
+    for box, n in db.execute("SELECT box, COUNT(*) FROM mistakes GROUP BY box"):
+        if 0 <= box < len(counts):
+            counts[box] = n
+    return counts

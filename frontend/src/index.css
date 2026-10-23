@@ -52,7 +52,7 @@ select, input[type="text"] { font: inherit; background: var(--surface-2); color:
 
 nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--line); display: flex; justify-content: center; padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px)); z-index: 5; }
 nav .inner { display: flex; width: 100%; max-width: 480px; }
-nav button { flex: 1; background: none; border: 0; padding: 8px 4px; font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--muted); border-radius: 8px; min-height: 44px; }
+nav button { flex: 1; background: none; border: 0; padding: 8px 4px; font-family: var(--display); font-size: 12px; font-weight: 600; color: var(--muted); border-radius: 8px; min-height: 44px; }
 nav button[aria-selected="true"] { color: var(--gold); background: var(--surface-2); }
 
 .opt { text-align: left; width: 100%; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 12px; min-height: 44px; font-size: 14px; }

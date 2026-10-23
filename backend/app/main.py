@@ -21,7 +21,7 @@ from app.db import connect
 from app.gacha import NoTokens, pull
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
-from app.review import due_reviews, record_answer
+from app.review import INTERVALS, box_counts, due_reviews, record_answer
 from app.terminal import exec_ok, register_terminal
 from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
@@ -201,7 +201,17 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/reviews")
     def reviews(db=Depends(get_db)):
-        return {"due": due_reviews(db, date.today())}
+        due = due_reviews(db, date.today())
+        boxes = dict(db.execute("SELECT question_id, box FROM mistakes").fetchall())
+        questions = []
+        for qid in due:
+            try:
+                q = find_question(qid)
+            except HTTPException:  # question removed from content: skip it
+                continue
+            questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
+        # "due" (ids) kept as is for older clients
+        return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
 
     @app.post("/api/tp/{tp_id}/hint", dependencies=[Depends(local_only)])
     def tp_hint(tp_id: str, body: HintIn, db=Depends(get_db)):

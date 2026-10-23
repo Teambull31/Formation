@@ -61,7 +61,9 @@ export const getLesson = (id: string) => call<Lesson>('GET', `/api/lesson/${enco
 export const audioUrl = (id: string) => `/api/audio/${encodeURIComponent(id)}.wav`
 export const answerQcm = (question_id: string, chosen: number) =>
   call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen })
-export const getReviews = () => call<{ due: unknown[] }>('GET', '/api/reviews')
+export interface ReviewQuestion { id: string; text: string; options: string[]; box: number }
+export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: number[]; intervals: number[] }
+export const getReviews = () => call<Reviews>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
 export const startTp = (tpId: string) =>

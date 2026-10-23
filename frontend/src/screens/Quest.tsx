@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { announceRest, getQuest, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Team } from '../api'
+import { announceRest, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Team } from '../api'
 
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
 
-export default function Quest({ onStart }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void }) {
+export default function Quest({ onStart, onReview }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void; onReview?: () => void }) {
   const [quest, setQuest] = useState<Q | null>(null)
   const [team, setTeam] = useState<Team | null>(null)
   const [minutes, setMinutes] = useState<30 | 60>(30)
   const [topic, setTopicText] = useState('')
   const [msg, setMsg] = useState('')
+  const [due, setDue] = useState(0)
+  useEffect(() => { getReviews().then((r) => setDue(r.questions.length)).catch(() => {}) }, [])
 
   const req = useRef(0) // request counter: stale responses are ignored
   const load = useCallback((ok = '') => {
@@ -61,6 +63,7 @@ export default function Quest({ onStart }: { onStart: (lessonId: string, kind: S
           <button className="btn ghost" aria-label="Effacer le sujet" onClick={() => { setTopicText(''); act(setTopic(null)) }}>✕</button>
         </div>
       </div>
+      {due > 0 && onReview && <button className="btn term" onClick={onReview}>{due} à réviser</button>}
       <button className="btn ghost" onClick={() => act(announceRest(), 'Repos annoncé.')}>Repos aujourd'hui</button>
       {msg && <p className="note" role="status">{msg}</p>}
     </section>
