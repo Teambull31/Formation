@@ -121,39 +121,53 @@ def test_remote_exec_ws(tmp_path):
                 pass
 
 
-def test_lockout_after_repeated_failures(secured):
-    for _ in range(5):
-        assert secured.get("/api/quest", headers=basic("wrong-password-xx")).status_code == 401
-    r = secured.get("/api/quest", headers=basic(PW))  # correct password too: locked
-    assert r.status_code == 429 and "retry-after" in r.headers
+def test_correct_password_never_locked_out(secured):
+    for _ in range(7):
+        secured.get("/api/quest", headers=basic("wrong-password-xx"))
+    assert secured.get("/api/quest", headers=basic(PW)).status_code == 200
+
+
+def _drive(a, headers, results):
+    import asyncio
+
+    async def app(scope, receive, send):
+        results.append("app")
+
+    async def send(msg):
+        if msg["type"] == "http.response.start":
+            results.append(msg["status"])
+
+    a.app = app
+    asyncio.run(a({"type": "http", "client": ("1.2.3.4", 1), "headers": headers}, None, send))
+
+
+def test_wrong_passwords_are_slowed_after_threshold():
+    from app.auth import DELAY, MAX_FAILS, BasicAuth
+    slept, out = [], []
+
+    async def fake_sleep(s):
+        slept.append(s)
+
+    a = BasicAuth(None, PW, sleep=fake_sleep)
+    bad = [(b"authorization", basic("nope-nope-nope")["Authorization"].encode())]
+    for _ in range(MAX_FAILS):
+        _drive(a, bad, out)
+    assert slept == []  # under the threshold: no delay
+    _drive(a, bad, out)
+    assert slept == [DELAY] and out[-1] == 401
+
+
+def test_throttle_queue_full_returns_429():
+    from app.auth import MAX_FAILS, MAX_WAITING, BasicAuth
+    a = BasicAuth(None, PW, sleep=lambda s: None)
+    a.fails = [a.clock()] * MAX_FAILS
+    a.waiting = MAX_WAITING
+    out = []
+    _drive(a, [(b"authorization", basic("nope-nope-nope")["Authorization"].encode())], out)
+    assert out == [429]
 
 
 def test_missing_credentials_do_not_count(secured):
     for _ in range(10):  # browsers send a first request without credentials
         assert secured.get("/api/quest").status_code == 401
     assert secured.get("/api/quest", headers=basic(PW)).status_code == 200
-
-
-def test_lockout_expires():
-    from app.auth import WINDOW, BasicAuth
-    import asyncio
-    now = [0.0]
-    sent = []
-
-    async def app(scope, receive, send):
-        sent.append("app")
-
-    async def send(msg):
-        if msg["type"] == "http.response.start":
-            sent.append(msg["status"])
-
-    a = BasicAuth(app, PW, clock=lambda: now[0])
-    bad = {"type": "http", "client": ("1.2.3.4", 1), "headers": [(b"authorization", basic("nope-nope-nope")["Authorization"].encode())]}
-    good = {**bad, "headers": [(b"authorization", basic(PW)["Authorization"].encode())]}
-    for _ in range(5):
-        asyncio.run(a(bad, None, send))
-    asyncio.run(a(good, None, send))
-    assert sent[-1] == 429
-    now[0] += WINDOW + 1
-    asyncio.run(a(good, None, send))
-    assert sent[-1] == "app"

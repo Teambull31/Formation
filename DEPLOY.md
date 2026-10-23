@@ -81,7 +81,7 @@ si :
 - le serveur ne contient rien de précieux (de préférence un VPS dédié) ; le conteneur est sans privilèges
   (`cap_drop: ALL`, `no-new-privileges`, utilisateur non root) mais son réseau sortant est libre.
 
-Après 5 mauvais mots de passe en 5 minutes depuis une même adresse, l'appli répond 429 à cette adresse pendant 5 minutes (même avec le bon mot de passe). Derrière un proxy (Caddy, `tailscale serve`) tous les clients partagent l'adresse du proxy : le blocage est alors commun. Choisissez quand même un mot de passe fort.
+Après 5 mauvais mots de passe en 5 minutes (toutes adresses confondues), chaque mauvais essai est ralenti : ils passent un par un, 1 seconde chacun, et au-delà de 20 en attente l'appli répond 429. Le bon mot de passe passe toujours, sans délai : personne ne peut vous enfermer dehors. Cela limite une attaque par force brute à environ un essai par seconde ; choisissez quand même un mot de passe fort.
 
 ## Sauvegarde
 
