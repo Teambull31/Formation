@@ -34,4 +34,9 @@ else
   fi
 fi
 
+# KEEP_DAYS=14 : supprime les sauvegardes de ce dossier plus vieilles que 14 jours.
+if [ -n "${KEEP_DAYS:-}" ]; then
+  find "$OUT" -maxdepth 1 -type f \( -name 'formation-*.db' -o -name 'workspace-*.tgz' \) -mtime +"$KEEP_DAYS" -delete
+fi
+
 echo "Sauvegarde écrite dans $OUT (formation-$STAMP.db, workspace-$STAMP.tgz)"

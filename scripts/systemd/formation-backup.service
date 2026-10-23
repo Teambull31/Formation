@@ -1,0 +1,10 @@
+[Unit]
+Description=Sauvegarde Formation (base + workspace)
+
+[Service]
+Type=oneshot
+# Adaptez User, WorkingDirectory et le dossier de sortie à votre installation.
+User=teambull
+WorkingDirectory=/home/teambull/Formation
+Environment=KEEP_DAYS=14
+ExecStart=/home/teambull/Formation/scripts/backup.sh /home/teambull/backups

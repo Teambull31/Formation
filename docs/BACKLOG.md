@@ -15,4 +15,4 @@ Idées retenues, pas encore planifiées. Source : branche `claude/ecstatic-sagan
 
 ## Déjà parqué (app-core)
 - Pas de fiche de révision imprimable ; le rang n'est pas lié au boss ; pas de mini-cours pour un sujet imposé ; le QCM donne 40 XP même si tout est faux ; URL Ollama codée en dur dans `backend/app/llm.py` ; « Veille du jour » (plan à part) ; modules DevOps ; vidéo.
-- Déploiement : pas de limite d'essais sur le mot de passe ; images Docker en tags flottants ; l'image Docker et `docker compose` n'ont jamais été testés pour de vrai.
+- Déploiement : images Docker en tags flottants (digests non figés : impossible de distinguer l'index multi-arch d'un manifeste unique avec podman, à faire avec `docker buildx imagetools inspect`) ; `docker compose` et Caddy jamais lancés (l'image, elle, a été construite et lancée avec podman : 401/200/403 et healthcheck OK).

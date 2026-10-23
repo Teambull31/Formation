@@ -81,7 +81,7 @@ si :
 - le serveur ne contient rien de précieux (de préférence un VPS dédié) ; le conteneur est sans privilèges
   (`cap_drop: ALL`, `no-new-privileges`, utilisateur non root) mais son réseau sortant est libre.
 
-Aucune limitation de tentatives de mot de passe n'est implémentée : choisissez un mot de passe fort.
+Après 5 mauvais mots de passe en 5 minutes depuis une même adresse, l'appli répond 429 à cette adresse pendant 5 minutes (même avec le bon mot de passe). Derrière un proxy (Caddy, `tailscale serve`) tous les clients partagent l'adresse du proxy : le blocage est alors commun. Choisissez quand même un mot de passe fort.
 
 ## Sauvegarde
 
@@ -93,6 +93,16 @@ scripts/backup.sh ./backups                   # installation native (~/.formatio
 Produit `formation-AAAAMMJJ-HHMMSS.db` (copie cohérente de la base) et `workspace-AAAAMMJJ-HHMMSS.tgz`.
 Copiez-les hors du serveur. Pour restaurer : arrêtez l'appli et remplacez `formation.db`.
 Pensez aussi à sauvegarder `./content` si vous importez des modules.
+
+Sauvegarde quotidienne (systemd, 03h30, 14 jours conservés) : adaptez `User` et les chemins dans `scripts/systemd/`, puis
+
+```bash
+sudo cp scripts/systemd/formation-backup.* /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now formation-backup.timer
+systemctl list-timers formation-backup.timer   # prochaine exécution
+```
+
+`KEEP_DAYS=N scripts/backup.sh` supprime à la main les sauvegardes plus vieilles que N jours.
 
 ## Mise à jour
 
