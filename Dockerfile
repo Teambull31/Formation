@@ -33,6 +33,9 @@ ENV PATH="/app/backend/.venv/bin:${PATH}" \
     FORMATION_WORKSPACE=/data/workspace \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
+# /data est chown à l'uid 1000. Avec un APP_UID différent (compose `user:`), un volume nommé neuf
+# est créé root : chown-le une fois (docker run --rm -v formation_formation-data:/data alpine chown UID:GID /data)
+# ou gardez APP_UID=1000.
 VOLUME /data
 USER formation
 

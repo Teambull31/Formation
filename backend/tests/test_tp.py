@@ -152,3 +152,19 @@ def test_run_check_cwd_is_tp_workspace(tmp_path):
     assert run_check(t, tmp_path, tmp_path).passed
     t.workspace = "other"
     assert not run_check(t, tmp_path, tmp_path).passed and (tmp_path / "other").is_dir()
+
+
+def test_check_env_hides_formation_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("FORMATION_PASSWORD", "supersecretpassword")
+    monkeypatch.setenv("FORMATION_API_TOKEN", "tok")
+    r = run_check(tp('echo "pw=[$FORMATION_PASSWORD] tok=[$FORMATION_API_TOKEN]"'), tmp_path, tmp_path)
+    assert "pw=[]" in r.output and "tok=[]" in r.output
+    assert "supersecretpassword" not in r.output
+
+
+def test_child_env_keeps_content_and_workspace_paths(monkeypatch):
+    from app.tp import child_env
+    monkeypatch.setenv("FORMATION_PASSWORD", "supersecretpassword")
+    monkeypatch.setenv("FORMATION_WORKSPACE", "/w")
+    env = child_env()
+    assert "FORMATION_PASSWORD" not in env and env["FORMATION_WORKSPACE"] == "/w"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test de fumée d'une instance en marche.
 #   scripts/smoke.sh http://127.0.0.1:8000 [mot-de-passe]
-#   FORMATION_PASSWORD=... scripts/smoke.sh https://formation.exemple.fr
+#   SMOKE_PASSWORD=... scripts/smoke.sh https://formation.exemple.fr   (recommandé ; FORMATION_PASSWORD aussi accepté)
 # Le mot de passe n'apparaît ni dans les arguments des processus ni dans la sortie.
 # Le contrôle « action sensible refusée » force un Host non autorisé : il attend 403, avec ou sans FORMATION_REMOTE_EXEC.
 # Il n'est pertinent que contre l'URL directe de l'appli (derrière un proxy à nom de domaine, le Host forcé n'atteint pas l'appli).
@@ -9,7 +9,14 @@ set -euo pipefail
 
 BASE="${1:?Usage: $0 <url> [mot-de-passe]}"
 BASE="${BASE%/}"
-PASSWORD="${2:-${FORMATION_PASSWORD:-}}"
+PASSWORD="${SMOKE_PASSWORD:-${FORMATION_PASSWORD:-}}"
+if [ -n "${2:-}" ]; then
+  echo "Attention : mot de passe en argument, visible dans ps et l'historique ; préférez SMOKE_PASSWORD." >&2
+  PASSWORD="$2"
+fi
+# Échappe \ et " pour la ligne de configuration de curl -K.
+CURL_PW="${PASSWORD//\\/\\\\}"
+CURL_PW="${CURL_PW//\"/\\\"}"
 FAILS=0
 
 # code_http <méthode> <chemin> <authentifié 0|1> [en-tête...] -> affiche le code HTTP (000 si injoignable)
@@ -20,7 +27,7 @@ code_http() {
   local h
   for h in "$@"; do args+=(-H "$h"); done
   if [ -n "$PASSWORD" ] && [ "$authed" = 1 ]; then
-    curl "${args[@]}" -K <(printf 'user = "smoke:%s"\n' "$PASSWORD") "$BASE$path" 2>/dev/null || true
+    curl "${args[@]}" -K <(printf 'user = "smoke:%s"\n' "$CURL_PW") "$BASE$path" 2>/dev/null || true
   else
     curl "${args[@]}" "$BASE$path" 2>/dev/null || true
   fi

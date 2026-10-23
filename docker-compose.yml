@@ -18,7 +18,9 @@ services:
       - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8000}:8000"
     volumes:
       - formation-data:/data
-      - ./content:/app/content   # imports hebdo et cache ; doit appartenir à APP_UID
+      # Writable : l'import hebdo écrit dans content/modules (main.py import_module). Doit appartenir à APP_UID.
+      # Risque : avec FORMATION_REMOTE_EXEC=1 un shell distant peut modifier ce contenu hôte.
+      - ./content:/app/content
     security_opt:
       - no-new-privileges:true
     cap_drop:

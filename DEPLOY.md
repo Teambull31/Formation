@@ -103,7 +103,7 @@ scripts/update.sh        # git pull --ff-only, reconstruction, redémarrage, tes
 ## Test de fumée
 
 ```bash
-scripts/smoke.sh http://127.0.0.1:8000 'mot-de-passe'     # ou FORMATION_PASSWORD dans l'environnement
+SMOKE_PASSWORD='mot-de-passe' scripts/smoke.sh http://127.0.0.1:8000   # évite le mot de passe dans les arguments
 ```
 
 Vérifie `/`, `/manifest.webmanifest`, `/api/quest`, le refus (401) sans mot de passe, et qu'un démarrage de TP

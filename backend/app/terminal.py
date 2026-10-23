@@ -13,6 +13,10 @@ from urllib.parse import urlsplit
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
+from app.tp import child_env
+
+from app.tp import child_env
+
 LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
 QUEUE_MAX = 64
 
@@ -82,7 +86,7 @@ def register_terminal(app: FastAPI, workspace: Path, remote_hosts=frozenset()) -
                 proc = subprocess.Popen(
                     [os.environ.get("SHELL") or "/bin/bash"],
                     stdin=slave, stdout=slave, stderr=slave, cwd=workspace,
-                    env={**os.environ, "TERM": "xterm-256color"},
+                    env=child_env(TERM="xterm-256color"),
                     start_new_session=True,
                     preexec_fn=lambda: fcntl.ioctl(0, termios.TIOCSCTTY, 0),
                 )

@@ -71,6 +71,16 @@ def seed_workspace(tp: Tp, lesson_dir: Path, workspace: Path) -> Path:
     return d
 
 
+_SECRET = ("PASSWORD", "SECRET", "TOKEN", "KEY")
+
+
+def child_env(**extra: str) -> dict[str, str]:
+    """Environnement des processus enfants (shell, scripts de TP) sans les secrets FORMATION_*."""
+    env = {k: v for k, v in os.environ.items()
+           if not (k.startswith("FORMATION_") and any(w in k for w in _SECRET))}
+    return {**env, **extra}
+
+
 def run_check(tp: Tp, workspace: Path, lesson_dir: Path) -> CheckResult:
     if not Path(workspace).is_dir():
         return CheckResult(False, f"Workspace introuvable : {workspace}")
@@ -78,7 +88,7 @@ def run_check(tp: Tp, workspace: Path, lesson_dir: Path) -> CheckResult:
         cwd = _tp_dir(tp, workspace)
     except ValueError as e:
         return CheckResult(False, str(e))
-    env = {**os.environ, "LESSON_DIR": str(lesson_dir)}
+    env = child_env(LESSON_DIR=str(lesson_dir))
     proc = subprocess.Popen(
         ["bash", "-c", tp.check],
         cwd=cwd,

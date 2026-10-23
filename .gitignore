@@ -6,3 +6,9 @@ __pycache__
 .superpowers/
 *token*.json
 credentials*.json
+
+# secrets et sauvegardes
+.env
+.env.*
+!.env.example
+backups/

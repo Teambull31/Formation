@@ -117,3 +117,10 @@ def test_terminal_failed_spawn_closes_without_leak(terminal_client, monkeypatch)
         with terminal_client.websocket_connect("/ws/terminal") as ws:
             ws.receive_bytes()
     assert len(os.listdir("/proc/self/fd")) <= before
+
+def test_terminal_shell_has_no_password(terminal_client, monkeypatch):
+    monkeypatch.setenv("FORMATION_PASSWORD", "supersecretpassword")
+    with terminal_client.websocket_connect("/ws/terminal") as ws:
+        ws.send_bytes(b"echo pw=[$FORMATION_PASSWORD]=end\n")
+        out = read_until(ws, rb"pw=\[\]=end")
+    assert b"supersecretpassword" not in out

@@ -3,6 +3,7 @@
 #   scripts/backup.sh [dossier-de-sortie]            installation native (FORMATION_DB / FORMATION_WORKSPACE, défaut ~/.formation)
 #   BACKUP_DOCKER=1 scripts/backup.sh [dossier]      conteneur « formation » lancé par docker compose
 set -euo pipefail
+umask 077
 
 OUT="${1:-./backups}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
