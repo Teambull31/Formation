@@ -246,7 +246,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
         return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
 
-    @app.get("/api/portfolio.zip")
+    @app.get("/api/portfolio.zip", dependencies=[Depends(local_only)])
     def portfolio_zip(db=Depends(get_db)):
         won = [r[0] for r in db.execute("SELECT DISTINCT boss_id FROM boss_attempts WHERE won = 1 ORDER BY boss_id")]
         titles = [json.loads((bosses[b] / "boss.json").read_text(encoding="utf-8"))["title"] for b in won if b in bosses]

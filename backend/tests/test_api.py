@@ -105,7 +105,8 @@ def test_quest_step_tp_requires_passing_check(client, tmp_path):
 
 
 BAD = [("post", "/api/tp/t1/check"), ("post", "/api/boss/attempt"),
-       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"), ("post", "/api/feynman/l1")]
+       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"), ("post", "/api/feynman/l1"),
+       ("get", "/api/portfolio.zip")]
 
 
 @pytest.mark.parametrize("method,url", BAD)
