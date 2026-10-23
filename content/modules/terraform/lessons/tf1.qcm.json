@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf1-q1",
+  "text": "Que fait la commande terraform plan ?",
+  "options": [
+   "Elle crée immédiatement toutes les ressources décrites dans le code, puis affiche le résultat",
+   "Elle télécharge les providers et prépare le dossier de travail",
+   "Elle calcule et affiche les changements à faire, sans rien modifier",
+   "Elle supprime les ressources qui ne figurent plus dans le state"
+  ],
+  "answer": 2,
+  "explain": "plan compare le code, le state et la réalité, puis affiche ce qui serait créé, modifié ou supprimé, sans toucher à l'infrastructure. Le piège courant est de le confondre avec apply, qui exécute vraiment les changements, ou avec init, qui télécharge les providers.",
+  "remedial_lesson_id": "tf1"
+ },
+ {
+  "id": "tf1-q2",
+  "text": "Que veut dire « Terraform est déclaratif » ?",
+  "options": [
+   "On décrit l'état final voulu, et l'outil calcule les actions pour l'atteindre",
+   "On écrit la suite exacte des commandes à exécuter, dans l'ordre",
+   "Le code doit être déclaré dans un seul fichier nommé main.tf",
+   "Chaque ressource doit être déclarée deux fois, avant et après le changement"
+  ],
+  "answer": 0,
+  "explain": "En mode déclaratif on écrit le résultat attendu et l'outil déduit les étapes. L'erreur fréquente est de penser comme dans un script : Terraform ne rejoue pas des commandes, il rapproche la réalité de la description.",
+  "remedial_lesson_id": "tf1"
+ },
+ {
+  "id": "tf1-q3",
+  "text": "Pourquoi indiquer une contrainte de version comme ~> 2.5 pour un provider ?",
+  "options": [
+   "Pour accélérer le téléchargement du provider",
+   "Pour que Terraform chiffre automatiquement les secrets du provider",
+   "Pour permettre à n'importe quelle version future, même la 9.0, de s'installer sans contrôle",
+   "Pour obtenir des déploiements reproductibles, sans changement majeur surprise"
+  ],
+  "answer": 3,
+  "explain": "Épingler la version garantit que le même code donne le même résultat dans le temps : ~> 2.5 accepte 2.x à partir de 2.5, mais pas la 3.0. Sans contrainte, une nouvelle version majeure peut casser votre configuration le jour d'un init.",
+  "remedial_lesson_id": "tf1"
+ },
+ {
+  "id": "tf1-q4",
+  "text": "Un collègue modifie à la main un objet géré par Terraform. Comment s'appelle cet écart et quand apparaît-il ?",
+  "options": [
+   "Un conflit, détecté seulement au moment du apply suivant",
+   "Une dérive, détectée par le prochain plan",
+   "Un cache périmé, corrigé par la commande init",
+   "Un défaut d'idempotence, visible dans le code uniquement"
+  ],
+  "answer": 1,
+  "explain": "Quand la réalité s'écarte du code et du state, on parle de dérive ; terraform plan la montre en proposant de corriger l'objet. L'erreur est de croire que la modification manuelle est durable : le prochain apply la défait.",
+  "remedial_lesson_id": "tf1"
+ },
+ {
+  "id": "tf1-q5",
+  "text": "Vous lancez apply, puis apply de nouveau sans changer le code. Que se passe-t-il ?",
+  "options": [
+   "Les ressources sont détruites puis recréées à l'identique",
+   "Terraform affiche une erreur car le state existe déjà",
+   "Rien n'est modifié, car la configuration est déjà atteinte",
+   "Les ressources sont dupliquées avec un suffixe numérique"
+  ],
+  "answer": 2,
+  "explain": "Terraform est idempotent : si l'état réel correspond déjà au code, il n'y a aucun changement à appliquer. Le raisonnement impératif, qui voit un deuxième lancement comme une deuxième création, est précisément ce que le déclaratif évite.",
+  "remedial_lesson_id": "tf1"
+ }
+]

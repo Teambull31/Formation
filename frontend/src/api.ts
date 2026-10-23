@@ -47,7 +47,7 @@ export interface Team {
   xp: number; level: number; rank: string; skills: Record<string, number>; skill_levels: Record<string, number>; tokens: number; streak: number
   inventory: { item_id: string; name: string; type: string; rarity: string; obtained_at: string }[]
 }
-export interface BossInfo { title: string; phases: { label: string }[]; attempts: number }
+export interface BossInfo { id: string; bosses: { id: string; title: string }[]; title: string; phases: { label: string }[]; attempts: number }
 export interface BossResult {
   won: boolean; phase_reached: number; failed_pattern: string | null; remedial_lesson_id: string | null; attempts: number
 }
@@ -70,8 +70,9 @@ export const checkTp =(tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/check`)
 export const getTeam = () => call<Team>('GET', '/api/team')
 export const pullGacha = () => call<Record<string, unknown>>('POST', '/api/gacha/pull')
-export const getBoss = () => call<BossInfo>('GET', '/api/boss')
-export const attemptBoss = () => call<BossResult>('POST', '/api/boss/attempt')
+const bossQ = (id?: string) => (id ? `?id=${encodeURIComponent(id)}` : '')
+export const getBoss = (id?: string) => call<BossInfo>('GET', `/api/boss${bossQ(id)}`)
+export const attemptBoss = (id?: string) => call<BossResult>('POST', `/api/boss/attempt${bossQ(id)}`)
 export const weeklyBrief = (topic: string, format: string) =>
   call<{ brief: string }>('POST', '/api/weekly/brief', { topic, format })
 export const weeklyImport = (path: string) => call<{ module_id: string }>('POST', '/api/weekly/import', { path })

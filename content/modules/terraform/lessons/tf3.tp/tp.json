@@ -1,0 +1,17 @@
+{
+  "id": "tf3-tp",
+  "title": "TP 3 : sécuriser un secret et protéger le state",
+  "instructions_md": "Le dossier contient un **secure.tf** hérité qui fuit un mot de passe, et un **.gitignore** incomplet. Corrigez-les.\n\n**secure.tf**\n- la variable `db_password` : `type = string`, `sensitive = true` et **aucun** `default` ;\n- la ressource `local_sensitive_file` nommée `db` : son `content` utilise `var.db_password` ; aucun mot de passe en clair dans vos fichiers `.tf` ou `.tfvars`.\n\n**.gitignore** : excluez au minimum `*.tfstate`, `*.tfstate.*`, `.terraform/` et `*.tfvars`, sans cacher votre code (une règle trop large comme `*` est refusée).\n\nLe contrôle lit vos fichiers sans rien exécuter ni se connecter. Un output qui expose le secret doit être marqué `sensitive = true`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans le bloc variable, ajoutez sensitive = true et supprimez complètement la ligne default : le secret vient de l'extérieur.",
+    "Le contenu de la ressource référence la variable par une interpolation : content = \"password=${var.db_password}\". Plus aucune valeur en clair.",
+    "Dans .gitignore, une règle par ligne : *.tfstate, *.tfstate.*, .terraform/ et *.tfvars. Gardez aussi vos propres règles précises."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf3",
+  "seed": [
+    "seed/secure.tf",
+    "seed/.gitignore"
+  ]
+}

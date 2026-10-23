@@ -1,0 +1,16 @@
+{
+  "id": "tf1-tp",
+  "title": "TP 1 : votre première configuration Terraform",
+  "instructions_md": "Le dossier contient un **main.tf** à compléter (fourni). Il doit contenir :\n\n1. Un bloc `terraform` avec `required_version` (par exemple `\">= 1.5.0\"`) et un bloc `required_providers` qui déclare le provider `local` : `source = \"hashicorp/local\"` et une contrainte `version` (par exemple `\"~> 2.5\"`).\n2. Une ressource `local_file` nommée `hello`, avec des attributs `filename` et `content` non vides.\n\nLe contrôle lit vos fichiers sans rien exécuter : pas de réseau, pas besoin du binaire `terraform`. Tout fichier `.tf` du dossier doit être de la syntaxe valide.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Commencez par le bloc terraform : il contient required_version et, à l'intérieur, un bloc required_providers { ... }.",
+    "Le provider se déclare avec local = { source = \"hashicorp/local\" version = \"~> 2.5\" } : un objet entre accolades, un attribut par ligne.",
+    "La ressource s'écrit resource \"local_file\" \"hello\" { filename = \"${path.module}/hello.txt\" content = \"Bonjour\" }. Le type et le nom sont entre guillemets."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf1",
+  "seed": [
+    "seed/main.tf"
+  ]
+}

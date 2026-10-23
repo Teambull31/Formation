@@ -69,9 +69,8 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     content_dir, workspace = Path(content_dir), Path(workspace)
     connect(db_path).close()  # schema must exist at startup
     pool = json.loads((content_dir / "gacha.json").read_text(encoding="utf-8"))
-    boss_dirs = sorted(p for p in (content_dir / "boss").glob("*/boss.json"))
-    boss_dir = boss_dirs[0].parent if boss_dirs else None
-    boss = json.loads(boss_dirs[0].read_text(encoding="utf-8")) if boss_dirs else None
+    boss_files = sorted(p for p in (content_dir / "boss").glob("*/boss.json"))
+    bosses = {json.loads(f.read_text(encoding="utf-8"))["id"]: f.parent for f in boss_files}
     rng = random.Random()
     app = FastAPI()
     app.state.remote_hosts = sec.allowed_hosts
@@ -242,19 +241,28 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         except NoTokens:
             raise HTTPException(409, "Pas de jeton")
 
-    @app.get("/api/boss")
-    def boss_info(db=Depends(get_db)):
-        if boss is None:
+    def pick_boss(boss_id: str | None):
+        # no id = first boss (sorted dir name); several bosses can ship, one per module
+        if not bosses:
             raise HTTPException(404, "Aucun boss")
-        return {"title": boss["title"], "phases": [{"label": p["label"]} for p in boss["phases"]],
-                "attempts": count_attempts(db)}
+        bid = boss_id if boss_id is not None else next(iter(bosses))
+        if bid not in bosses:
+            raise HTTPException(404, "Boss inconnu")
+        return bosses[bid], json.loads((bosses[bid] / "boss.json").read_text(encoding="utf-8"))
+
+    @app.get("/api/boss")
+    def boss_info(id: str | None = None, db=Depends(get_db)):
+        _, boss = pick_boss(id)
+        return {"id": boss["id"], "title": boss["title"], "phases": [{"label": p["label"]} for p in boss["phases"]],
+                "attempts": count_attempts(db, boss["id"]),
+                "bosses": [{"id": b, "title": json.loads((d / "boss.json").read_text(encoding="utf-8"))["title"]}
+                           for b, d in bosses.items()]}
 
     @app.post("/api/boss/attempt", dependencies=[Depends(local_only)])
-    def boss_attempt(db=Depends(get_db)):
-        if boss is None:
-            raise HTTPException(404, "Aucun boss")
+    def boss_attempt(id: str | None = None, db=Depends(get_db)):
+        boss_dir, boss = pick_boss(id)
         r = attempt_boss(db, boss, workspace, boss_dir)
-        return {**asdict(r), "attempts": count_attempts(db)}
+        return {**asdict(r), "attempts": count_attempts(db, boss["id"])}
 
     @app.post("/api/weekly/brief")
     def weekly_brief(body: BriefIn, db=Depends(get_db)):

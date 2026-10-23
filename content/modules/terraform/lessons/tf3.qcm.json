@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf3-q1",
+  "text": "Comment fournir un mot de passe à une configuration Terraform ?",
+  "options": [
+   "L'écrire dans un default, le dépôt étant privé",
+   "L'écrire dans un fichier prod.tfvars qui reste versionné avec le reste du code source",
+   "Le coder en dur dans le content de la ressource",
+   "Déclarer une variable sensitive sans default et l'injecter à l'exécution, par exemple avec TF_VAR_db_password"
+  ],
+  "answer": 3,
+  "explain": "Le secret ne doit jamais être écrit dans un fichier versionné : on le passe au moment de l'exécution. Un dépôt privé ne protège pas, car l'historique Git est copié et partagé, et un tfvars versionné est exposé de la même façon.",
+  "remedial_lesson_id": "tf3"
+ },
+ {
+  "id": "tf3-q2",
+  "text": "Que change sensitive = true sur une variable ?",
+  "options": [
+   "Elle est chiffrée dans le fichier de state",
+   "Sa valeur est masquée dans l'affichage du plan, mais reste en clair dans le state",
+   "Elle ne peut plus être lue par aucune ressource",
+   "Elle est supprimée du state après chaque apply"
+  ],
+  "answer": 1,
+  "explain": "sensitive masque seulement l'affichage du plan et des sorties. La valeur reste lisible dans le state, qui doit donc être protégé comme un secret. Croire que le state est chiffré par défaut est l'erreur la plus répandue.",
+  "remedial_lesson_id": "tf3"
+ },
+ {
+  "id": "tf3-q3",
+  "text": "Quels fichiers ne doivent jamais être versionnés ?",
+  "options": [
+   "Les fichiers *.tfstate, le dossier .terraform/ et les *.tfvars",
+   "Les fichiers main.tf et variables.tf",
+   "Uniquement les fichiers de plus d'un mégaoctet",
+   "Le fichier .terraform.lock.hcl, qui fige les versions des providers"
+  ],
+  "answer": 0,
+  "explain": "Le state, le cache .terraform/ et les tfvars peuvent contenir des secrets ou des fichiers lourds propres à la machine. À l'inverse, le fichier de verrouillage .terraform.lock.hcl se versionne pour figer les providers : l'exclure est une erreur.",
+  "remedial_lesson_id": "tf3"
+ },
+ {
+  "id": "tf3-q4",
+  "text": "Où conserver le state d'une équipe ?",
+  "options": [
+   "Dans le dépôt Git, à côté du code, pour que tout le monde l'ait toujours à jour",
+   "Sur le poste de chaque développeur, avec une copie par personne",
+   "Dans un backend distant chiffré, avec verrouillage et accès restreint",
+   "Dans un fichier texte partagé sur un disque ouvert à tous"
+  ],
+  "answer": 2,
+  "explain": "Un backend distant chiffré évite les copies divergentes, empêche deux apply simultanés grâce au verrou et limite qui peut lire les secrets. Mettre le state dans Git expose tout ce qu'il contient, y compris les mots de passe en clair.",
+  "remedial_lesson_id": "tf3"
+ },
+ {
+  "id": "tf3-q5",
+  "text": "Que signifie le moindre privilège pour l'identité qui exécute Terraform ?",
+  "options": [
+   "Elle a les droits administrateur pour ne jamais être bloquée",
+   "Elle n'a que les permissions nécessaires, avec une identité par environnement",
+   "Elle partage les mêmes droits que tous les développeurs de l'équipe",
+   "Elle n'a aucun droit et demande une autorisation à chaque ressource"
+  ],
+  "answer": 0,
+  "explain": "On ne donne que ce qui est indispensable, pour limiter les dégâts si l'identité est compromise. Les droits administrateur partout sont la tentation habituelle, mais elles transforment une fuite en catastrophe totale.",
+  "remedial_lesson_id": "tf3"
+ }
+]

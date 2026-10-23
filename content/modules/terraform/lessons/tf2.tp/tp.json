@@ -1,0 +1,18 @@
+{
+  "id": "tf2-tp",
+  "title": "TP 2 : le contrat d'un module (variables et outputs)",
+  "instructions_md": "Le dossier contient **main.tf** (fourni, ne le modifiez pas : il déclare la ressource `local_file.config`) et deux fichiers à compléter.\n\n**variables.tf**\n- `app_name` : `type = string`, une `description` d'au moins quelques mots et un `default` ;\n- `environment` : `type = string`, une `description`, et **aucun** `default` (elle est obligatoire).\n\n**outputs.tf**\n- un output `config_path` avec une `description` et une `value` qui référence une variable ou une ressource **qui existe** (par exemple `local_file.config.filename`).\n\nLe contrôle analyse les fichiers sans rien exécuter. Une référence vers un nom qui n'est déclaré nulle part est refusée, et une variable déclarée deux fois aussi.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Un bloc variable s'écrit variable \"nom\" { type = string description = \"...\" } : un attribut par ligne.",
+    "Pour rendre environment obligatoire, n'écrivez simplement aucun attribut default dans son bloc. Pour app_name, ajoutez default = \"demo\".",
+    "Un output se déclare output \"config_path\" { description = \"...\" value = local_file.config.filename } : value est écrit sans guillemets, c'est une référence."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf2",
+  "seed": [
+    "seed/main.tf",
+    "seed/variables.tf",
+    "seed/outputs.tf"
+  ]
+}

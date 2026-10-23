@@ -1,0 +1,27 @@
+{
+  "id": "terraform_boss",
+  "title": "Le Gardien du State",
+  "phases": [
+    {
+      "pattern_id": "config_invalide",
+      "label": "Phase 1 : dans tfboss/, un main.tf valide (bloc terraform avec required_version, provider local versionné, ressource local_file \"hello\")",
+      "check": "bash \"$LESSON_DIR/phase1_check.sh\"",
+      "remedial_lesson_id": "tf1",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "contrat_module",
+      "label": "Phase 2 : dans tfboss/, variables.tf (app_name avec default, environment obligatoire, typées et décrites) et outputs.tf (config_path qui référence une ressource ou variable déclarée)",
+      "check": "bash \"$LESSON_DIR/phase2_check.sh\"",
+      "remedial_lesson_id": "tf2",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "secret_expose",
+      "label": "Phase 3 : dans tfboss/, secure.tf (db_password sensitive sans default, local_sensitive_file db) et un .gitignore qui exclut le state sans cacher le code",
+      "check": "bash \"$LESSON_DIR/phase3_check.sh\"",
+      "remedial_lesson_id": "tf3",
+      "timeout_s": 25
+    }
+  ]
+}

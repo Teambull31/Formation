@@ -6,10 +6,11 @@ export default function Boss({ onOpen }: { onOpen: (lessonId: string) => void })
   const [res, setRes] = useState<BossResult | null>(null)
   const [local, setLocal] = useState(true) // false once the API answers 403 (phone/remote)
   const [msg, setMsg] = useState('')
-  useEffect(() => { getBoss().then(setInfo).catch((e: Error) => setMsg(e.message)) }, [])
+  const load = (id?: string) => { setRes(null); getBoss(id).then(setInfo).catch((e: Error) => setMsg(e.message)) }
+  useEffect(() => { load() }, [])
 
   const fight = () =>
-    attemptBoss()
+    attemptBoss(info?.id)
       .then((r) => { setRes(r); setMsg(''); setInfo((i) => (i ? { ...i, attempts: r.attempts } : i)) })
       .catch((e: Error) => { if (isForbidden(e)) setLocal(false); else setMsg(e.message) })
 
@@ -18,6 +19,9 @@ export default function Boss({ onOpen }: { onOpen: (lessonId: string) => void })
       {info && (
         <div className="card">
           <p className="tag">Boss</p>
+          {info.bosses.length > 1 && info.bosses.map((b) => (
+            <button key={b.id} className={'btn' + (b.id === info.id ? '' : ' ghost')} onClick={() => load(b.id)}>{b.title}</button>
+          ))}
           <h2>{info.title}</h2>
           {info.phases.map((p, i) => <div key={i} className="step"><span className="grow">{p.label}</span></div>)}
           <p className="note">Conseillé avant de défier : avoir terminé les leçons du module. Ce n'est pas obligatoire.</p>

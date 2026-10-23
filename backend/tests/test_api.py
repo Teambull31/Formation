@@ -291,3 +291,28 @@ def test_check_runs_in_tp_workspace(client, tmp_path):
     assert client.post("/api/tp/t1/check").json()["passed"] is False
     (tmp_path / "ws" / "tp1" / "ok.txt").write_text("x")
     assert client.post("/api/tp/t1/check").json()["passed"] is True
+
+
+def test_two_bosses_selectable_by_id(tmp_path):
+    import json
+    import shutil
+    from pathlib import Path
+
+    from starlette.testclient import TestClient
+
+    from app.main import create_app
+    from tests.conftest import app_client
+    app_client(tmp_path, "127.0.0.1")  # lays out content/ + ws/ under tmp_path
+    other = tmp_path / "content" / "boss" / "zz_boss"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "demo_boss", other)
+    meta = json.loads((other / "boss.json").read_text())
+    meta.update(id="zz_boss", title="Second boss")
+    (other / "boss.json").write_text(json.dumps(meta))
+    app = create_app(str(tmp_path / "g.db"), tmp_path / "content", tmp_path / "ws")
+    c = TestClient(app, base_url="http://localhost", client=("127.0.0.1", 50000))
+    assert c.get("/api/boss").json()["id"] == "demo_boss"  # default = first
+    b = c.get("/api/boss", params={"id": "zz_boss"}).json()
+    assert b["title"] == "Second boss" and [x["id"] for x in b["bosses"]] == ["demo_boss", "zz_boss"]
+    assert c.post("/api/boss/attempt", params={"id": "zz_boss"}).json()["attempts"] == 1
+    assert c.get("/api/boss").json()["attempts"] == 0  # attempts counted per boss
+    assert c.get("/api/boss", params={"id": "nope"}).status_code == 404

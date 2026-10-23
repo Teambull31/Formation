@@ -32,5 +32,7 @@ def attempt_boss(db: sqlite3.Connection, boss: dict, workspace: Path, boss_dir: 
     return result
 
 
-def count_attempts(db: sqlite3.Connection) -> int:
-    return db.execute("SELECT COUNT(*) AS n FROM boss_attempts").fetchone()["n"]
+def count_attempts(db: sqlite3.Connection, boss_id: str | None = None) -> int:
+    if boss_id is None:
+        return db.execute("SELECT COUNT(*) AS n FROM boss_attempts").fetchone()["n"]
+    return db.execute("SELECT COUNT(*) AS n FROM boss_attempts WHERE boss_id = ?", (boss_id,)).fetchone()["n"]

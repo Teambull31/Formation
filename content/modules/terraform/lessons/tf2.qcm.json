@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf2-q1",
+  "text": "Que forment les variables et les outputs d'un module vis-à-vis de ceux qui l'appellent ?",
+  "options": [
+   "Un détail interne qui peut changer librement à chaque version",
+   "Un contrat : l'interface stable dont dépendent les appelants",
+   "Un mécanisme qui chiffre les valeurs échangées avec le module",
+   "Une simple optimisation qui accélère le plan"
+  ],
+  "answer": 1,
+  "explain": "Variables et outputs sont l'interface publique du module : tant qu'elle ne change pas, l'intérieur peut évoluer sans casser personne. L'erreur est de les traiter comme un détail, alors que les modifier casse les appelants.",
+  "remedial_lesson_id": "tf2"
+ },
+ {
+  "id": "tf2-q2",
+  "text": "Comment rendre une variable obligatoire ?",
+  "options": [
+   "Ajouter required = true dans son bloc",
+   "Lui donner un default vide, par exemple une chaîne vide",
+   "La déclarer dans un fichier nommé required.tf",
+   "Ne lui donner aucun attribut default"
+  ],
+  "answer": 3,
+  "explain": "Une variable sans default est obligatoire : Terraform demande la valeur, ou échoue en mode non interactif. Un default vide, lui, rend la variable facultative et masque l'oubli, ce qui est l'erreur classique.",
+  "remedial_lesson_id": "tf2"
+ },
+ {
+  "id": "tf2-q3",
+  "text": "Quel est l'intérêt de renseigner type et description sur chaque variable ?",
+  "options": [
+   "Le type rejette tôt les valeurs invalides et la description documente l'usage",
+   "Terraform refuse de démarrer si une description manque",
+   "La description est chiffrée dans le state pour tracer chaque valeur",
+   "Le type permet de créer les ressources en parallèle"
+  ],
+  "answer": 0,
+  "explain": "Le type fait échouer une mauvaise valeur avant toute modification de l'infrastructure, et la description sert de documentation aux utilisateurs. Terraform n'impose aucun des deux : c'est une discipline, pas une obligation de l'outil.",
+  "remedial_lesson_id": "tf2"
+ },
+ {
+  "id": "tf2-q4",
+  "text": "Quelle valeur d'output est correcte pour exposer le chemin d'un fichier géré par la ressource local_file nommée config ?",
+  "options": [
+   "\"local_file.config.filename\", écrit entre guillemets",
+   "var.local_file.config",
+   "local_file.config.filename",
+   "output.config_path.filename"
+  ],
+  "answer": 2,
+  "explain": "Un attribut de ressource se lit sans guillemets, sous la forme type.nom.attribut. Entre guillemets, c'est un simple texte qui ne référence rien : l'output afficherait la chaîne littérale au lieu du chemin.",
+  "remedial_lesson_id": "tf2"
+ },
+ {
+  "id": "tf2-q5",
+  "text": "Que faut-il éviter lorsqu'on conçoit les outputs d'un module partagé ?",
+  "options": [
+   "Ajouter une description à chaque output",
+   "Exposer tout l'intérieur du module, car chaque output devient un engagement de compatibilité",
+   "Référencer une ressource déclarée dans le module",
+   "Donner à l'output un nom explicite"
+  ],
+  "answer": 1,
+  "explain": "Plus un module expose de valeurs, plus il doit les maintenir sans casser ses appelants : on publie le minimum utile. Décrire, nommer clairement et référencer une ressource sont au contraire de bonnes pratiques.",
+  "remedial_lesson_id": "tf2"
+ }
+]
