@@ -7,7 +7,7 @@ Idées retenues, pas encore planifiées. Source : branche `claude/ecstatic-sagan
 - **Export Anki** des cartes de révision.
 
 ## Noté pour plus tard
-- **Simulateur d'entretien** (freelance DevOps/SecOps) : pertinent pour l'objectif de départ. À lire `src/components/InterviewSimulatorModal.tsx` de la branche parallèle avant de décider du format (questions fixes ou générées par Ollama, notation).
+- **Simulateur d'entretien, suite** : la v1 est livrée (15 questions fixes, notation Ollama ou repli par mots-clés). Idées : questions générées par Ollama, réponse à l'oral (reconnaissance vocale), entretien chronométré de 5 questions d'affilée.
 
 ## Écarté pour l'instant
 - Simulateur de SLO, post-mortem, War Room, duels, ligues : fonctions simulées dans le navigateur, sans valeur pédagogique prouvée.

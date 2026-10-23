@@ -1,0 +1,385 @@
+[
+ {
+  "id": "iv-01-idempotence",
+  "role": "DevOps",
+  "question": "Qu'est-ce que l'idempotence et pourquoi est-elle essentielle en automatisation ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "la notion d'idempotence",
+    "idempot"
+   ],
+   [
+    "rejouer sans risque",
+    "plusieurs fois|relanc|rejou|repet"
+   ],
+   [
+    "même état final",
+    "meme etat|meme resultat|etat final|etat voulu"
+   ],
+   [
+    "un exemple d'outil",
+    "terraform|ansible|mkdir -p|apply|apt"
+   ]
+  ],
+  "model_answer": "Une opération est idempotente quand l'exécuter une fois ou dix fois donne le même état final. C'est essentiel parce qu'un script échoue, est relancé ou est lancé par erreur : sans idempotence, on duplique des ressources ou on casse l'existant. Terraform ou Ansible décrivent l'état voulu et ne changent que l'écart, alors qu'un script qui ajoute une ligne à chaque passage ne l'est pas."
+ },
+ {
+  "id": "iv-02-docker-image",
+  "role": "DevOps",
+  "question": "Quelle différence entre une image et un conteneur, et pourquoi épingler la version de l'image de base ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "image = modèle en lecture seule",
+    "modele|lecture seule|fige"
+   ],
+   [
+    "conteneur = instance en cours d'exécution",
+    "instance|execution|tourne|processus"
+   ],
+   [
+    "éviter latest",
+    "latest"
+   ],
+   [
+    "reproductibilité",
+    "reproduct|reproduire|identique|predictible|change sans prevenir"
+   ]
+  ],
+  "model_answer": "L'image est un modèle figé en lecture seule, le conteneur est une instance en cours d'exécution de cette image. On épingle la version (python:3.12-slim, pas latest) parce que latest change sans prévenir : le même Dockerfile ne produit plus la même image, on perd la reproductibilité et on peut casser la production un lundi matin."
+ },
+ {
+  "id": "iv-03-terraform-flow",
+  "role": "DevOps",
+  "question": "Expliquez le workflow Terraform init, plan, apply et le rôle du state.",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "init prépare les providers",
+    "init"
+   ],
+   [
+    "plan montre les changements sans rien modifier",
+    "plan"
+   ],
+   [
+    "apply exécute",
+    "apply"
+   ],
+   [
+    "le state fait le lien code et réel",
+    "state|etat"
+   ],
+   [
+    "relire le plan avant d'appliquer",
+    "relire|relit|relis|verifier|lire le plan|revue"
+   ]
+  ],
+  "model_answer": "init télécharge les providers et prépare le dossier. plan compare le code, le state et la réalité et affiche ce qui serait créé, modifié ou détruit sans rien toucher. apply exécute ce plan. Le state fait le lien entre les ressources du code et les objets réels : sans lui Terraform ne sait pas ce qui existe. On relit toujours le plan avant d'appliquer, et on protège le state qui peut contenir des secrets."
+ },
+ {
+  "id": "iv-04-secrets",
+  "role": "SecOps",
+  "question": "Où stocker les secrets d'une application et qu'est-ce qu'on ne doit jamais faire ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "jamais dans Git ni dans l'image",
+    "git|depot|image|dockerfile|code"
+   ],
+   [
+    "variables d'environnement ou gestionnaire de secrets",
+    "variable|environnement|vault|gestionnaire|secret manager|coffre"
+   ],
+   [
+    "rotation après fuite",
+    "rotation|renouvel|revoqu|changer"
+   ],
+   [
+    "moindre privilège",
+    "moindre|minimal|restreint|droits limites|strict necessaire|limite leurs droits"
+   ]
+  ],
+  "model_answer": "Jamais dans le code, le dépôt Git ou l'image Docker : ils y restent lisibles, même après suppression. On les fournit à l'exécution par variables d'environnement, fichiers montés ou un gestionnaire de secrets comme Vault. On limite leurs droits au strict nécessaire et on les fait tourner régulièrement ; en cas de fuite on les révoque immédiatement, supprimer le commit ne suffit pas."
+ },
+ {
+  "id": "iv-05-moindre-privilege",
+  "role": "SecOps",
+  "question": "C'est quoi le principe de moindre privilège ? Donnez deux applications concrètes.",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "donner le minimum de droits nécessaires",
+    "minimum|strict|necessaire|juste ce qu"
+   ],
+   [
+    "exemple utilisateur non-root",
+    "non-root|non root|utilisateur|root"
+   ],
+   [
+    "exemple droits IAM ou cap_drop",
+    "iam|cap_drop|capacit|role|lecture seule|read.only"
+   ],
+   [
+    "limiter les dégâts d'une compromission",
+    "compromis|degat|impact|blast|faille|attaque"
+   ]
+  ],
+  "model_answer": "Chaque personne, service ou processus ne reçoit que les droits dont il a besoin, pour le temps nécessaire. Exemples : un conteneur qui tourne avec un utilisateur non-root et sans capacités Linux inutiles, un compte cloud dont le rôle n'autorise que la lecture d'un bucket. Si l'un d'eux est compromis, les dégâts restent limités."
+ },
+ {
+  "id": "iv-06-prompt-injection",
+  "role": "SecOps",
+  "question": "Votre agent IA lit des mails et résume leur contenu. Quel risque de sécurité principal et comment le réduire ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "injection de prompt",
+    "injection|prompt"
+   ],
+   [
+    "le contenu du mail est une donnée non fiable",
+    "non fiable|donnee|untrusted|pas de confiance|ne pas obeir"
+   ],
+   [
+    "limiter les actions possibles de l'agent",
+    "action|outil|droit|lecture seule|privilege|permission"
+   ],
+   [
+    "validation humaine ou filtrage",
+    "humain|valid|filtr|confirm|revue"
+   ]
+  ],
+  "model_answer": "Le risque est l'injection de prompt : un mail piégé contient des instructions que le modèle pourrait suivre. On traite tout contenu externe comme une donnée non fiable, délimitée et jamais comme une consigne. On limite ce que l'agent peut faire (lecture seule, pas d'envoi ni de suppression), on filtre ou valide les sorties sensibles et on garde un humain dans la boucle pour les actions à risque."
+ },
+ {
+  "id": "iv-07-incident",
+  "role": "DevOps",
+  "question": "Le site de production est en panne. Que faites-vous dans les dix premières minutes ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "évaluer l'impact",
+    "impact|perimetre|gravite|combien|utilisateurs"
+   ],
+   [
+    "communiquer",
+    "communiqu|prevenir|statut|informer|status"
+   ],
+   [
+    "restaurer vite : rollback",
+    "rollback|revenir|annuler|restaur|derniere version"
+   ],
+   [
+    "chercher la cause avec logs et métriques",
+    "log|metrique|monitoring|supervision|cause"
+   ],
+   [
+    "post-mortem après",
+    "post-mortem|postmortem|retex|retour d'experience|apres coup"
+   ]
+  ],
+  "model_answer": "D'abord évaluer l'impact et le périmètre, puis prévenir les parties prenantes pour que personne ne travaille à l'aveugle. L'objectif est de rétablir le service vite, souvent par un rollback de la dernière modification, avant de chercher la cause profonde dans les logs et les métriques. Une fois le service revenu, on rédige un post-mortem sans chercher de coupable pour que l'incident ne se reproduise pas."
+ },
+ {
+  "id": "iv-08-cicd",
+  "role": "DevOps",
+  "question": "Différence entre intégration continue, livraison continue et déploiement continu ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "intégration continue : build et tests à chaque commit",
+    "integration|build|test|commit"
+   ],
+   [
+    "livraison continue : toujours prêt à déployer",
+    "livraison|delivery|pret|manuel|validation"
+   ],
+   [
+    "déploiement continu : mise en production automatique",
+    "deploiement|deployment|automatique|production"
+   ]
+  ],
+  "model_answer": "L'intégration continue construit et teste le code à chaque commit. La livraison continue garde en permanence un artefact prêt à être déployé, avec une validation manuelle avant la production. Le déploiement continu supprime cette étape manuelle : tout changement qui passe les tests part automatiquement en production."
+ },
+ {
+  "id": "iv-09-container-hardening",
+  "role": "SecOps",
+  "question": "Comment durcir un conteneur Docker avant de le mettre en production ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "utilisateur non-root",
+    "non-root|non root|user"
+   ],
+   [
+    "retirer les capacités",
+    "cap_drop|capacit"
+   ],
+   [
+    "système de fichiers en lecture seule",
+    "read.only|lecture seule"
+   ],
+   [
+    "pas de secret dans l'image",
+    "secret"
+   ],
+   [
+    "image minimale et à jour",
+    "slim|minimal|multi-stage|a jour|scan"
+   ]
+  ],
+  "model_answer": "On fait tourner l'application avec un utilisateur non-root, on retire toutes les capacités Linux avec cap_drop ALL, on monte le système de fichiers en lecture seule et on interdit l'élévation de privilèges. On n'écrit aucun secret dans l'image, on part d'une image minimale (slim, multi-stage) et on la scanne et la met à jour régulièrement. Enfin on ne monte jamais docker.sock et on publie les ports uniquement là où c'est nécessaire."
+ },
+ {
+  "id": "iv-10-drift",
+  "role": "DevOps",
+  "question": "Qu'est-ce que la dérive (drift) en infrastructure as code et comment la gérer ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "l'infra réelle diverge du code",
+    "diverge|ecart|difference|different|modifie a la main|manuel"
+   ],
+   [
+    "détection par plan",
+    "plan|detect|compar"
+   ],
+   [
+    "interdire les changements manuels",
+    "interdire|manuel|console|pas de modification|a la main"
+   ],
+   [
+    "code comme source de vérité",
+    "source de verite|verite|git|code"
+   ]
+  ],
+  "model_answer": "La dérive, c'est l'écart entre l'infrastructure réelle et ce que décrit le code, en général après une modification à la main dans la console. Un terraform plan la détecte en comparant le code, le state et la réalité. On la prévient en traitant le code versionné comme la source de vérité, en interdisant ou en limitant les changements manuels et en lançant des plans réguliers pour repérer les écarts."
+ },
+ {
+  "id": "iv-11-web-exposure",
+  "role": "SecOps",
+  "question": "Vous devez exposer une application web sur Internet. Comment sécurisez-vous l'accès ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "HTTPS avec un certificat",
+    "https|tls|certificat|let's encrypt|letsencrypt"
+   ],
+   [
+    "authentification",
+    "authentification|mot de passe|mfa|sso|login"
+   ],
+   [
+    "limiter l'exposition : pare-feu et ports fermés",
+    "pare-feu|firewall|ports|exposition|reseau"
+   ],
+   [
+    "mises à jour et journaux",
+    "mise a jour|patch|journaux|logs|surveill"
+   ]
+  ],
+  "model_answer": "On chiffre tout en HTTPS avec un certificat valide (Let's Encrypt), on place un reverse proxy devant l'application et on exige une authentification, idéalement avec MFA. On réduit la surface d'attaque avec un pare-feu qui ne laisse ouverts que les ports nécessaires. Enfin on applique les mises à jour de sécurité, on journalise les accès et on surveille les tentatives anormales. Si possible, on évite même l'exposition publique en passant par un VPN."
+ },
+ {
+  "id": "iv-12-backup",
+  "role": "DevOps",
+  "question": "Quelle stratégie de sauvegarde recommandez-vous et comment savoir qu'elle fonctionne ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "règle 3-2-1",
+    "3-2-1|trois copies|3 copies"
+   ],
+   [
+    "copie hors site",
+    "hors site|autre site|distant|ailleurs|cloud|externe"
+   ],
+   [
+    "tester la restauration",
+    "restaur|test"
+   ],
+   [
+    "automatiser et surveiller",
+    "automat|cron|timer|planif|alerte|surveill"
+   ]
+  ],
+  "model_answer": "La règle 3-2-1 : trois copies des données, sur deux supports différents, dont une hors site. On automatise les sauvegardes avec une planification et une rotation, et on surveille qu'elles s'exécutent. Surtout, on teste régulièrement la restauration : une sauvegarde qu'on n'a jamais restaurée n'est qu'une hypothèse."
+ },
+ {
+  "id": "iv-13-monitoring",
+  "role": "DevOps",
+  "question": "Métriques, logs, traces : quelle différence, et que surveiller en premier ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "métriques = valeurs chiffrées dans le temps",
+    "metrique"
+   ],
+   [
+    "logs = événements détaillés",
+    "log"
+   ],
+   [
+    "traces = parcours d'une requête",
+    "trace"
+   ],
+   [
+    "signaux clés : latence, erreurs, trafic, saturation",
+    "latence|erreur|trafic|saturation|golden|disponibilite"
+   ]
+  ],
+  "model_answer": "Les métriques sont des valeurs chiffrées dans le temps (CPU, requêtes par seconde), les logs sont des événements détaillés, les traces suivent le parcours d'une requête à travers plusieurs services. On commence par les signaux clés de l'utilisateur : latence, taux d'erreurs, trafic et saturation, avec des alertes sur ce qui impacte vraiment les utilisateurs plutôt que sur chaque pic de CPU."
+ },
+ {
+  "id": "iv-14-freelance-urgence",
+  "role": "Freelance",
+  "question": "Un client veut une mission « pour hier » avec un budget très limité. Comment réagissez-vous ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "cadrer le périmètre",
+    "perimetre|cadr|besoin|objectif|livrable"
+   ],
+   [
+    "prioriser",
+    "priori|essentiel|minimum|mvp|etapes|phases"
+   ],
+   [
+    "formaliser devis et contrat",
+    "devis|contrat|ecrit|formalis|tarif|prix"
+   ],
+   [
+    "dire non ou négocier honnêtement",
+    "negoci|refus|dire non|honnet|transparen|compromis|realiste"
+   ]
+  ],
+  "model_answer": "Je commence par cadrer le besoin réel et le périmètre : qu'est-ce qui est vraiment urgent et quel est le livrable minimum utile. Je propose de découper en phases, en livrant d'abord l'essentiel, et je formalise le tout dans un devis et un contrat avec des délais réalistes. Si le budget ne permet pas le périmètre demandé, je le dis honnêtement et je négocie plutôt que d'accepter un engagement que je ne pourrai pas tenir."
+ },
+ {
+  "id": "iv-15-freelance-valeur",
+  "role": "Freelance",
+  "question": "Comment présentez-vous votre valeur de freelance DevOps à une PME sans équipe technique ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "partir de leur problème",
+    "probleme|besoin|enjeu|douleur"
+   ],
+   [
+    "parler risque et coût, pas outils",
+    "risque|cout|economie|temps|perte"
+   ],
+   [
+    "fiabilité et automatisation",
+    "fiabil|automatis|disponibilit|deploiement|sauvegarde"
+   ],
+   [
+    "un exemple concret et mesurable",
+    "exemple|resultat|mesur|chiffr|avant|apres|cas"
+   ]
+  ],
+  "model_answer": "Je pars de leur problème (déploiements risqués, pannes, sauvegardes douteuses) plutôt que des outils. Je parle en risque et en coût : une heure d'arrêt, une perte de données, du temps perdu en manipulations manuelles. Je montre comment l'automatisation et une infrastructure fiable réduisent ces risques, avec un exemple concret et mesurable, par exemple un déploiement qui passe de deux heures à cinq minutes."
+ }
+]

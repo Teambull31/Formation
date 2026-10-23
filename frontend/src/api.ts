@@ -66,6 +66,13 @@ export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: nu
 export const getReviews = () => call<Reviews>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
+export interface InterviewQuestion { id: string; role: string; question: string; time_limit: number; best: number | null }
+export interface InterviewResult {
+  score: number; xp: number; best: number; mode: string; feedback: string; missing: string[]; model_answer: string
+}
+export const getInterview = () => call<{ questions: InterviewQuestion[] }>('GET', '/api/interview')
+export const answerInterview = (id: string, answer: string) =>
+  call<InterviewResult>('POST', `/api/interview/${encodeURIComponent(id)}`, { answer })
 export interface FeynmanResult { score: number; xp: number; best: number; feedback: string; missing: string[] }
 export const gradeFeynman = (lessonId: string, explanation: string) =>
   call<FeynmanResult>('POST', `/api/feynman/${encodeURIComponent(lessonId)}`, { explanation })

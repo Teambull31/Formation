@@ -19,6 +19,7 @@ from app.boss import attempt_boss, count_attempts
 from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
+from app.interview import keyword_grade, load_questions
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import INTERVALS, box_counts, due_reviews, record_answer
@@ -27,6 +28,7 @@ from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
 
 HINT_COST = 10
+INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 FEYNMAN_XP = 60  # max par leçon ; seules les améliorations de score rapportent
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
 
@@ -52,6 +54,10 @@ class BriefIn(BaseModel):
 
 class FeynmanIn(BaseModel):
     explanation: str = Field(min_length=40, max_length=llm.MAX_EXPLANATION)
+
+
+class InterviewIn(BaseModel):
+    answer: str = Field(min_length=20, max_length=llm.MAX_EXPLANATION)
 
 
 class HintIn(BaseModel):
@@ -224,6 +230,35 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
         return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
+
+    @app.get("/api/interview")
+    def interview_list(db=Depends(get_db)):
+        best = dict(db.execute("SELECT question_id, best FROM interview").fetchall())
+        return {"questions": [{"id": q["id"], "role": q["role"], "question": q["question"], "time_limit": q["time_limit"],
+                               "best": best.get(q["id"])} for q in load_questions(content_dir)]}
+
+    @app.post("/api/interview/{qid}")
+    def interview_answer(qid: str, body: InterviewIn, db=Depends(get_db)):
+        q = next((x for x in load_questions(content_dir) if x["id"] == qid), None)
+        if q is None:
+            raise HTTPException(404, "Question inconnue")
+        labels = [k[0] for k in q["keywords"]]
+        try:
+            g = {**llm.grade_interview(q["question"], q["model_answer"], labels, body.answer), "mode": "ollama"}
+        except llm.LlmUnavailable:  # offline fallback: coarser, but the drill still works
+            score, missing = keyword_grade(body.answer, q["keywords"])
+            g = {"score": score, "missing": missing, "mode": "mots-clés",
+                 "feedback": "Ollama est indisponible : notation approximative par mots-clés."}
+        row = db.execute("SELECT best FROM interview WHERE question_id = ?", (qid,)).fetchone()
+        best = row[0] if row else 0
+        top = max(g["score"], best)
+        xp = round(INTERVIEW_XP * top / 100) - round(INTERVIEW_XP * best / 100)
+        db.execute("INSERT OR REPLACE INTO interview(question_id, best) VALUES (?, ?)", (qid, top))
+        if xp:
+            award_xp(db, "entretien", xp)  # commits the score row too
+        else:
+            db.commit()
+        return {**g, "xp": xp, "best": top, "model_answer": q["model_answer"]}
 
     @app.post("/api/feynman/{lesson_id}", dependencies=[Depends(local_only)])
     def feynman(lesson_id: str, body: FeynmanIn, db=Depends(get_db)):
