@@ -1,0 +1,19 @@
+{
+  "id": "ci2-tp",
+  "title": "TP 2 : un pipeline rapide et borné",
+  "instructions_md": "Le workflow **.github/workflows/ci.yml** fonctionne mais il est lent et trop permissif. Transformez-le :\n\n1. Au niveau du workflow : `permissions: contents: read` et un bloc `concurrency` (`group` au choix, `cancel-in-progress: true`).\n2. Job **test** : une matrice `python-version` avec au moins deux versions, lue dans `setup-python` par `${{ matrix.python-version }}`, avec `cache: pip`.\n3. Un second job **build** qui ne démarre qu'après **test** (`needs`).\n4. `timeout-minutes` (30 au plus) sur **chaque** job.\n\nGardez checkout en première étape, l'installation des dépendances et `pytest`. Aucune action ne doit suivre une branche mobile.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`permissions` et `concurrency` s'écrivent au même niveau que `jobs:`, pas dedans.",
+    "La matrice : `strategy:` puis `matrix:` puis `python-version: [\"3.11\", \"3.12\"]` dans le job `test`.",
+    "Le second job se déclare à côté de `test` sous `jobs:`, avec `needs: test` et son propre `timeout-minutes`."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci2",
+  "seed": [
+    "seed/app.py",
+    "seed/test_app.py",
+    "seed/requirements.txt",
+    "seed/.github"
+  ]
+}

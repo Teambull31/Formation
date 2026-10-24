@@ -1,0 +1,19 @@
+{
+  "id": "ci1-tp",
+  "title": "TP 1 : écrire le workflow de CI",
+  "instructions_md": "Le dépôt contient une petite application Python (**app.py**, **test_app.py**, **requirements.txt**) et un workflow **.github/workflows/ci.yml** incomplet. Complétez-le :\n\n1. Se déclenche sur `push` **et** sur `pull_request`.\n2. Le job tourne sur `ubuntu-latest`.\n3. Première étape : `actions/checkout@v4`.\n4. Puis `actions/setup-python@v5` avec `python-version: \"3.12\"`.\n5. Puis une étape qui installe `requirements.txt` avec pip, **avant** l'étape qui lance `pytest`.\n\nLe contrôle lit le fichier YAML, sans rien exécuter ni appeler GitHub.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Sous `on:`, ajoutez `pull_request:` à côté de `push:`.",
+    "Les étapes sont une liste sous `steps:`. Chaque ligne commence par `- ` et l'ordre compte.",
+    "Ordre : checkout, setup-python (avec `with: python-version`), `run: pip install -r requirements.txt`, `run: pytest -q`."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci1",
+  "seed": [
+    "seed/app.py",
+    "seed/test_app.py",
+    "seed/requirements.txt",
+    "seed/.github"
+  ]
+}

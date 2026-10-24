@@ -1,0 +1,1 @@
+{"id": "cicd", "title": "CI/CD avec GitHub Actions : tester, accélérer, sécuriser", "skill": "cicd", "lessons": [{"id": "ci1", "title": "Votre premier workflow GitHub Actions", "minutes": 20}, {"id": "ci2", "title": "Cache, matrice et dépendances entre jobs", "minutes": 25}, {"id": "ci3", "title": "Secrets et sécurité du pipeline", "minutes": 25}], "portfolio": true}

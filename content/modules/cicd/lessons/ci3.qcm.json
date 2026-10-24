@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci3-q1",
+  "text": "Où doit-on définir la valeur d'un secret utilisé par un workflow ?",
+  "options": [
+   "Dans les paramètres du dépôt, lue avec ${{ secrets.NOM }}",
+   "Dans le fichier du workflow, en clair, si le dépôt est privé",
+   "Dans le README du dépôt",
+   "Dans le titre de la demande de fusion"
+  ],
+  "answer": 0,
+  "explain": "Les secrets se saisissent dans les paramètres du dépôt et se lisent par la syntaxe secrets.NOM, avec masquage dans les journaux. Un dépôt privé aujourd'hui peut devenir public ou être cloné demain : un secret versionné est déjà exposé.",
+  "remedial_lesson_id": "ci3"
+ },
+ {
+  "id": "ci3-q2",
+  "text": "Pourquoi run: echo \"${{ github.event.pull_request.title }}\" est-il dangereux ?",
+  "options": [
+   "Parce que echo est interdit dans les workflows",
+   "Parce que le titre est inséré dans le script avant l'exécution : un titre contenant du shell s'exécute",
+   "Parce que le titre est trop long pour echo",
+   "Parce qu'il n'y a pas de guillemets autour de l'expression"
+  ],
+  "answer": 1,
+  "explain": "GitHub remplace l'expression par sa valeur avant de lancer le shell. Le titre étant écrit par un tiers, il peut contenir une commande qui s'exécute avec les droits du job. Les guillemets ne protègent pas : ils font partie du texte à interpréter.",
+  "remedial_lesson_id": "ci3"
+ },
+ {
+  "id": "ci3-q3",
+  "text": "Quelle est la parade à l'injection de commande par une expression ?",
+  "options": [
+   "Entourer l'expression de guillemets simples",
+   "Mettre le workflow en lecture seule",
+   "Passer la valeur par une variable d'environnement (env:) et la lire avec $VARIABLE",
+   "Écrire l'expression en majuscules"
+  ],
+  "answer": 2,
+  "explain": "Avec env:, la valeur est donnée au processus comme donnée, jamais comme code du script : le shell la lit sans l'interpréter. Les guillemets et la casse ne changent rien, puisque la substitution précède le shell.",
+  "remedial_lesson_id": "ci3"
+ },
+ {
+  "id": "ci3-q4",
+  "text": "Pourquoi épingler une action tierce sur un SHA de commit plutôt que sur @main ?",
+  "options": [
+   "Parce que le SHA se télécharge plus vite",
+   "Parce que @main est interdit par GitHub",
+   "Parce que le SHA permet d'utiliser plusieurs actions en même temps",
+   "Parce qu'un SHA est immuable, alors que son auteur peut publier du nouveau code sur la branche"
+  ],
+  "answer": 3,
+  "explain": "Une branche ou un tag peut être déplacé : le code que vous exécutez change sans que votre fichier change. Un SHA complet désigne exactement un commit. C'est une protection contre le détournement d'une action populaire.",
+  "remedial_lesson_id": "ci3"
+ },
+ {
+  "id": "ci3-q5",
+  "text": "Quel risque présente pull_request_target associé au checkout du code d'un fork ?",
+  "options": [
+   "Il ralentit la CI",
+   "Il exécute du code non fiable avec accès aux secrets et à un jeton en écriture",
+   "Il supprime la branche du fork",
+   "Il désactive les tests"
+  ],
+  "answer": 1,
+  "explain": "Ce déclencheur s'exécute dans le contexte du dépôt de base, donc avec ses secrets. Si le workflow récupère puis exécute le code du fork, un inconnu peut utiliser ces secrets. Pour une CI classique, pull_request convient et reste isolé.",
+  "remedial_lesson_id": "ci3"
+ }
+]

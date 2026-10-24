@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci2-q1",
+  "text": "Que fait cache: pip dans actions/setup-python ?",
+  "options": [
+   "Il met en cache le résultat des tests",
+   "Il conserve les paquets téléchargés entre deux exécutions tant que requirements.txt ne change pas",
+   "Il garde les variables d'environnement d'un job à l'autre",
+   "Il installe Python en avance sur le runner"
+  ],
+  "answer": 1,
+  "explain": "Le cache évite de retélécharger les mêmes dépendances à chaque run ; il est invalidé quand le fichier de dépendances change. Il ne mémorise pas les résultats de tests, qui doivent toujours être recalculés.",
+  "remedial_lesson_id": "ci2"
+ },
+ {
+  "id": "ci2-q2",
+  "text": "Qu'est-ce qu'une matrice de jobs (strategy: matrix) ?",
+  "options": [
+   "Un tableau de résultats de tests",
+   "Une liste de secrets utilisés par le workflow",
+   "Un job qui attend tous les autres",
+   "Une déclaration qui crée un job par valeur, exécutés en parallèle"
+  ],
+  "answer": 3,
+  "explain": "La matrice génère un job par combinaison de valeurs (ici une par version de Python), en parallèle. On évite de copier le job ; les valeurs se lisent avec ${{ matrix.python-version }}.",
+  "remedial_lesson_id": "ci2"
+ },
+ {
+  "id": "ci2-q3",
+  "text": "À quoi sert needs: test sur le job build ?",
+  "options": [
+   "À copier les fichiers du job test dans le job build",
+   "À faire attendre build jusqu'à la réussite de test",
+   "À exécuter test deux fois",
+   "À limiter la durée du job test"
+  ],
+  "answer": 1,
+  "explain": "Sans needs, les jobs partent en parallèle et build s'exécuterait même si test échoue. needs crée la dépendance : build ne démarre qu'après la réussite de test. Il ne transfère pas de fichiers d'un job à l'autre.",
+  "remedial_lesson_id": "ci2"
+ },
+ {
+  "id": "ci2-q4",
+  "text": "Pourquoi déclarer permissions: contents: read au niveau du workflow ?",
+  "options": [
+   "Pour accélérer le checkout",
+   "Pour empêcher le workflow de lire les secrets",
+   "Pour limiter le jeton à la lecture du dépôt, ce qui réduit les dégâts si une action est compromise",
+   "Pour rendre le dépôt privé"
+  ],
+  "answer": 2,
+  "explain": "Le jeton GITHUB_TOKEN peut écrire dans le dépôt selon la configuration. En le limitant à la lecture, une action malveillante ne peut plus pousser de code. Les secrets restent lisibles là où le workflow les référence.",
+  "remedial_lesson_id": "ci2"
+ },
+ {
+  "id": "ci2-q5",
+  "text": "Quel est l'intérêt de timeout-minutes sur un job ?",
+  "options": [
+   "Arrêter un job bloqué avant qu'il ne consomme des minutes sans fin",
+   "Retarder le démarrage du job",
+   "Changer le fuseau horaire des journaux",
+   "Attendre le job précédent"
+  ],
+  "answer": 0,
+  "explain": "Sans limite, un job qui boucle ou attend une entrée tourne jusqu'à la limite maximale de GitHub (plusieurs heures), en consommant votre quota. Une borne raisonnable transforme le blocage en échec visible.",
+  "remedial_lesson_id": "ci2"
+ }
+]

@@ -1,0 +1,17 @@
+{
+  "id": "ci3-tp",
+  "title": "TP 3 : sécuriser le workflow de déploiement",
+  "instructions_md": "Le workflow **.github/workflows/deploy.yml** déploie l'application, mais il est dangereux. Corrigez-le :\n\n1. Retirez le déclencheur `pull_request_target`.\n2. Remplacez `permissions: write-all` par `permissions:` avec `contents: read`.\n3. Le jeton d'API ne doit plus être en clair : `${{ secrets.DEPLOY_TOKEN }}`, dans `with:` ou `env:`, jamais dans un `run:`.\n4. Aucune expression `github.event` dans un `run:` : passez-la par `env:` et lisez la variable (`$TITLE`).\n5. L'action tierce `acme/deploy-action` s'épingle sur un SHA complet de 40 caractères hexadécimaux (par exemple `3f1d6a9c5b7e2d4a8c0f1e2d3b4a5c6d7e8f9a0b`).\n\nLe contrôle lit le YAML sans rien exécuter.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Gardez seulement `push` (branche main) sous `on:`.",
+    "Pour une valeur venue de `github.event`, déclarez `env:` sur l'étape, par exemple `TITLE: ${{ github.event.head_commit.message }}`, puis écrivez `run: echo \"... $TITLE\"`.",
+    "Le SHA remplace `main` après l'arobase : `acme/deploy-action@3f1d6a9c5b7e2d4a8c0f1e2d3b4a5c6d7e8f9a0b`."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci3",
+  "seed": [
+    "seed/deploy.sh",
+    "seed/.github"
+  ]
+}

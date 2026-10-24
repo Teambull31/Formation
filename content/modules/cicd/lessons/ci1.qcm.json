@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci1-q1",
+  "text": "Pourquoi actions/checkout est-elle presque toujours la première étape d'un job ?",
+  "options": [
+   "Parce que le runner est une machine neuve qui ne contient pas votre code",
+   "Parce qu'elle installe automatiquement toutes les dépendances du projet",
+   "Parce que GitHub refuse d'exécuter un job sans cette étape",
+   "Parce qu'elle choisit la version de Python"
+  ],
+  "answer": 0,
+  "explain": "Le runner démarre vide : sans checkout, ni vos fichiers ni requirements.txt n'existent. Elle ne lance rien d'autre : dépendances et version de Python viennent d'autres étapes. GitHub n'impose pas l'étape, mais presque tout échoue sans elle.",
+  "remedial_lesson_id": "ci1"
+ },
+ {
+  "id": "ci1-q2",
+  "text": "Quel déclencheur fait tourner la CI avant la fusion d'une demande de fusion ?",
+  "options": [
+   "on: push uniquement",
+   "on: schedule",
+   "on: pull_request",
+   "on: release"
+  ],
+  "answer": 2,
+  "explain": "pull_request lance le workflow à l'ouverture et à chaque mise à jour de la demande de fusion, donc avant que le code n'arrive sur la branche principale. push seul ne couvre pas les demandes venues d'un fork.",
+  "remedial_lesson_id": "ci1"
+ },
+ {
+  "id": "ci1-q3",
+  "text": "Que représente un job dans un workflow ?",
+  "options": [
+   "Une commande unique du shell",
+   "Un fichier YAML complet",
+   "Un déclencheur d'événement",
+   "Un ensemble d'étapes qui s'exécutent sur un même runner"
+  ],
+  "answer": 3,
+  "explain": "Un workflow contient des jobs ; un job est une suite d'étapes exécutées sur une même machine. Chaque job démarre sur un runner neuf, ce qui explique que chacun refasse son propre checkout.",
+  "remedial_lesson_id": "ci1"
+ },
+ {
+  "id": "ci1-q4",
+  "text": "Pourquoi écrire uses: actions/checkout@v4 plutôt que uses: actions/checkout ?",
+  "options": [
+   "La version n'a aucune influence sur le comportement de l'action",
+   "Une version précise rend l'exécution reproductible : on sait quel code tourne",
+   "GitHub refuse les actions sans numéro de version",
+   "La version v4 est la seule qui existe"
+  ],
+  "answer": 1,
+  "explain": "Sans version, la référence est ambiguë ; avec @v4 on sait quelle version de l'action s'exécute et elle ne change pas sans que le fichier change. Une version qui avance sans prévenir rend les échecs inexplicables.",
+  "remedial_lesson_id": "ci1"
+ },
+ {
+  "id": "ci1-q5",
+  "text": "Un test échoue en CI. Quelle est la bonne réaction ?",
+  "options": [
+   "Retirer pytest du workflow pour que le pipeline redevienne vert",
+   "Relancer le workflow jusqu'à ce qu'il passe",
+   "Reproduire l'échec en local, puis corriger le code ou le test",
+   "Passer l'étape en continue-on-error"
+  ],
+  "answer": 2,
+  "explain": "Un échec de CI est le plus souvent un vrai défaut. Désactiver, relancer ou ignorer l'étape masque le problème au lieu de le résoudre. Reproduire en local donne l'erreur exacte, sans attendre un runner.",
+  "remedial_lesson_id": "ci1"
+ }
+]

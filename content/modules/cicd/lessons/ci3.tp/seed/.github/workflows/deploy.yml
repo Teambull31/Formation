@@ -1,0 +1,16 @@
+name: Deploy
+on:
+  pull_request_target:
+  push:
+    branches: [main]
+permissions: write-all
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: acme/deploy-action@main
+        with:
+          api_token: abc123secret
+      - run: echo "Déploiement de ${{ github.event.pull_request.title }}"
+      - run: ./deploy.sh ${{ secrets.DEPLOY_TOKEN }}
