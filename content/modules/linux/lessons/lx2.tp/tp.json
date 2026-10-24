@@ -1,0 +1,18 @@
+{
+  "id": "lx2-tp",
+  "title": "TP 2 : analyser un journal avec des filtres",
+  "instructions_md": "Le dossier contient **access.log**, un journal d'accès web (une ligne par requête : `IP - - [date] \"GET /page HTTP/1.1\" statut octets`) et deux scripts à compléter. Chacun reçoit le journal en premier argument (`$1`).\n\n1. **top_ips.sh** : affiche les **3 adresses les plus fréquentes**, une par ligne, au format `NOMBRE ADRESSE`, de la plus fréquente à la moins fréquente.\n2. **errors_5xx.sh** : affiche **un seul nombre**, celui des requêtes dont le statut est 500 ou plus.\n\nLe contrôle exécute vos scripts sur des journaux qu'il fabrique : écrire la réponse en dur ne marche pas. Testez avec `bash top_ips.sh access.log`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Extrayez la colonne des adresses avec `awk '{print $1}' \"$1\"`, puis enchaînez des tubes.",
+    "Pour le classement : `sort | uniq -c | sort -rn | head -3`. Le premier `sort` rend les doublons voisins.",
+    "Pour les erreurs : le statut est le champ 9. `awk '$9 >= 500 {n++} END {print n+0}' \"$1\"`."
+  ],
+  "timeout_s": 20,
+  "workspace": "lx2",
+  "seed": [
+    "seed/access.log",
+    "seed/top_ips.sh",
+    "seed/errors_5xx.sh"
+  ]
+}

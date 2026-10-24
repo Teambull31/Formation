@@ -1,0 +1,17 @@
+{
+  "id": "lx3-tp",
+  "title": "TP 3 : durcir SSH et fermer le pare-feu",
+  "instructions_md": "Le dossier contient **sshd_config** et **firewall.nft** (règles nftables), tous deux trop permissifs. Corrigez-les.\n\n**sshd_config :** `PermitRootLogin no`, `PasswordAuthentication no`, `PubkeyAuthentication yes`, `MaxAuthTries` entre 1 et 4, `X11Forwarding no`, et `AllowUsers` avec au moins un compte (par exemple `deploy`).\n\n**firewall.nft :** la chaîne `input` en `policy drop`, avec `ct state established,related accept`, `iif \"lo\" accept`, et seulement les ports 22 (SSH) et 443 (HTTPS). Le port de la base de données doit disparaître.\n\nLe contrôle lit les deux fichiers, sans rien appliquer au système.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans sshd_config, modifiez la valeur de chaque ligne existante et ajoutez `AllowUsers deploy` à la fin.",
+    "Dans firewall.nft, remplacez `policy accept` par `policy drop` et supprimez la règle du port 5432.",
+    "Règles à ajouter dans la chaîne : `ct state established,related accept`, `iif \"lo\" accept`, `tcp dport { 22, 443 } accept`."
+  ],
+  "timeout_s": 20,
+  "workspace": "lx3",
+  "seed": [
+    "seed/sshd_config",
+    "seed/firewall.nft"
+  ]
+}

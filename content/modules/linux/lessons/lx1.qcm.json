@@ -1,0 +1,67 @@
+[
+ {
+  "id": "lx1-q1",
+  "text": "Que signifie le mode octal 750 sur un fichier ?",
+  "options": [
+   "Propriétaire lecture et écriture, groupe lecture, autres aucun droit",
+   "Propriétaire tous les droits, groupe lecture et exécution, autres aucun droit",
+   "Propriétaire tous les droits, groupe tous les droits, autres lecture seule",
+   "Tout le monde peut lire, seul le propriétaire peut écrire et exécuter"
+  ],
+  "answer": 1,
+  "explain": "7 = rwx (4+2+1), 5 = r-x (4+1), 0 = aucun droit. Le propriétaire a tout, le groupe lit et exécute, les autres n'ont rien. Piège : confondre l'ordre propriétaire, groupe, autres.",
+  "remedial_lesson_id": "lx1"
+ },
+ {
+  "id": "lx1-q2",
+  "text": "Quel mode convient à un fichier de secrets que seul son propriétaire doit pouvoir lire et écrire ?",
+  "options": [
+   "644",
+   "400 ou 777 au choix",
+   "600",
+   "755"
+  ],
+  "answer": 2,
+  "explain": "600 donne lecture et écriture au propriétaire, rien aux autres. 644 laisse tout le monde lire, 755 aussi, et 777 ouvre tout. Un secret en 644 est lisible par n'importe quel compte de la machine.",
+  "remedial_lesson_id": "lx1"
+ },
+ {
+  "id": "lx1-q3",
+  "text": "Pourquoi un script de déploiement ne doit-il pas être modifiable par les autres comptes ?",
+  "options": [
+   "Parce que Linux refuse d'exécuter un script modifiable par d'autres",
+   "Parce qu'un autre compte pourrait y ajouter une commande exécutée avec les droits de celui qui le lance",
+   "Parce que cela ralentit son exécution",
+   "Parce que le script perdrait son bit d'exécution automatiquement"
+  ],
+  "answer": 1,
+  "explain": "Quiconque peut écrire dans un script y insère n'importe quoi, qui s'exécutera ensuite avec les droits de la personne qui le lance. Linux n'interdit pas de lancer un tel script : c'est à vous de fermer l'écriture.",
+  "remedial_lesson_id": "lx1"
+ },
+ {
+  "id": "lx1-q4",
+  "text": "Que fait chmod u+x deploy.sh ?",
+  "options": [
+   "Il rend le fichier exécutable pour son seul propriétaire",
+   "Il rend le fichier exécutable pour tout le monde",
+   "Il change le propriétaire du fichier en utilisateur x",
+   "Il supprime le droit d'exécution du propriétaire"
+  ],
+  "answer": 0,
+  "explain": "u désigne le propriétaire (user), +x ajoute l'exécution. Pour les autres groupes on écrirait g+x ou o+x, pour tout le monde a+x. Les trois lettres u, g, o s'ajoutent à la notation symbolique de chmod.",
+  "remedial_lesson_id": "lx1"
+ },
+ {
+  "id": "lx1-q5",
+  "text": "Pourquoi une application ne doit-elle pas tourner en root quand un compte ordinaire suffit ?",
+  "options": [
+   "Root est plus lent que les comptes ordinaires",
+   "Un compte ordinaire démarre plus vite et utilise moins de mémoire",
+   "Root ne peut pas ouvrir les ports supérieurs à 1024",
+   "Si l'application est compromise, l'attaquant obtient tous les droits de la machine"
+  ],
+  "answer": 3,
+  "explain": "Root contourne toutes les permissions. Une faille dans une application lancée en root donne donc le contrôle total du serveur. Avec un compte ordinaire, les dégâts restent limités à ce que ce compte peut faire.",
+  "remedial_lesson_id": "lx1"
+ }
+]

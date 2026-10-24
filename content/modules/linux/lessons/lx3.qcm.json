@@ -1,0 +1,67 @@
+[
+ {
+  "id": "lx3-q1",
+  "text": "Quelle est la bonne politique par défaut d'un pare-feu entrant ?",
+  "options": [
+   "Tout accepter et bloquer les adresses suspectes une par une",
+   "Tout refuser, puis autoriser seulement les ports nécessaires",
+   "Accepter tout le trafic TCP et refuser l'UDP",
+   "Refuser seulement le port 22"
+  ],
+  "answer": 1,
+  "explain": "Le refus par défaut (policy drop) force à décider explicitement ce qui est ouvert. Une liste de blocage ne rattrape jamais les nouveaux services ni les nouvelles adresses d'attaque.",
+  "remedial_lesson_id": "lx3"
+ },
+ {
+  "id": "lx3-q2",
+  "text": "Pourquoi PasswordAuthentication no améliore-t-il la sécurité de SSH ?",
+  "options": [
+   "Il chiffre mieux les mots de passe",
+   "Il accélère la connexion",
+   "Il impose les clés SSH, que l'on ne peut pas deviner par essais successifs",
+   "Il autorise tous les comptes à se connecter"
+  ],
+  "answer": 2,
+  "explain": "Avec des clés, il n'existe plus de mot de passe à deviner ni à voler par hameçonnage : les attaques par force brute contre SSH deviennent inutiles. Il ne chiffre rien de plus : c'est le mode d'authentification qui change.",
+  "remedial_lesson_id": "lx3"
+ },
+ {
+  "id": "lx3-q3",
+  "text": "Dans sshd_config, que se passe-t-il si PermitRootLogin yes apparaît avant PermitRootLogin no ?",
+  "options": [
+   "La dernière valeur s'applique : root est interdit",
+   "sshd refuse de démarrer à cause du doublon",
+   "Les deux lignes s'annulent et la valeur par défaut s'applique",
+   "La première valeur s'applique : root peut se connecter"
+  ],
+  "answer": 3,
+  "explain": "Pour un même mot-clé, sshd garde la première valeur rencontrée. Une ancienne ligne oubliée en haut du fichier neutralise donc votre durcissement : relisez tout le fichier, pas seulement la fin.",
+  "remedial_lesson_id": "lx3"
+ },
+ {
+  "id": "lx3-q4",
+  "text": "Pourquoi le port 5432 d'une base PostgreSQL ne doit-il pas être ouvert à Internet ?",
+  "options": [
+   "Parce que PostgreSQL ne fonctionne pas sur Internet",
+   "Parce que n'importe qui pourrait tenter de s'y connecter et deviner les mots de passe ; seuls les services de la machine ont besoin d'y accéder",
+   "Parce que le port 5432 est réservé à SSH",
+   "Parce que cela empêche la sauvegarde de la base"
+  ],
+  "answer": 1,
+  "explain": "Une base exposée est une cible permanente : essais de mots de passe, failles connues. L'application et la base tournent généralement sur la même machine ou le même réseau privé, donc rien n'oblige à publier ce port.",
+  "remedial_lesson_id": "lx3"
+ },
+ {
+  "id": "lx3-q5",
+  "text": "Que permet la règle ct state established,related accept ?",
+  "options": [
+   "Elle laisse passer les réponses aux connexions déjà ouvertes par la machine",
+   "Elle autorise toutes les nouvelles connexions entrantes",
+   "Elle bloque les connexions déjà établies",
+   "Elle ouvre tous les ports de 1 à 1024"
+  ],
+  "answer": 0,
+  "explain": "Sans elle, une politique drop bloquerait même les réponses aux requêtes que le serveur lui-même envoie (mises à jour, DNS). Elle ne laisse entrer aucune nouvelle connexion : celles-ci sont jugées par les règles suivantes.",
+  "remedial_lesson_id": "lx3"
+ }
+]

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "lx2-q1",
+  "text": "Quelle commande envoie à un processus la demande d'arrêt propre par défaut ?",
+  "options": [
+   "kill -9 PID",
+   "kill PID",
+   "stop PID",
+   "ps PID"
+  ],
+  "answer": 1,
+  "explain": "kill PID envoie SIGTERM, que le programme peut intercepter pour fermer ses fichiers et ses connexions. kill -9 envoie SIGKILL, qu'il ne peut ni intercepter ni refuser : à garder pour un processus qui ne répond plus.",
+  "remedial_lesson_id": "lx2"
+ },
+ {
+  "id": "lx2-q2",
+  "text": "Pourquoi placer sort avant uniq -c ?",
+  "options": [
+   "Parce que uniq refuse de lire un fichier non trié",
+   "Parce que sort supprime les doublons à la place de uniq",
+   "Parce que uniq ne compte que les lignes identiques consécutives",
+   "Parce que sort convertit les lignes en nombres"
+  ],
+  "answer": 2,
+  "explain": "uniq -c compare chaque ligne à la précédente. Sans tri, deux occurrences éloignées sont comptées séparément. Le tri les rend voisines. Il ne s'agit pas d'une obligation du programme, mais de la façon dont il compte.",
+  "remedial_lesson_id": "lx2"
+ },
+ {
+  "id": "lx2-q3",
+  "text": "Que fait awk '{print $1}' access.log sur un journal web ?",
+  "options": [
+   "Il affiche le premier mot de la dernière ligne",
+   "Il compte les lignes du fichier",
+   "Il affiche la première colonne de chaque ligne, ici l'adresse IP",
+   "Il supprime la première ligne du fichier"
+  ],
+  "answer": 2,
+  "explain": "awk découpe chaque ligne en champs séparés par des espaces : $1 est le premier champ, ici l'adresse du client. Il lit toutes les lignes, ne modifie pas le fichier et ne compte rien de lui-même.",
+  "remedial_lesson_id": "lx2"
+ },
+ {
+  "id": "lx2-q4",
+  "text": "Quel est le but du second sort -rn dans sort | uniq -c | sort -rn ?",
+  "options": [
+   "Classer les adresses par ordre alphabétique inverse",
+   "Classer les lignes par nombre d'occurrences décroissant",
+   "Supprimer les lignes en double",
+   "Convertir les nombres en texte"
+  ],
+  "answer": 1,
+  "explain": "Après uniq -c, chaque ligne commence par un compteur. -n trie numériquement, -r inverse l'ordre : le plus fréquent arrive en premier, ce qui permet à head de garder le haut du classement.",
+  "remedial_lesson_id": "lx2"
+ },
+ {
+  "id": "lx2-q5",
+  "text": "Un code de statut 503 dans un journal d'accès web indique :",
+  "options": [
+   "Une erreur côté serveur",
+   "Une page déplacée définitivement vers une autre adresse",
+   "Une erreur de l'utilisateur, comme une page inexistante",
+   "Une requête réussie"
+  ],
+  "answer": 0,
+  "explain": "Les codes 5xx sont des erreurs du serveur (503 : service indisponible). 4xx sont des erreurs du client (404 : page absente), 3xx des redirections, 2xx des succès. Compter les 5xx est un bon indicateur de santé.",
+  "remedial_lesson_id": "lx2"
+ }
+]

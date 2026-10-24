@@ -1,0 +1,7 @@
+# Configuration SSH du serveur (exemple pédagogique)
+Port 22
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+MaxAuthTries 10
+X11Forwarding yes

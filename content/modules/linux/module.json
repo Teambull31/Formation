@@ -1,0 +1,1 @@
+{"id": "linux", "title": "Linux et réseau : droits, journaux, SSH et pare-feu", "skill": "linux", "lessons": [{"id": "lx1", "title": "Utilisateurs, fichiers et permissions", "minutes": 25}, {"id": "lx2", "title": "Processus, journaux et filtres", "minutes": 25}, {"id": "lx3", "title": "Réseau, SSH et pare-feu", "minutes": 25}], "portfolio": true}

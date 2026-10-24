@@ -1,0 +1,18 @@
+{
+  "id": "lx1-tp",
+  "title": "TP 1 : corriger des permissions dangereuses",
+  "instructions_md": "Le dossier contient **deploy.sh** (script de déploiement), **secrets.env** (mots de passe) et un dossier **shared/** (travail d'équipe). Leurs droits sont trop ouverts ou mal réglés. Avec `chmod` :\n\n1. `secrets.env` : lisible et modifiable par son propriétaire seulement (mode `600`).\n2. `deploy.sh` : exécutable par son propriétaire, jamais modifiable par le groupe ni par les autres (par exemple `750`).\n3. `shared/` : le propriétaire et le groupe y ont tous les droits, les autres aucun (mode `770`).\n\nVérifiez avec `ls -l` et `ls -ld shared`. Le contrôle lit les droits, sans rien modifier.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`ls -l` affiche les droits de chaque fichier ; `ls -ld shared` ceux du dossier lui-même.",
+    "Mode octal : 6 = lecture + écriture, 7 = tous les droits, 5 = lecture + exécution, 0 = rien. `chmod 600 secrets.env`.",
+    "Les trois chiffres sont dans l'ordre propriétaire, groupe, autres : `chmod 750 deploy.sh` et `chmod 770 shared`."
+  ],
+  "timeout_s": 20,
+  "workspace": "lx1",
+  "seed": [
+    "seed/deploy.sh",
+    "seed/secrets.env",
+    "seed/shared"
+  ]
+}
