@@ -6,6 +6,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 
 #include "esp_err.h"
 #include "esp_log.h"
@@ -20,6 +22,7 @@ const char *esp_err_to_name(esp_err_t code) {
     switch (code) {
         case ESP_OK: return "ESP_OK";
         case ESP_FAIL: return "ESP_FAIL";
+        case ESP_ERR_INVALID_ARG: return "ESP_ERR_INVALID_ARG";
         default: return "UNKNOWN ERROR";
     }
 }
@@ -82,10 +85,22 @@ void on_crash(int sig) {
 
 void app_main_task(void *) { app_main(); }
 
+// Each later task validates its own section of the scenario here.
+bool load_scenario(const char *path, std::string &err) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) { err = "fichier illisible"; return false; }
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    sim::Json root;
+    if (!sim::json_parse(text, root, err)) return false;
+    if (root.type != sim::Json::Object) { err = "un objet JSON est attendu à la racine"; return false; }
+    return sim::gpio_load_scenario(root, err);
+}
+
 }  // namespace
 
 int main(int argc, char **argv) {
     int64_t max_ms = 60000;
+    const char *scenario_path = nullptr;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--max-ms") == 0 && i + 1 < argc) {
             char *rest = nullptr;
@@ -95,9 +110,16 @@ int main(int argc, char **argv) {
                 return 2;
             }
         } else if (std::strcmp(argv[i], "--scenario") == 0 && i + 1 < argc) {
-            ++i;  // shortcut: scenario accepted but unused until the GPIO simulator (Task 2) reads it
+            scenario_path = argv[++i];
         } else {
             std::fprintf(stderr, "usage: %s [--scenario fichier.json] [--max-ms N]\n", argv[0]);
+            return 2;
+        }
+    }
+    if (scenario_path) {
+        std::string err;
+        if (!load_scenario(scenario_path, err)) {
+            std::fprintf(stderr, "scénario %s : %s\n", scenario_path, err.c_str());
             return 2;
         }
     }

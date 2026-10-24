@@ -6,6 +6,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "json.h"
 
 namespace sim {
 
@@ -18,6 +19,8 @@ class Event {
 public:
     Event(int64_t t_ms, const char *ev);
     Event &str(const char *key, const std::string &value);
+    Event &num(const char *key, int64_t value);
+    Event &flag(const char *key, bool value);
     ~Event();
 
 private:
@@ -32,5 +35,8 @@ void remove(TaskHandle_t task);  // nullptr: the calling task; never returns the
 TickType_t ticks();
 int64_t now_ms();                // lock-free, safe from a signal handler
 [[noreturn]] void end(const char *reason);
+
+// gpio.cpp: validates and loads the "gpio_in" scenario section. False with err set when malformed.
+bool gpio_load_scenario(const Json &scenario, std::string &err);
 
 }  // namespace sim

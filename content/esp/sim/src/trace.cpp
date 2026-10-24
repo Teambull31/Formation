@@ -42,6 +42,20 @@ Event &Event::str(const char *key, const std::string &value) {
     return *this;
 }
 
+Event &Event::num(const char *key, int64_t value) {
+    line_ += ", ";
+    append_json_string(line_, key);
+    line_ += ": " + std::to_string(value);
+    return *this;
+}
+
+Event &Event::flag(const char *key, bool value) {
+    line_ += ", ";
+    append_json_string(line_, key);
+    line_ += value ? ": true" : ": false";
+    return *this;
+}
+
 // Unbuffered write: nothing is lost when the process ends with _exit or a signal.
 Event::~Event() {
     line_ += "}\n";

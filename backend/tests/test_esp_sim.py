@@ -38,13 +38,18 @@ def compile_src(lib: Path, src: str, out: Path) -> Path:
     return prog
 
 
-def run(prog: Path, max_ms: int) -> list[dict]:
-    r = subprocess.run([str(prog), "--max-ms", str(max_ms)], capture_output=True, text=True, timeout=30)
+def run(prog: Path, max_ms: int, scenario: str | None = None) -> list[dict]:
+    args = [str(prog), "--max-ms", str(max_ms)]
+    if scenario is not None:
+        path = prog.parent / "scenario.json"
+        path.write_text(scenario, encoding="utf-8")
+        args += ["--scenario", str(path)]
+    r = subprocess.run(args, capture_output=True, text=True, timeout=30)
     return [json.loads(line) for line in r.stdout.splitlines()]
 
 
-def compile_and_run(src: str, max_ms: int, lib: Path, tmp_path: Path) -> list[dict]:
-    return run(compile_src(lib, src, tmp_path), max_ms)
+def compile_and_run(src: str, max_ms: int, lib: Path, tmp_path: Path, scenario: str | None = None) -> list[dict]:
+    return run(compile_src(lib, src, tmp_path), max_ms, scenario)
 
 
 HEADERS = '#include "freertos/FreeRTOS.h"\n#include "freertos/task.h"\n#include "esp_log.h"\n#include "esp_err.h"\n'
@@ -224,3 +229,96 @@ extern "C" void app_main(void) { xTaskCreate(once, "once", 2048, NULL, 5, NULL);
     assert trace[-2] == {"t_ms": 20, "ev": "log", "level": "E", "tag": "FreeRTOS",
                          "msg": 'FreeRTOS Task "once" should not return, Aborting now!'}
     assert trace[-1] == {"t_ms": 20, "ev": "end", "reason": "abort"}
+
+
+GPIO = HEADERS + '#include "driver/gpio.h"\n'
+
+
+def test_gpio_output_traced(lib, tmp_path):
+    trace = compile_and_run(GPIO + """
+extern "C" void app_main(void) {
+    gpio_config_t io = {};
+    io.pin_bit_mask = 1ULL << GPIO_NUM_2;
+    io.mode = GPIO_MODE_OUTPUT;
+    io.pull_up_en = GPIO_PULLUP_DISABLE;
+    io.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io.intr_type = GPIO_INTR_DISABLE;
+    ESP_ERROR_CHECK(gpio_config(&io));
+    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 1));
+    vTaskDelay(pdMS_TO_TICKS(250));
+    ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_2, 0));
+}
+""", 1000, lib, tmp_path)
+    assert [e for e in trace if e["ev"].startswith("gpio")] == [
+        {"t_ms": 0, "ev": "gpio_config", "pin": 2, "mode": "output", "pull_up": False},
+        {"t_ms": 0, "ev": "gpio_set", "pin": 2, "level": 1},
+        {"t_ms": 250, "ev": "gpio_set", "pin": 2, "level": 0},
+    ]
+
+
+READ_LOOP = GPIO + """
+extern "C" void app_main(void) {
+    gpio_config_t io = {};
+    io.pin_bit_mask = 1ULL << 4;
+    io.mode = GPIO_MODE_INPUT;
+    io.pull_up_en = %s;
+    ESP_ERROR_CHECK(gpio_config(&io));
+    int at[] = {0, 990, 1000, 1010, 2000};
+    int prev = 0;
+    for (int t : at) {
+        vTaskDelay(pdMS_TO_TICKS(t - prev));
+        prev = t;
+        ESP_LOGI("in", "%%d", gpio_get_level(GPIO_NUM_4));
+    }
+}
+"""
+
+
+def levels(trace):
+    return [(e["t_ms"], e["msg"]) for e in logs(trace)]
+
+
+def test_gpio_input_follows_scenario(lib, tmp_path):
+    trace = compile_and_run(READ_LOOP % "GPIO_PULLUP_DISABLE", 3000, lib, tmp_path,
+                            '{"gpio_in": [{"t_ms": 1000, "pin": 4, "level": 1}, {"t_ms": 1005, "pin": 4, "level": 0}, '
+                            '{"t_ms": 1500, "pin": 5, "level": 1}], "future": {"a": [1, 2.5e1, null, true, "x\\u00e9"]}}')
+    # reads at 0, 990, 1000, 1010 and 2000 ms (10 ms ticks); the 1005 entry is already in force at 1010
+    assert levels(trace) == [(0, "0"), (990, "0"), (1000, "1"), (1010, "0"), (2000, "0")]
+
+
+def test_floating_input_reads_zero_without_pullup(lib, tmp_path):
+    trace = compile_and_run(READ_LOOP % "GPIO_PULLUP_DISABLE", 3000, lib, tmp_path)
+    assert {m for _, m in levels(trace)} == {"0"}
+
+
+def test_pullup_input_reads_one_by_default(lib, tmp_path):
+    trace = compile_and_run(READ_LOOP % "GPIO_PULLUP_ENABLE", 3000, lib, tmp_path,
+                            '{"gpio_in": [{"t_ms": 1500, "pin": 4, "level": 0}]}')
+    assert levels(trace) == [(0, "1"), (990, "1"), (1000, "1"), (1010, "1"), (2000, "0")]
+
+
+def test_gpio_invalid_pin_and_input_only(lib, tmp_path):
+    trace = compile_and_run(GPIO + """
+extern "C" void app_main(void) {
+    ESP_LOGI("r", "%s", esp_err_to_name(gpio_set_level((gpio_num_t)40, 1)));
+    ESP_LOGI("r", "%s", esp_err_to_name(gpio_set_direction((gpio_num_t)-1, GPIO_MODE_INPUT)));
+    ESP_LOGI("r", "%s", esp_err_to_name(gpio_set_direction(GPIO_NUM_34, GPIO_MODE_OUTPUT)));
+    ESP_LOGI("r", "%d", gpio_get_level((gpio_num_t)99));
+}
+""", 100, lib, tmp_path)
+    assert [m for _, m in levels(trace)] == ["ESP_ERR_INVALID_ARG"] * 3 + ["0"]
+
+
+@pytest.mark.parametrize("scenario", ["{", '{"gpio_in": 3}', '{"gpio_in": [{"t_ms": 1}]}', '[1,2]', '{"a": 1} x'])
+def test_malformed_scenario_fails_cleanly(lib, tmp_path, scenario):
+    prog = compile_src(lib, GPIO + 'extern "C" void app_main(void) {}\n', tmp_path)
+    path = tmp_path / "bad.json"
+    path.write_text(scenario)
+    r = subprocess.run([str(prog), "--scenario", str(path)], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and r.stdout == "" and "scénario" in r.stderr
+
+
+def test_missing_scenario_file_fails_cleanly(lib, tmp_path):
+    prog = compile_src(lib, GPIO + 'extern "C" void app_main(void) {}\n', tmp_path)
+    r = subprocess.run([str(prog), "--scenario", str(tmp_path / "nope.json")], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and "scénario" in r.stderr
