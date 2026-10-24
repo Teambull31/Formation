@@ -1,0 +1,27 @@
+{
+  "id": "docker_boss",
+  "title": "Le Gardien du Conteneur",
+  "phases": [
+    {
+      "pattern_id": "dockerfile_fragile",
+      "label": "Phase 1 : dans dockerboss/, un Dockerfile reproductible (image de base avec version précise, WORKDIR absolu, COPY de app.py, EXPOSE 8000, CMD python app.py en forme exec)",
+      "check": "bash \"$LESSON_DIR/phase1_check.sh\"",
+      "remedial_lesson_id": "dk1",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "build_lent",
+      "label": "Phase 2 : dans dockerboss/, un build multi-stage (FROM ... AS build, COPY --from=build, pip install --no-cache-dir -r requirements.txt copié avant COPY . .) et un .dockerignore (.git, .env, __pycache__)",
+      "check": "bash \"$LESSON_DIR/phase2_check.sh\"",
+      "remedial_lesson_id": "dk2",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "conteneur_root",
+      "label": "Phase 3 : dans dockerboss/, un utilisateur non-root (useradd + USER), un HEALTHCHECK, aucun secret en clair, et un docker-compose.yml durci (read_only, cap_drop ALL, no-new-privileges, port sur 127.0.0.1)",
+      "check": "bash \"$LESSON_DIR/phase3_check.sh\"",
+      "remedial_lesson_id": "dk3",
+      "timeout_s": 25
+    }
+  ]
+}

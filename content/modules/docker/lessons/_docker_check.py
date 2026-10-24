@@ -236,10 +236,25 @@ def check_dk3() -> None:
     check_compose()
 
 
+def check_boss2() -> None:
+    check_dk1()
+    check_dk2()
+
+
+def check_boss3() -> None:
+    check_dk1()
+    check_dk2()
+    check_dk3()
+
+
 CHECKS = {
     "dk1": (check_dk1, "le Dockerfile est valide et reproductible."),
     "dk2": (check_dk2, "le build est rapide, léger et le contexte filtré."),
     "dk3": (check_dk3, "conteneur non-root, sans secret en clair et durci."),
+    # boss : cumulatif, chaque phase revérifie les précédentes
+    "boss1": (check_dk1, "Dockerfile valide et reproductible."),
+    "boss2": (check_boss2, "build multi-stage, rapide et contexte filtré."),
+    "boss3": (check_boss3, "conteneur non-root, sans secret et durci."),
 }
 
 
