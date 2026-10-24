@@ -1,0 +1,67 @@
+[
+ {
+  "id": "sc3-q1",
+  "text": "Pourquoi ne faut-il jamais stocker les mots de passe en clair ?",
+  "options": [
+   "Parce que la base ne peut pas contenir de texte",
+   "Parce que cela ralentit les connexions",
+   "Parce que si la base fuit, tous les mots de passe sont immédiatement utilisables, aussi sur d'autres sites",
+   "Parce que les mots de passe doivent être courts"
+  ],
+  "answer": 2,
+  "explain": "Une fuite de base est un scénario normal à prévoir. Avec des empreintes lentes et salées, l'attaquant doit encore deviner chaque mot de passe. Beaucoup de gens réutilisent le leur, d'où un risque qui dépasse votre site.",
+  "remedial_lesson_id": "sc3"
+ },
+ {
+  "id": "sc3-q2",
+  "text": "Pourquoi MD5 ou un simple SHA-256 sont-ils de mauvais choix pour des mots de passe ?",
+  "options": [
+   "Ils produisent des empreintes trop longues",
+   "Ils sont trop rapides : un attaquant teste des milliards de candidats par seconde",
+   "Ils ne fonctionnent qu'avec des mots de passe numériques",
+   "Ils sont interdits par Python"
+  ],
+  "answer": 1,
+  "explain": "Ces fonctions sont conçues pour la vitesse, ce qui aide l'attaquant. scrypt, argon2 et bcrypt sont volontairement lentes et gourmandes en mémoire. La longueur de l'empreinte n'est pas le sujet.",
+  "remedial_lesson_id": "sc3"
+ },
+ {
+  "id": "sc3-q3",
+  "text": "À quoi sert le sel ?",
+  "options": [
+   "À chiffrer la base de données",
+   "À rallonger le mot de passe pour l'utilisateur",
+   "À rendre le hachage réversible en cas d'oubli",
+   "À donner une empreinte différente à deux comptes qui ont le même mot de passe, et à rendre inutiles les tables précalculées"
+  ],
+  "answer": 3,
+  "explain": "Le sel est une valeur aléatoire propre à chaque compte, stockée à côté de l'empreinte. Il ne chiffre rien, n'est pas secret et ne rend rien réversible : il oblige l'attaquant à attaquer chaque compte séparément.",
+  "remedial_lesson_id": "sc3"
+ },
+ {
+  "id": "sc3-q4",
+  "text": "Pourquoi comparer deux empreintes avec hmac.compare_digest plutôt qu'avec == ?",
+  "options": [
+   "Parce que == ne marche pas sur des octets",
+   "Parce que le temps de réponse de == dépend du premier octet différent, ce qui renseigne un attaquant",
+   "Parce que compare_digest est plus rapide",
+   "Parce que == modifie les valeurs comparées"
+  ],
+  "answer": 1,
+  "explain": "Une comparaison qui s'arrête à la première différence fuit de l'information par le temps de réponse. compare_digest prend un temps constant. Le gain est de sécurité, pas de vitesse.",
+  "remedial_lesson_id": "sc3"
+ },
+ {
+  "id": "sc3-q5",
+  "text": "Que doit faire get_secret_key() quand la variable d'environnement APP_SECRET_KEY manque ?",
+  "options": [
+   "Renvoyer une valeur par défaut connue pour que l'application démarre",
+   "Lever une exception : il vaut mieux refuser de démarrer que tourner avec une clé publique",
+   "Générer une clé aléatoire différente à chaque appel",
+   "Lire la clé dans le code source"
+  ],
+  "answer": 1,
+  "explain": "Une valeur par défaut connue de tous annule le secret et passe en production sans que personne ne s'en aperçoive. Un échec explicite se voit immédiatement. Une clé aléatoire à chaque appel casserait les sessions.",
+  "remedial_lesson_id": "sc3"
+ }
+]

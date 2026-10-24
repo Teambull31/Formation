@@ -1,0 +1,67 @@
+[
+ {
+  "id": "sc1-q1",
+  "text": "Pourquoi \"... WHERE name = '\" + name + \"'\" est-il une faille ?",
+  "options": [
+   "Parce que la concaténation de texte est lente en Python",
+   "Parce que les guillemets simples sont interdits en SQL",
+   "Parce que le texte venu de l'utilisateur est interprété comme du code SQL",
+   "Parce que la requête n'est pas mise en cache"
+  ],
+  "answer": 2,
+  "explain": "La donnée est collée dans la requête avant son analyse : un nom contenant des guillemets et du SQL modifie la requête elle-même. La lenteur ou le cache n'ont rien à voir avec la faille.",
+  "remedial_lesson_id": "sc1"
+ },
+ {
+  "id": "sc1-q2",
+  "text": "Quelle est la parade la plus fiable contre l'injection SQL ?",
+  "options": [
+   "Retirer toutes les apostrophes de la saisie",
+   "Les paramètres liés : la requête avec des ?, les valeurs transmises à part",
+   "Mettre la saisie en majuscules avant de l'insérer",
+   "Interdire les caractères spéciaux dans tous les formulaires"
+  ],
+  "answer": 1,
+  "explain": "Avec les paramètres liés, le moteur ne mélange jamais données et code. Retirer les apostrophes casse des noms légitimes (O'Brien) et se contourne ; interdire des caractères appauvrit l'application sans supprimer la cause.",
+  "remedial_lesson_id": "sc1"
+ },
+ {
+  "id": "sc1-q3",
+  "text": "Que change subprocess.run([\"wc\", \"-l\", path]) par rapport à subprocess.run(\"wc -l \" + path, shell=True) ?",
+  "options": [
+   "Chaque élément est un argument de la commande, aucun shell n'interprète le texte",
+   "La commande s'exécute plus lentement mais plus sûrement grâce à un cache",
+   "La commande s'exécute avec les droits d'un autre utilisateur",
+   "Rien : les deux écritures sont équivalentes"
+  ],
+  "answer": 0,
+  "explain": "Avec une liste, le programme reçoit exactement les arguments donnés : un point-virgule ou un $( ) dans path reste du texte. Avec shell=True, le shell lit tout et exécute ce qu'il comprend. Les deux ne sont pas équivalentes.",
+  "remedial_lesson_id": "sc1"
+ },
+ {
+  "id": "sc1-q4",
+  "text": "Un site refuse le nom O'Brien parce qu'il contient une apostrophe. Quel est le vrai problème ?",
+  "options": [
+   "Le nom est invalide et doit être refusé",
+   "Les apostrophes ne sont pas permises dans les noms propres",
+   "La base de données ne sait pas stocker les apostrophes",
+   "La requête est construite par concaténation au lieu d'utiliser des paramètres liés"
+  ],
+  "answer": 3,
+  "explain": "O'Brien est un nom normal. S'il casse la requête, c'est que la donnée est interprétée comme du SQL : même défaut que l'injection. Les paramètres liés rendent l'apostrophe sans effet et sans besoin de filtrer.",
+  "remedial_lesson_id": "sc1"
+ },
+ {
+  "id": "sc1-q5",
+  "text": "Pourquoi le compte de base de données de l'application doit-il avoir peu de droits ?",
+  "options": [
+   "Pour que les requêtes s'exécutent plus vite",
+   "Pour réduire les dégâts d'une injection qui réussirait malgré tout",
+   "Pour empêcher les sauvegardes",
+   "Parce que les comptes puissants sont désactivés par défaut"
+  ],
+  "answer": 1,
+  "explain": "C'est le moindre privilège : si une injection passe, elle ne peut pas supprimer ou créer des tables sans droit pour le faire. Cela s'ajoute aux paramètres liés, ne les remplace pas.",
+  "remedial_lesson_id": "sc1"
+ }
+]

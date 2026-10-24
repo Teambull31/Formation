@@ -1,0 +1,16 @@
+{
+  "id": "sc2-tp",
+  "title": "TP 2 : échapper le HTML et enfermer les chemins",
+  "instructions_md": "**web.py** contient deux fonctions vulnérables :\n\n1. `render_comment(author, text)` fabrique du HTML en collant les données. Échappez l'auteur **et** le texte avec `html.escape`.\n2. `read_upload(base_dir, filename)` lit un fichier dans un dossier. Elle doit lever une exception si le chemin réel sort de `base_dir` : `../`, chemin absolu, dossier voisin au nom préfixé (`base2`), lien symbolique.\n\nLe contrôle essaie toutes ces attaques et vérifie que les lectures légitimes (`ok.txt`, `sub/a.txt`) fonctionnent toujours.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`import html`, puis `html.escape(author)` et `html.escape(text)` autour de chaque donnée insérée.",
+    "Calculez `base = os.path.realpath(base_dir)` et `path = os.path.realpath(os.path.join(base, filename))`.",
+    "Comparez avec `os.path.commonpath([base, path]) != base` pour lever `ValueError`. `startswith` ne suffit pas."
+  ],
+  "timeout_s": 20,
+  "workspace": "sc2",
+  "seed": [
+    "seed/web.py"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "sc1-tp",
+  "title": "TP 1 : colmater deux injections",
+  "instructions_md": "**app.py** contient deux fonctions vulnérables :\n\n1. `find_user(conn, name)` cherche un utilisateur par son nom avec une requête construite par concaténation. Utilisez un **paramètre lié** (`?`).\n2. `count_lines(path)` compte les lignes d'un fichier avec `wc` lancé par un shell. Passez une **liste d'arguments** à `subprocess.run`, sans `shell=True`.\n\nLe contrôle attaque vos fonctions avec des entrées hostiles (`' OR '1'='1`, `x'; DROP TABLE users; --`, `data.txt; touch PWNED`...) et vérifie aussi que les entrées légitimes marchent : le nom `o'brien`, un fichier dont le nom contient une espace.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Remplacez la concaténation par `conn.execute(\"SELECT id, name FROM users WHERE name = ?\", (name,))`. Le tuple `(name,)` porte la virgule.",
+    "Ne cherchez pas à filtrer les apostrophes : le paramètre lié règle aussi le cas du nom `o'brien`.",
+    "Pour la commande : `subprocess.run([\"wc\", \"-l\", \"--\", path], capture_output=True, text=True, check=True)`, sans `shell=True`."
+  ],
+  "timeout_s": 20,
+  "workspace": "sc1",
+  "seed": [
+    "seed/app.py"
+  ]
+}

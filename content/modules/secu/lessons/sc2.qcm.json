@@ -1,0 +1,67 @@
+[
+ {
+  "id": "sc2-q1",
+  "text": "Un commentaire contient <script>...</script> et la page l'affiche tel quel. De quelle faille s'agit-il ?",
+  "options": [
+   "Une injection SQL",
+   "Un déni de service",
+   "Une traversée de chemin",
+   "Un cross-site scripting (XSS)"
+  ],
+  "answer": 3,
+  "explain": "Le navigateur lit le texte comme du HTML et exécute le script avec les droits du visiteur sur le site. La parade est d'échapper les données à la sortie, pas de faire confiance à la saisie.",
+  "remedial_lesson_id": "sc2"
+ },
+ {
+  "id": "sc2-q2",
+  "text": "Quel appel Python échappe un texte avant de l'insérer dans du HTML ?",
+  "options": [
+   "str.upper()",
+   "html.escape(texte)",
+   "texte.strip()",
+   "texte.encode()"
+  ],
+  "answer": 1,
+  "explain": "html.escape remplace <, >, & et les guillemets par leurs entités. Les autres méthodes changent la casse, retirent des espaces ou convertissent en octets, sans aucun effet de sécurité.",
+  "remedial_lesson_id": "sc2"
+ },
+ {
+  "id": "sc2-q3",
+  "text": "Pourquoi les guillemets doivent-ils aussi être échappés ?",
+  "options": [
+   "Parce qu'ils sont interdits en HTML",
+   "Parce qu'une valeur placée dans un attribut peut en sortir avec un guillemet et ajouter un gestionnaire d'événement",
+   "Parce qu'ils ralentissent le rendu de la page",
+   "Parce que les navigateurs les suppriment"
+  ],
+  "answer": 1,
+  "explain": "Dans value=\"...\", un guillemet dans la donnée ferme l'attribut : ce qui suit devient un nouvel attribut, par exemple onmouseover. Échapper les guillemets referme cette porte. Ils ne sont pas interdits, juste à neutraliser.",
+  "remedial_lesson_id": "sc2"
+ },
+ {
+  "id": "sc2-q4",
+  "text": "Pourquoi path.startswith(base) ne suffit-il pas pour contrôler un chemin ?",
+  "options": [
+   "Parce que startswith ne fonctionne pas sur les chemins",
+   "Parce que Python refuse les chemins absolus",
+   "Parce que /uploads2/x commence par /uploads sans être dans le dossier /uploads",
+   "Parce que startswith est sensible à la casse sous Linux"
+  ],
+  "answer": 2,
+  "explain": "Un dossier voisin au nom préfixé passe le test. Il faut comparer des chemins résolus avec os.path.commonpath, ou vérifier la séparation de composants. La sensibilité à la casse n'est pas le problème.",
+  "remedial_lesson_id": "sc2"
+ },
+ {
+  "id": "sc2-q5",
+  "text": "Quelle est la bonne méthode contre ../ dans un nom de fichier reçu ?",
+  "options": [
+   "Retirer les occurrences de ../ dans le nom",
+   "Refuser les noms plus longs que 20 caractères",
+   "Résoudre le chemin réel avec realpath puis vérifier qu'il reste dans le dossier autorisé",
+   "Convertir le nom en minuscules"
+  ],
+  "answer": 2,
+  "explain": "Retirer ../ se contourne (....// devient ../ après suppression, variantes encodées). Résoudre d'abord, comparer ensuite fonctionne aussi pour les chemins absolus et les liens symboliques. La longueur et la casse n'y changent rien.",
+  "remedial_lesson_id": "sc2"
+ }
+]

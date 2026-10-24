@@ -1,0 +1,16 @@
+{
+  "id": "sc3-tp",
+  "title": "TP 3 : hacher les mots de passe et sortir le secret du code",
+  "instructions_md": "**auth.py** stocke les mots de passe en clair et contient une clé secrète en dur. Corrigez-le :\n\n1. `register(users, name, password)` : refuse un mot de passe de moins de 8 caractères (`ValueError`), stocke un **sel aléatoire** et une empreinte `hashlib.scrypt` (ou `pbkdf2_hmac`).\n2. `check(users, name, password)` : renvoie `True` ou `False` (jamais d'exception pour un utilisateur inconnu), en comparant avec `hmac.compare_digest`.\n3. `get_secret_key()` : lit la variable d'environnement `APP_SECRET_KEY` et lève une exception si elle manque. La valeur `dev-secret-123` ne doit plus figurer dans le code.\n\nLe contrôle vérifie que deux comptes au même mot de passe sont stockés différemment.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Un sel : `salt = os.urandom(16)`. Stockez le couple `(salt, empreinte)` dans `users[name]`.",
+    "Empreinte : `hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)`. Pour vérifier, recalculez avec le sel stocké.",
+    "`os.environ[\"APP_SECRET_KEY\"]` lève `KeyError` quand la variable manque : c'est le comportement voulu."
+  ],
+  "timeout_s": 20,
+  "workspace": "sc3",
+  "seed": [
+    "seed/auth.py"
+  ]
+}

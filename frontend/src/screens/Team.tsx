@@ -51,7 +51,7 @@ export default function Team() {
       )}
       <div className="card">
         <h3>Portfolio</h3>
-        <p className="note">Zip de tes TP réussis (Terraform, Docker), sans secrets ni e-mails. Relis avant de publier sur GitHub.</p>
+        <p className="note">Zip de tes TP réussis (Terraform, Docker, Linux, CI/CD, Kubernetes, sécurité), sans secrets ni e-mails. Relis avant de publier sur GitHub.</p>
         <a className="btn" href="/api/portfolio.zip" download>Télécharger le zip</a>
       </div>
       {msg && <p className="note" role="alert">{msg}</p>}

@@ -1,0 +1,1 @@
+{"id": "secu", "title": "Sécurité applicative : injections, XSS, mots de passe et secrets", "skill": "secu", "lessons": [{"id": "sc1", "title": "Injections SQL et de commandes", "minutes": 25}, {"id": "sc2", "title": "XSS et traversée de chemin", "minutes": 25}, {"id": "sc3", "title": "Mots de passe, secrets et configuration", "minutes": 25}], "portfolio": true}

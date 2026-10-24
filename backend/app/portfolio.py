@@ -112,7 +112,7 @@ def readme(profile: Profile, included: list[tuple[str, str]], excluded: list[str
     if bosses_won:
         lines += ["## Boss vaincus", ""] + [f"- {b}" for b in bosses_won] + [""]
     lines += ["## Travaux pratiques réussis", ""]
-    lines += [f"- {m} : {t}" for m, t in included] or ["Aucun pour l'instant : valide un TP des modules Terraform ou Docker."]
+    lines += [f"- {m} : {t}" for m, t in included] or ["Aucun pour l'instant : valide un TP d'un module technique (Terraform, Docker, Linux, CI/CD, Kubernetes, sécurité)."]
     if excluded:
         lines += ["", "## Fichiers écartés automatiquement", ""] + [f"- {e}" for e in excluded]
     return "\n".join(lines) + "\n"
