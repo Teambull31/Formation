@@ -1,0 +1,1 @@
+{"id": "k8s", "title": "Kubernetes : déployer, exposer et durcir", "skill": "k8s", "lessons": [{"id": "k1", "title": "Pods, Deployments et étiquettes", "minutes": 25}, {"id": "k2", "title": "Services, configuration et sondes", "minutes": 25}, {"id": "k3", "title": "Durcir un pod et fermer le réseau", "minutes": 25}], "portfolio": true}

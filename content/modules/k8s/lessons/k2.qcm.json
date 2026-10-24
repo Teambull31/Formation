@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k2-q1",
+  "text": "À quoi servent port et targetPort dans un Service ?",
+  "options": [
+   "port est le port exposé par le Service, targetPort celui du conteneur vers lequel il redirige",
+   "port est celui du conteneur, targetPort celui de la machine hôte",
+   "Les deux désignent le même port et doivent être identiques",
+   "port est réservé à HTTPS"
+  ],
+  "answer": 0,
+  "explain": "Le Service reçoit sur port et transmet à targetPort sur les pods sélectionnés. Ils peuvent différer (80 vers 8000). Le Service ne publie rien sur la machine hôte : c'est le rôle d'un autre type de Service ou d'un Ingress.",
+  "remedial_lesson_id": "k2"
+ },
+ {
+  "id": "k2-q2",
+  "text": "Que se passe-t-il si le selector d'un Service ne correspond à aucun pod ?",
+  "options": [
+   "Kubernetes refuse de créer le Service",
+   "Le Service est créé mais ne route vers aucun pod, sans message d'erreur",
+   "Le Service choisit des pods au hasard",
+   "Le Service se supprime après quelques minutes"
+  ],
+  "answer": 1,
+  "explain": "Le Service reste valide : il n'a simplement aucun point de terminaison. Les requêtes échouent sans qu'aucune erreur ne soit signalée à la création. Vérifiez les étiquettes avec kubectl get endpoints.",
+  "remedial_lesson_id": "k2"
+ },
+ {
+  "id": "k2-q3",
+  "text": "Comment fournir un mot de passe à un conteneur sans l'écrire dans le manifeste du Deployment ?",
+  "options": [
+   "Avec une variable value: dont le texte est encodé en base64",
+   "En le mettant dans un ConfigMap, qui est fait pour ça",
+   "Avec valueFrom: secretKeyRef, qui référence un Secret créé hors du dépôt",
+   "En l'écrivant dans le tag de l'image"
+  ],
+  "answer": 2,
+  "explain": "secretKeyRef nomme un Secret et une clé : le manifeste ne contient pas la valeur. Un ConfigMap est lisible comme du texte ordinaire, et le base64 n'est qu'un encodage, pas un chiffrement.",
+  "remedial_lesson_id": "k2"
+ },
+ {
+  "id": "k2-q4",
+  "text": "Quelle est la différence entre readinessProbe et livenessProbe ?",
+  "options": [
+   "readinessProbe redémarre le pod, livenessProbe arrête le Service",
+   "Il n'y a aucune différence entre les deux sondes",
+   "readinessProbe teste la mémoire, livenessProbe teste le processeur",
+   "readinessProbe décide si le pod reçoit du trafic, livenessProbe décide s'il doit être redémarré"
+  ],
+  "answer": 3,
+  "explain": "Tant que la disponibilité échoue, le pod est retiré du Service sans être tué. Un échec de vivacité redémarre le conteneur. Les deux peuvent viser la même URL mais répondent à des questions différentes.",
+  "remedial_lesson_id": "k2"
+ },
+ {
+  "id": "k2-q5",
+  "text": "Pourquoi régler initialDelaySeconds sur la sonde de vivacité ?",
+  "options": [
+   "Pour accélérer le démarrage du pod",
+   "Pour laisser le temps à l'application de démarrer avant d'être jugée morte et redémarrée",
+   "Pour retarder la création du Service",
+   "Pour changer le port testé"
+  ],
+  "answer": 1,
+  "explain": "Une application lente à démarrer échouerait aux premiers tests de vivacité et serait redémarrée en boucle. Le délai initial repousse le premier test. Il n'accélère rien : il évite des redémarrages inutiles.",
+  "remedial_lesson_id": "k2"
+ }
+]

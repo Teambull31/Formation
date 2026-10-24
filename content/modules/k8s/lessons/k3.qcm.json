@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k3-q1",
+  "text": "Que garantit securityContext.runAsNonRoot: true ?",
+  "options": [
+   "Le conteneur ne peut pas écrire sur le disque",
+   "Le conteneur n'a pas accès au réseau",
+   "Kubernetes refuse de démarrer un conteneur dont le processus tournerait en root",
+   "Le pod est invisible pour les autres pods"
+  ],
+  "answer": 2,
+  "explain": "Si l'image démarre en root, le pod n'est pas lancé : on évite ainsi qu'une faille donne un accès root dans le conteneur. L'écriture sur le disque dépend de readOnlyRootFilesystem et le réseau des NetworkPolicy.",
+  "remedial_lesson_id": "k3"
+ },
+ {
+  "id": "k3-q2",
+  "text": "Pourquoi readOnlyRootFilesystem: true est-il utile ?",
+  "options": [
+   "Parce qu'il accélère les lectures de fichiers",
+   "Parce qu'un attaquant qui entre dans le conteneur ne peut plus y déposer d'outils ni modifier le code",
+   "Parce qu'il interdit au conteneur de lire ses propres fichiers",
+   "Parce qu'il remplace runAsNonRoot"
+  ],
+  "answer": 1,
+  "explain": "Un système de fichiers en lecture seule limite ce qu'un attaquant peut installer. Le conteneur lit toujours ses fichiers ; pour les données temporaires on monte un volume emptyDir. Le réglage ne remplace pas les autres.",
+  "remedial_lesson_id": "k3"
+ },
+ {
+  "id": "k3-q3",
+  "text": "Pourquoi retirer le jeton du compte de service avec automountServiceAccountToken: false ?",
+  "options": [
+   "Parce que le jeton ralentit le pod",
+   "Parce que Kubernetes ne le supporte plus",
+   "Parce qu'une application web n'a pas besoin de parler à l'API Kubernetes, et un attaquant pourrait s'en servir",
+   "Parce que le jeton chiffre les données du pod"
+  ],
+  "answer": 2,
+  "explain": "Le jeton monté dans chaque pod permet d'appeler l'API du cluster avec les droits du compte. S'il est inutile, l'enlever supprime une cible. Il ne chiffre rien et ne pèse pas sur les performances.",
+  "remedial_lesson_id": "k3"
+ },
+ {
+  "id": "k3-q4",
+  "text": "Que fait une NetworkPolicy avec podSelector: {} et policyTypes: [Ingress] sans aucune règle ?",
+  "options": [
+   "Elle autorise tout le trafic entrant",
+   "Elle supprime les pods du namespace",
+   "Elle bloque le trafic sortant",
+   "Elle refuse tout le trafic entrant vers tous les pods du namespace"
+  ],
+  "answer": 3,
+  "explain": "Un sélecteur vide désigne tous les pods ; policyTypes: Ingress sans règle ne laisse entrer personne. C'est la base d'un réseau fermé par défaut, qu'on ouvre ensuite avec des politiques précises.",
+  "remedial_lesson_id": "k3"
+ },
+ {
+  "id": "k3-q5",
+  "text": "Pourquoi un volume hostPath est-il dangereux ?",
+  "options": [
+   "Il donne au pod un accès au disque du nœud qui l'héberge",
+   "Il est toujours plus lent qu'un emptyDir",
+   "Il n'est pas supporté par les conteneurs Linux",
+   "Il chiffre les fichiers du pod"
+  ],
+  "answer": 0,
+  "explain": "Monter un dossier du nœud permet de lire, voire de modifier, ses fichiers : un pod compromis peut alors s'échapper vers la machine. Pour du stockage on préfère emptyDir ou un volume persistant géré par le cluster.",
+  "remedial_lesson_id": "k3"
+ }
+]

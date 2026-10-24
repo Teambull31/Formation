@@ -220,8 +220,8 @@ def main(argv: list[str]) -> int:
     except CheckError as e:
         print(f"ECHEC : {e}")
         return 1
-    except (OSError, ValueError) as e:
-        print(f"ECHEC : fichier illisible ({type(e).__name__})")
+    except (OSError, ValueError, AttributeError, TypeError) as e:
+        print(f"ECHEC : workflow inattendu ({type(e).__name__}) : vérifiez l'indentation et la forme des blocs")
         return 1
     print(f"OK : {success}")
     return 0

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k1-q1",
+  "text": "Quel est le rôle d'un Deployment ?",
+  "options": [
+   "Il stocke les mots de passe de l'application",
+   "Il maintient le nombre voulu de copies d'un pod et gère leur mise à jour",
+   "Il donne une adresse stable devant un groupe de pods",
+   "Il construit l'image du conteneur à partir du code"
+  ],
+  "answer": 1,
+  "explain": "Un Deployment déclare l'état voulu (images, nombre de réplicas) et le cluster le maintient : un pod disparu est recréé. L'adresse stable est le rôle du Service, les secrets celui du Secret, et la construction d'image se fait en dehors de Kubernetes.",
+  "remedial_lesson_id": "k1"
+ },
+ {
+  "id": "k1-q2",
+  "text": "Que doit respecter spec.selector.matchLabels d'un Deployment ?",
+  "options": [
+   "Il doit être identique au nom du Deployment",
+   "Il doit désigner les mêmes étiquettes que spec.template.metadata.labels",
+   "Il peut contenir n'importe quelles étiquettes, elles sont ignorées",
+   "Il doit toujours contenir l'étiquette env: production"
+  ],
+  "answer": 1,
+  "explain": "Le sélecteur définit « mes pods » ; le modèle définit les étiquettes des pods créés. S'ils divergent, le Deployment ne retrouve pas ses pods (le cluster le refuse en général). Les étiquettes ne sont pas des commentaires : elles servent à relier les objets.",
+  "remedial_lesson_id": "k1"
+ },
+ {
+  "id": "k1-q3",
+  "text": "Pourquoi prévoir au moins deux réplicas ?",
+  "options": [
+   "Parce que Kubernetes refuse un seul pod",
+   "Parce que deux pods vont deux fois plus vite sans autre changement",
+   "Parce que le sélecteur ne fonctionne qu'avec deux pods",
+   "Parce que si un nœud tombe, l'autre copie continue de servir"
+  ],
+  "answer": 3,
+  "explain": "Avec un seul pod, la panne de son nœud coupe le service le temps qu'il soit recréé ailleurs. Avec deux pods répartis, le service continue. Le gain de vitesse n'est pas garanti : tout dépend de l'application.",
+  "remedial_lesson_id": "k1"
+ },
+ {
+  "id": "k1-q4",
+  "text": "Quelle est la différence entre resources.requests et resources.limits ?",
+  "options": [
+   "requests est le plafond, limits est le minimum",
+   "Il n'y en a aucune, ce sont deux noms pour la même chose",
+   "requests sert au planificateur pour choisir un nœud, limits fixe le plafond à ne pas dépasser",
+   "requests concerne la mémoire, limits concerne le processeur"
+  ],
+  "answer": 2,
+  "explain": "Les requests réservent la capacité au moment du placement du pod ; les limits plafonnent l'usage : au-delà de la mémoire autorisée, le pod est arrêté. Les deux existent pour le processeur et pour la mémoire.",
+  "remedial_lesson_id": "k1"
+ },
+ {
+  "id": "k1-q5",
+  "text": "Pourquoi éviter image: web:latest dans un manifeste ?",
+  "options": [
+   "Parce que latest n'existe pas dans les registres",
+   "Parce que la version peut changer sans modification du manifeste, et un redémarrage tirer du code non testé",
+   "Parce que latest ralentit le démarrage du pod",
+   "Parce que Kubernetes interdit les tags"
+  ],
+  "answer": 1,
+  "explain": "latest désigne ce qui a été publié en dernier : deux nœuds peuvent exécuter deux versions différentes et un redémarrage change le comportement. Un tag précis rend le déploiement reproductible et le retour en arrière possible.",
+  "remedial_lesson_id": "k1"
+ }
+]

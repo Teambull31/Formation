@@ -1,0 +1,16 @@
+{
+  "id": "k2-tp",
+  "title": "TP 2 : service, configuration, secret et sondes",
+  "instructions_md": "Le fichier **app.yaml** contient un ConfigMap et un Deployment. Complétez-le pour qu'il soit exploitable :\n\n1. La variable `APP_MODE` du conteneur vient du ConfigMap (`valueFrom: configMapKeyRef`, `name: web-config`, `key: APP_MODE`).\n2. `DB_PASSWORD` ne contient plus de valeur en clair : `valueFrom: secretKeyRef` (`name: web-db`, `key: password`).\n3. Ajoutez une `readinessProbe` et une `livenessProbe` en `httpGet` sur `/healthz`, port 8000. La liveness a un `initialDelaySeconds` d'au moins 5.\n4. Ajoutez, dans le même fichier après un `---`, un **Service** qui sélectionne les pods `app: web` et expose le port 80 vers le port 8000.\n\nLe contrôle lit le YAML sans cluster.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Pour `APP_MODE`, remplacez `value: production` par un bloc `valueFrom:` puis `configMapKeyRef:` avec `name` et `key`.",
+    "Les sondes se placent au niveau de `image` et `ports`, dans le conteneur : `readinessProbe:` puis `httpGet:` avec `path` et `port`.",
+    "Le Service : `apiVersion: v1`, `kind: Service`, `spec.selector: app: web`, `ports: - port: 80` et `targetPort: 8000`."
+  ],
+  "timeout_s": 20,
+  "workspace": "k2",
+  "seed": [
+    "seed/app.yaml"
+  ]
+}

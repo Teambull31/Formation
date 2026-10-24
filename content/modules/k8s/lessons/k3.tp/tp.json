@@ -1,0 +1,17 @@
+{
+  "id": "k3-tp",
+  "title": "TP 3 : durcir le pod et fermer le réseau",
+  "instructions_md": "Le dossier contient **deployment.yaml** (un Deployment correct mais ouvert) et **networkpolicy.yaml** (une politique qui laisse tout passer). Durcissez l'ensemble :\n\n**deployment.yaml :**\n1. Au niveau du pod : `automountServiceAccountToken: false` et `securityContext: runAsNonRoot: true`.\n2. Dans le conteneur : `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`, `capabilities` avec `drop: [\"ALL\"]`.\n\n**networkpolicy.yaml :** remplacez la politique par deux politiques séparées par `---` :\n3. Une politique « tout refuser » (`podSelector: {}`, `policyTypes: [\"Ingress\"]`, aucune règle `ingress`).\n4. Une politique qui autorise les pods `app: gateway` à joindre les pods `app: web` sur le port 8000.\n\nLe contrôle lit le YAML sans cluster.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Le `securityContext` du pod se place sous `spec:` du modèle de pod, à côté de `containers:`. Celui du conteneur est dans l'entrée du conteneur.",
+    "La politique « tout refuser » ne contient ni `ingress` ni `from` : un `podSelector: {}` et `policyTypes: [\"Ingress\"]` suffisent.",
+    "L'autorisation : `podSelector.matchLabels: app: web`, puis `ingress:` avec `from:` (`podSelector.matchLabels: app: gateway`) et `ports:` (`port: 8000`)."
+  ],
+  "timeout_s": 20,
+  "workspace": "k3",
+  "seed": [
+    "seed/deployment.yaml",
+    "seed/networkpolicy.yaml"
+  ]
+}

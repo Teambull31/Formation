@@ -1,0 +1,16 @@
+{
+  "id": "k1-tp",
+  "title": "TP 1 : corriger un Deployment",
+  "instructions_md": "Le fichier **deployment.yaml** déclare une application web, mais il ne tiendrait pas en production. Corrigez-le :\n\n1. Au moins **2 réplicas**.\n2. Le `selector.matchLabels` doit correspondre aux étiquettes du modèle de pod (`template.metadata.labels`).\n3. Une image avec un **tag précis** (pas `latest`).\n4. Le port `containerPort: 8000` reste déclaré.\n5. Des `resources` avec `requests` et `limits` pour `cpu` **et** `memory`.\n\nLe contrôle lit le YAML : aucun cluster n'est nécessaire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Cherchez l'étiquette qui diffère : une ligne `app: web`, une autre `app: webapp`. Elles doivent être identiques.",
+    "`replicas: 2`, et remplacez `:latest` par une version, par exemple `:1.4.2`.",
+    "Sous le conteneur : `resources:` puis `requests:` et `limits:`, chacun avec `cpu: 100m` et `memory: 128Mi` (valeurs de votre choix)."
+  ],
+  "timeout_s": 20,
+  "workspace": "k1",
+  "seed": [
+    "seed/deployment.yaml"
+  ]
+}
