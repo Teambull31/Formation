@@ -75,7 +75,7 @@ void on_crash(int sig) {
     char line[96];
     int n = std::snprintf(line, sizeof line, "{\"t_ms\": %lld, \"ev\": \"end\", \"reason\": \"crash\", \"signal\": %d}\n",
                           static_cast<long long>(sim::now_ms()), sig);
-    if (n > 0) (void)!::write(STDOUT_FILENO, line, static_cast<size_t>(n));
+    if (n > 0) (void)!::write(sim::trace_fd, line, static_cast<size_t>(n));
     ::signal(sig, SIG_DFL);
     ::raise(sig);
 }
@@ -100,6 +100,11 @@ int main(int argc, char **argv) {
             std::fprintf(stderr, "usage: %s [--scenario fichier.json] [--max-ms N]\n", argv[0]);
             return 2;
         }
+    }
+    sim::trace_fd = ::dup(STDOUT_FILENO);
+    if (sim::trace_fd < 0 || ::dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
+        std::perror("trace");
+        return 2;
     }
     for (int sig : {SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT}) ::signal(sig, on_crash);
     sim::start(app_main_task, max_ms);

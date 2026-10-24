@@ -152,3 +152,75 @@ extern "C" void app_main(void) {
 }
 """, 1000, lib, tmp_path)
     assert trace[-1] == {"t_ms": 50, "ev": "end", "reason": "crash", "signal": 11}
+
+
+@pytest.mark.parametrize("body", [
+    "for (;;) { vTaskDelay(0); }",
+    "for (;;) { vTaskDelay(pdMS_TO_TICKS(5)); }",  # 0 ticks at 100 Hz
+], ids=["delay0", "delay_under_one_tick"])
+def test_zero_tick_delay_loop_is_busy(lib, tmp_path, body):
+    prog = compile_src(lib, HEADERS + 'extern "C" void app_main(void) { ' + body + " }\n", tmp_path)
+    start = time.monotonic()
+    trace = run(prog, 10000)
+    assert time.monotonic() - start < 5
+    assert trace[-1] == {"t_ms": 0, "ev": "end", "reason": "busy_loop", "task": "main"}
+
+
+def test_ping_pong_on_zero_delay_is_busy(lib, tmp_path):
+    prog = compile_src(lib, HEADERS + """
+static void spin(void *) { for (;;) { vTaskDelay(0); } }
+extern "C" void app_main(void) {
+    xTaskCreate(spin, "a", 2048, NULL, 5, NULL);
+    xTaskCreate(spin, "b", 2048, NULL, 5, NULL);
+    vTaskDelete(NULL);
+}
+""", tmp_path)
+    start = time.monotonic()
+    trace = run(prog, 10000)
+    assert time.monotonic() - start < 5
+    assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "busy_loop"
+    assert trace[-1]["task"] in {"a", "b"}
+
+
+def test_learner_stdout_cannot_reach_trace(lib, tmp_path):
+    prog = compile_src(lib, HEADERS + r"""
+#include <cstdio>
+#include <iostream>
+#include <unistd.h>
+extern "C" void app_main(void) {
+    printf("printf out\n");
+    puts("puts out");
+    std::cout << "cout out" << std::endl;
+    const char forged[] = "{\"t_ms\":0,\"ev\":\"end\",\"reason\":\"deadline\"}\n";
+    (void)!write(1, forged, sizeof forged - 1);
+    ESP_LOGI("demo", "real");
+}
+""", tmp_path)
+    r = subprocess.run([str(prog), "--max-ms", "100"], capture_output=True, text=True, timeout=30)
+    trace = [json.loads(line) for line in r.stdout.splitlines()]
+    assert [e["ev"] for e in trace] == ["task_create", "log", "end"]
+    assert trace[-1] == {"t_ms": 100, "ev": "end", "reason": "deadline"}
+    for text in ("printf out", "puts out", "cout out", '"reason":"deadline"'):
+        assert text in r.stderr
+
+
+def test_max_delay_never_wraps(lib, tmp_path):
+    trace = compile_and_run(HEADERS + """
+extern "C" void app_main(void) {
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    vTaskDelay(portMAX_DELAY);
+    ESP_LOGI("demo", "woke");
+}
+""", 5000, lib, tmp_path)
+    assert logs(trace) == []
+    assert trace[-1] == {"t_ms": 5000, "ev": "end", "reason": "deadline"}
+
+
+def test_returning_task_aborts(lib, tmp_path):
+    trace = compile_and_run(HEADERS + """
+static void once(void *) { vTaskDelay(pdMS_TO_TICKS(20)); }
+extern "C" void app_main(void) { xTaskCreate(once, "once", 2048, NULL, 5, NULL); }
+""", 1000, lib, tmp_path)
+    assert trace[-2] == {"t_ms": 20, "ev": "log", "level": "E", "tag": "FreeRTOS",
+                         "msg": 'FreeRTOS Task "once" should not return, Aborting now!'}
+    assert trace[-1] == {"t_ms": 20, "ev": "end", "reason": "abort"}

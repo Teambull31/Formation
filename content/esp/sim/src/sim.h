@@ -9,7 +9,11 @@
 
 namespace sim {
 
-// trace.cpp: one JSON object per line on stdout, written when the Event is destroyed.
+// trace.cpp: one JSON object per line on trace_fd, written when the Event is destroyed.
+// main points trace_fd at the original stdout and sends fd 1 to stderr, so learner output
+// (printf, std::cout, write(1, ...)) can neither break nor forge the trace.
+extern int trace_fd;
+
 class Event {
 public:
     Event(int64_t t_ms, const char *ev);

@@ -5,6 +5,9 @@
 #include "sim.h"
 
 namespace sim {
+
+int trace_fd = STDOUT_FILENO;
+
 namespace {
 
 void append_json_string(std::string &out, const std::string &s) {
@@ -45,7 +48,7 @@ Event::~Event() {
     const char *p = line_.data();
     size_t left = line_.size();
     while (left > 0) {
-        ssize_t n = ::write(STDOUT_FILENO, p, left);
+        ssize_t n = ::write(trace_fd, p, left);
         if (n <= 0) break;
         p += n;
         left -= static_cast<size_t>(n);
