@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es6-q1",
+  "text": "Pourquoi le TP utilise-t-il deux seuils (60 % et 80 %) plutôt qu'un seul ?",
+  "options": [
+   "Pour mesurer le niveau avec plus de précision",
+   "Pour remplir la piscine deux fois plus vite",
+   "Pour que le relais ne batte pas sans arrêt",
+   "Pour économiser de la mémoire dans le programme"
+  ],
+  "answer": 2,
+  "explain": "Avec un seul seuil, le niveau qui hésite autour de la limite fait démarrer puis arrêter la pompe sans cesse : le relais claque et s'use. Avec deux seuils (l'hystérésis), la pompe démarre sous 60 %, s'arrête au-dessus de 80 %, et garde son état entre les deux. Les seuils ne changent ni la précision de la mesure, ni la vitesse de remplissage, ni la mémoire utilisée.",
+  "remedial_lesson_id": "es6"
+ },
+ {
+  "id": "es6-q2",
+  "text": "Dans le TP, que fait la pompe après une alarme ?",
+  "options": [
+   "Elle reste éteinte jusqu'au redémarrage de la carte",
+   "Elle redémarre dès que le capteur se remet à répondre",
+   "Elle repart au prochain niveau mesuré sous les 60 %",
+   "Elle tourne encore 10 minutes de plus par précaution"
+  ],
+  "answer": 0,
+  "explain": "L'état ALARM est verrouillé : aucune transition n'en sort, la pompe reste éteinte jusqu'au redémarrage. Même si le capteur répond de nouveau, un humain doit d'abord regarder ce qui s'est passé. Redémarrer seule ou tourner « par précaution » reviendrait à refaire l'erreur qui a déclenché l'alarme.",
+  "remedial_lesson_id": "es6"
+ },
+ {
+  "id": "es6-q3",
+  "text": "La pompe tourne depuis 10 minutes et le niveau lu n'a pas gagné 1 point. Que fait le programme ?",
+  "options": [
+   "Il attend encore 10 minutes avant de réagir",
+   "Il baisse le seuil haut de 80 % à 70 %",
+   "Il passe en IDLE et réessaie à la mesure suivante",
+   "Il coupe la pompe, passe en ALARM et journalise"
+  ],
+  "answer": 3,
+  "explain": "C'est le délai maximal de remplissage : 10 minutes de pompe sans hausse du niveau veulent dire que le capteur ment ou que la pompe ne remplit plus. On coupe d'abord la pompe, on passe en ALARM et on écrit une ligne ESP_LOGE. Attendre plus longtemps laisse le risque de débordement, et repasser en IDLE relancerait la pompe sans rien avoir réglé.",
+  "remedial_lesson_id": "es6"
+ },
+ {
+  "id": "es6-q4",
+  "text": "Avec pct = (raw - 620) * 100 / 3103 en entiers, que donne raw = 2480 ?",
+  "options": [
+   "60 %, car on arrondit toujours au plus proche",
+   "59 %, car la division entière tronque 59,9",
+   "80 %, car on divise 2480 par 3103 sans retirer 620",
+   "18 %, car on retire 620 puis on divise par 100"
+  ],
+  "answer": 1,
+  "explain": "(2480 - 620) × 100 = 186000, divisé par 3103 donne 59,94 : la division entière tronque et garde 59. Ce niveau est sous 60, donc la pompe doit démarrer. Un arrondi donnerait 60 (la pompe ne démarrerait pas), oublier de retirer 620 donne 80, et diviser par 100 au lieu de 3103 n'a aucun sens pour l'étalonnage.",
+  "remedial_lesson_id": "es6"
+ },
+ {
+  "id": "es6-q5",
+  "text": "Pourquoi une vraie installation ajoute-t-elle un interrupteur à flotteur en plus du programme ?",
+  "options": [
+   "Parce que ESP_LOGE coupe la pompe trop lentement",
+   "Parce que l'ADC ne mesure que 0 % ou 100 %",
+   "Parce qu'un programme qui plante ne coupe plus rien",
+   "Parce que le relais ne peut pas être éteint à distance"
+  ],
+  "answer": 2,
+  "explain": "Le logiciel seul ne suffit pas : si le programme plante, si la carte redémarre ou si un fil se coupe, personne ne commande plus la pompe. Un flotteur ou un arrêt mécanique coupe la pompe au niveau haut même sans programme. ESP_LOGE n'écrit qu'un message (il ne coupe rien), l'ADC mesure toutes les valeurs de 0 à 4095, et un relais s'éteint très bien par programme.",
+  "remedial_lesson_id": "es6"
+ }
+]

@@ -951,3 +951,127 @@ def test_es5_check_sections_exist_in_lesson():
     titles = set(re.findall(r"^## (.+)$", lesson, re.M))
     cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es5-tp.py").read_text(encoding="utf-8")))
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es6 (régulation du niveau d'une piscine) : solution livrée + variantes fautives ----
+
+ES6 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp2" / "lessons" / "es6.tp"
+
+
+def _es6_reference() -> str:
+    text = (ES6 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es6_mutant(*edits: tuple[str, str]) -> str:
+    src = _es6_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es6_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es6-tp")
+
+
+def test_es6_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es6_run(tmp_path, _es6_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es6_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es6_run(tmp_path, (ES6 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "scénario a" in out and "pas configurée en sortie" in out and "relire" in out, out
+
+
+LOCKED = "pompe(false);  // verrouillé : rien d'autre à faire jusqu'au redémarrage"
+SAFE_START = "pompe(false);  // état sûr : pompe éteinte avant la première lecture"
+
+# nom -> (remplacements (ancien, nouveau), fragments de message attendus)
+ES6_MUTANTS = {
+    # seuils
+    "no_hysteresis_stop_at_60": ([("niveau > SEUIL_HAUT) {  // FILLING", "niveau >= SEUIL_BAS) {  // FILLING")],
+                                 ["scénario a", "s'éteint à", "seulement", "Un seul seuil fait battre"]),
+    "no_hysteresis_single_80": ([("if (niveau < SEUIL_BAS) {", "if (niveau < SEUIL_HAUT) {")],
+                                ["scénario a", "s'allume à", "dans la zone entre 60 % et 80 %"]),
+    "inverted_thresholds": ([("SEUIL_BAS = 60;", "SEUIL_BAS = 80;"), ("SEUIL_HAUT = 80;", "SEUIL_HAUT = 60;")],
+                            ["scénario a", "s'allume à", "dans la zone entre 60 % et 80 %"]),
+    "stop_at_100_overflow": ([("niveau > SEUIL_HAUT) {  // FILLING", "niveau >= 100) {  // FILLING")],
+                             ["scénario a", "restée allumée", "déborde"]),
+    "stop_at_85": ([("niveau > SEUIL_HAUT) {  // FILLING", "niveau > 85) {  // FILLING")],
+                   ["scénario a", "restée allumée", "déborde"]),
+    "start_at_65": ([("if (niveau < SEUIL_BAS) {", "if (niveau < 65) {")],
+                    ["scénario a", "s'allume à", "dans la zone entre 60 % et 80 %"]),
+    # délai maximal et capteur figé
+    "no_max_time_no_frozen": ([("t - debut_ms >= DELAI_MAX_MS", "false"), ("t - brut_change_ms >= FIGE_MS", "false")],
+                              ["scénario b", "au plus 10 min 15 s", "délai maximal"]),  # la pompe ne s'arrête qu'au retour du capteur (16 min)
+    "no_max_time_only_frozen": ([("t - debut_ms >= DELAI_MAX_MS", "false")],
+                                ["scénario d", "la pompe tourne encore à 15 min 00 s", "ne remplit presque rien"]),
+    "no_frozen_detection": ([("t - brut_change_ms >= FIGE_MS", "false")], ["scénario c", "aucune alarme", "identique pendant 10 min"]),
+    "max_time_5min": ([("DELAI_MAX_MS = 10 * 60 * 1000", "DELAI_MAX_MS = 5 * 60 * 1000")],
+                      ["scénario b", "seulement 5 min 00 s après son démarrage"]),
+    "max_time_15min": ([("DELAI_MAX_MS = 10 * 60 * 1000", "DELAI_MAX_MS = 15 * 60 * 1000")],
+                       ["scénario d", "au plus 10 min 15 s", "esp_timer_get_time"]),
+    "frozen_window_3min": ([("FIGE_MS = 10 * 60 * 1000", "FIGE_MS = 3 * 60 * 1000")],
+                           ["scénario b", "seulement 3 min 00 s après son démarrage"]),
+    "run_timer_never_restarted": (
+        [("niveau >= niveau_debut + HAUSSE_MIN", "false"),
+         ("                    debut_ms = t;\n                    niveau_debut = niveau;\n                    etat = Etat::FILLING;",
+          "                    if (debut_ms == 0) {\n                        debut_ms = t;\n                    }\n"
+          "                    niveau_debut = niveau;\n                    etat = Etat::FILLING;")],
+        ["scénario a", "fausse alarme", "repartir de zéro"]),
+    # alarme et état sûr
+    "alarm_without_cut": ([("    pompe(false);\n    etat = Etat::ALARM;", "    etat = Etat::ALARM;"), (LOCKED, "(void)0;  // verrouillé")],
+                          ["scénario b", "la pompe tourne encore à 30 min 00 s"]),
+    "cut_without_alarm_log": ([('ESP_LOGE(TAG, "ALARME', 'ESP_LOGI(TAG, "ALARME')], ["scénario b", "aucune alarme", "ESP_LOGE de tag « pool »"]),
+    "alarm_wrong_tag": ([('ESP_LOGE(TAG, "ALARME', 'ESP_LOGE("piscine", "ALARME')], ["scénario b", "aucune alarme"]),
+    "alarm_logged_every_cycle": ([(LOCKED, LOCKED + '\n            ESP_LOGE(TAG, "toujours en alarme");')],
+                                 ["scénario b", "lignes d'alarme", "au lieu d'une"]),
+    "alarm_not_latched": ([(LOCKED, LOCKED + "\n            if (brut >= 0 && brut != dernier_brut) {\n                etat = Etat::IDLE;\n"
+                           "                dernier_brut = brut;\n                brut_change_ms = t;\n            }")],
+                          ["scénario b", "rallumée", "verrouillée"]),
+    "relay_on_at_startup": ([(SAFE_START, "pompe(true);")], ["scénario a", "premier gpio_set_level", "met la pompe en marche (niveau 1) à 0 ms"]),
+    "no_safe_state_at_startup": ([("    " + SAFE_START + "\n", "")], ["scénario a", "premier gpio_set_level", "met la pompe en marche (niveau 1)"]),
+    "relay_active_low": ([("allumee ? 1 : 0", "allumee ? 0 : 1")], ["scénario a", "premier gpio_set_level", "met la pompe en marche"]),
+    "relay_not_configured": ([("    ESP_ERROR_CHECK(gpio_config(&pompe_cfg));\n", "")], ["scénario a", "pas configurée en sortie"]),
+    # lecture
+    "wrong_channel": ([("ADC_CHANNEL_6;", "ADC_CHANNEL_3;")], ["scénario a", "canal 3"]),
+    "sampling_every_20s": ([("PERIODE_MS = 5000;", "PERIODE_MS = 20000;")], ["scénario a", "sans lire le capteur", "toutes les 10 s"]),
+}
+
+# Variantes légitimes qui doivent passer.
+ES6_VARIANTS = {
+    "period_10s": [("PERIODE_MS = 5000;", "PERIODE_MS = 10000;")],
+    "period_1s": [("PERIODE_MS = 5000;", "PERIODE_MS = 1000;")],
+    "max_run_time_without_rise_reset": [("niveau >= niveau_debut + HAUSSE_MIN", "false")],
+    "stop_inclusive": [("niveau > SEUIL_HAUT) {  // FILLING", "niveau >= SEUIL_HAUT) {  // FILLING")],
+    "start_inclusive": [("if (niveau < SEUIL_BAS) {", "if (niveau <= SEUIL_BAS) {")],
+    "rounded_percent": [("(raw - RAW_0_PCT) * 100 / (RAW_100_PCT - RAW_0_PCT);",
+                         "((raw - RAW_0_PCT) * 100 + (RAW_100_PCT - RAW_0_PCT) / 2) / (RAW_100_PCT - RAW_0_PCT);")],
+    "alarm_message_reworded": [("ESP_LOGE(TAG, \"ALARME : %s, pompe coupée jusqu'au redémarrage\", raison);",
+                                "ESP_LOGE(TAG, \"alarme %s\", raison);")],
+}
+
+
+@pytest.mark.parametrize("edits", ES6_VARIANTS.values(), ids=ES6_VARIANTS.keys())
+def test_es6_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es6_run(tmp_path, _es6_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+@pytest.mark.parametrize("edits,expected", ES6_MUTANTS.values(), ids=ES6_MUTANTS.keys())
+def test_es6_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es6_run(tmp_path, _es6_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+def test_es6_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES6.parent / "es6.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es6-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles
