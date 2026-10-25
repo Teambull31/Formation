@@ -539,3 +539,63 @@ def test_internal_error_cause_has_no_absolute_path(drv, monkeypatch, capsys):
     monkeypatch.setattr(drv.build, "build_sim", boom)
     code, out = verdict(drv, capsys)
     assert internal(code, out) and "/home" not in out and "libespsim.a" in out, out
+
+
+# ---- TP es1 (LED et journaux) : solution livrée + variantes fautives ----
+
+ES1 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp1" / "lessons" / "es1.tp"
+
+
+def _es1_reference() -> str:
+    text = (ES1 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _mutant(old: str, new: str) -> str:
+    ref = _es1_reference()
+    assert old in ref, old
+    return ref.replace(old, new)
+
+
+def _es1_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es1-tp")
+
+
+def test_es1_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es1_run(tmp_path, _es1_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es1_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es1_run(tmp_path, (ES1 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "GPIO 2 jamais configurée en sortie" in out and "relire" in out, out
+
+
+# nom -> (fragment remplacé, remplacement, fragment de message attendu)
+ES1_MUTANTS = {
+    "no_direction": ("    ESP_ERROR_CHECK(gpio_config(&io));\n", "", "GPIO 2 jamais configurée en sortie"),
+    "period_1000": ("vTaskDelay(pdMS_TO_TICKS(500))", "vTaskDelay(pdMS_TO_TICKS(1000))", "période observée de 1000 ms"),
+    "loge_instead_of_logi": ("ESP_LOGI(", "ESP_LOGE(", "ESP_LOGE"),
+    "busy_loop": ("        vTaskDelay(pdMS_TO_TICKS(500));\n", "", "vTaskDelay"),
+    "wrong_pin": ("GPIO_NUM_2", "GPIO_NUM_4", "GPIO 2 jamais configurée en sortie"),
+    "level_never_changes": ("level = !level;", "level = 1;", "n'a jamais changé après le premier"),
+    "no_log": ('        ESP_LOGI(TAG, "LED %s", level ? "allumée" : "éteinte");\n', "", "aucun journal"),
+    "starts_low": ("int level = 0;", "int level = 1;", "premier niveau écrit sur GPIO 2 est 0"),
+    "wrong_tag": ('TAG = "blink"', 'TAG = "led"', "au lieu de « blink »"),
+    "level_on_wrong_pin_only": ("gpio_set_level(GPIO_NUM_2", "gpio_set_level(GPIO_NUM_4", "aucune écriture sur GPIO 2"),
+}
+
+
+@pytest.mark.parametrize("old,new,expected", ES1_MUTANTS.values(), ids=ES1_MUTANTS.keys())
+def test_es1_tp_mutant(tmp_path, bwrap_ok, old, new, expected):
+    code, out = _es1_run(tmp_path, _mutant(old, new))
+    assert failed(code, out) and expected in out and "relire" in out, out
+
+
+def test_es1_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES1.parent / "es1.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es1-tp.py").read_text(encoding="utf-8")))
+    assert cited and cited <= titles, cited - titles

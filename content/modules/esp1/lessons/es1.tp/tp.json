@@ -1,0 +1,17 @@
+{
+  "id": "es1-tp",
+  "title": "TP 1 : faire clignoter la LED",
+  "instructions_md": "**main.cpp** est un squelette : le programme doit faire clignoter la LED branchée sur le **GPIO 2**, 500 ms allumée puis 500 ms éteinte, et écrire un journal à chaque changement. Suivez les étapes dans l'ordre, chacune est marquée `TODO étape N` dans le fichier :\n\n1. **Configurer la broche.** Remplissez un `gpio_config_t` (`pin_bit_mask` = `1ULL << GPIO_NUM_2`, `mode` = `GPIO_MODE_OUTPUT`) puis appelez `gpio_config`, dans `ESP_ERROR_CHECK`.\n2. **Écrire la boucle.** Une variable `int level = 0` avant une boucle `for (;;)`. À chaque tour, `level = !level` : le premier niveau écrit vaut donc 1 (LED allumée).\n3. **Agir et journaliser.** Dans la boucle, `gpio_set_level(GPIO_NUM_2, level)` puis `ESP_LOGI(TAG, ...)` avec le tag `blink` (déjà défini dans `TAG`) : un journal par changement.\n4. **Attendre sans bloquer.** Terminez chaque tour par `vTaskDelay(pdMS_TO_TICKS(500))`.\n\nLe contrôle compile votre code contre un faux ESP-IDF et simule **10 secondes** : GPIO 2 configurée en sortie, premier niveau haut, un changement toutes les 500 ms (à 10 ms près), au moins 10 changements, un `ESP_LOGI` de tag `blink` pour chacun. Ses messages disent ce qu'il a observé et quelle section de la leçon relire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Relisez les sections de la leçon dans l'ordre des étapes : configurer, écrire le niveau, journaliser, attendre. Le message du contrôle nomme celle à relire.",
+    "Squelette de la boucle : `int level = 0; for (;;) { level = !level; gpio_set_level(GPIO_NUM_2, level); ESP_LOGI(TAG, \"LED %s\", level ? \"allumée\" : \"éteinte\"); vTaskDelay(pdMS_TO_TICKS(500)); }`, après la configuration de la broche.",
+    "Configuration : `gpio_config_t io = {}; io.pin_bit_mask = 1ULL << GPIO_NUM_2; io.mode = GPIO_MODE_OUTPUT; ESP_ERROR_CHECK(gpio_config(&io));`. Sans `vTaskDelay` dans la boucle, le contrôle signale une tâche qui ne rend jamais la main."
+  ],
+  "local_only": true,
+  "timeout_s": 60,
+  "workspace": "es1",
+  "seed": [
+    "seed/main.cpp"
+  ]
+}

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es1-q1",
+  "text": "Quelle fonction le système ESP-IDF appelle-t-il au démarrage de votre programme ?",
+  "options": [
+    "main, comme dans tout programme C++",
+    "extern \"C\" void app_main(void)",
+    "setup, puis loop",
+    "start_esp32"
+  ],
+  "answer": 1,
+  "explain": "ESP-IDF démarre le système, puis appelle votre fonction app_main, déclarée en extern \"C\" pour que son nom ne soit pas modifié par le compilateur C++. setup et loop sont des noms d'Arduino, pas d'ESP-IDF.",
+  "remedial_lesson_id": "es1"
+ },
+ {
+  "id": "es1-q2",
+  "text": "Que signifie ESP_LOGI(TAG, \"valeur %d\", 42) ?",
+  "options": [
+    "Écrire un journal d'information d'étiquette TAG, avec le texte « valeur 42 »",
+    "Afficher « valeur 42 » sur un écran branché à la carte",
+    "Écrire une erreur d'étiquette TAG",
+    "Envoyer 42 sur la broche TAG"
+  ],
+  "answer": 0,
+  "explain": "Le premier argument est le tag (l'étiquette qui dit d'où vient le message), le deuxième est un format à la printf rempli par les arguments suivants. LOGI est le niveau information ; une erreur s'écrit avec ESP_LOGE.",
+  "remedial_lesson_id": "es1"
+ },
+ {
+  "id": "es1-q3",
+  "text": "Que fait gpio_set_level(GPIO_NUM_2, 1) sur une broche configurée en sortie ?",
+  "options": [
+    "Elle lit le niveau de la broche 2",
+    "Elle configure la broche 2 en entrée",
+    "Elle met la broche 2 au niveau haut (3,3 V) : la LED s'allume",
+    "Elle attend 1 seconde sur la broche 2"
+  ],
+  "answer": 2,
+  "explain": "gpio_set_level impose le niveau d'une sortie : 1 pour le niveau haut, 0 pour le niveau bas. Pour lire une entrée, on utilise gpio_get_level ; la direction se règle avec gpio_config.",
+  "remedial_lesson_id": "es1"
+ },
+ {
+  "id": "es1-q4",
+  "text": "Pourquoi attendre avec vTaskDelay plutôt qu'avec une boucle vide qui compte jusqu'à un grand nombre ?",
+  "options": [
+    "Parce que la boucle vide est interdite par le compilateur",
+    "Parce que vTaskDelay rend la main aux autres tâches, alors que la boucle vide monopolise le processeur et déclenche le watchdog",
+    "Parce que vTaskDelay est plus précis au millionième de seconde",
+    "Parce que la boucle vide efface les journaux"
+  ],
+  "answer": 1,
+  "explain": "Pendant un vTaskDelay, FreeRTOS exécute les autres tâches ou met le processeur au repos. Une boucle d'attente garde le processeur et, si elle dure trop, le watchdog redémarre la carte. Le compilateur accepte les deux.",
+  "remedial_lesson_id": "es1"
+ },
+ {
+  "id": "es1-q5",
+  "text": "Quelle durée représente vTaskDelay(pdMS_TO_TICKS(500)) ?",
+  "options": [
+    "500 ticks, quelle que soit la configuration",
+    "500 secondes",
+    "500 millisecondes : la macro convertit les millisecondes en ticks",
+    "Aucune attente : la macro n'a d'effet qu'avec des secondes"
+  ],
+  "answer": 2,
+  "explain": "vTaskDelay compte en ticks et pdMS_TO_TICKS convertit des millisecondes en ticks. Sans la macro, vTaskDelay(500) attendrait 500 ticks, soit 5 secondes avec un tick de 10 ms.",
+  "remedial_lesson_id": "es1"
+ }
+]
