@@ -103,7 +103,7 @@ bool i2c_load_scenario(const Json &scenario, std::string &err) {
                 long long at = 0;
                 const Json *jt = e.type == Json::Object ? e.get("t_ms") : nullptr;
                 const Json *jb = e.type == Json::Object ? e.get("bytes") : nullptr;
-                if (!jt || !jt->as_int(0, INT64_MAX >> 11, at) || !jb || jb->type != Json::Array) {
+                if (!jt || !jt->as_int(0, INT64_MAX >> 12, at) || !jb || jb->type != Json::Array) {
                     err = "i2c : chaque pas de \"series\" attend {\"t_ms\": entier >= 0, \"bytes\": tableau}";
                     return false;
                 }

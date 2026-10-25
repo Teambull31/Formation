@@ -62,7 +62,7 @@ bool gpio_load_scenario(const Json &scenario, std::string &err) {
         const Json *jt = e.type == Json::Object ? e.get("t_ms") : nullptr;
         const Json *jp = e.type == Json::Object ? e.get("pin") : nullptr;
         const Json *jl = e.type == Json::Object ? e.get("level") : nullptr;
-        if (!jt || !jt->as_int(0, INT64_MAX >> 11, t)) { err = "gpio_in : \"t_ms\" entier >= 0 attendu"; return false; }
+        if (!jt || !jt->as_int(0, INT64_MAX >> 12, t)) { err = "gpio_in : \"t_ms\" entier >= 0 attendu"; return false; }
         if (!jp || !jp->as_int(0, kPins - 1, pin)) { err = "gpio_in : \"pin\" entier entre 0 et 39 attendu"; return false; }
         if (!jl || !jl->as_int(0, 1, level)) { err = "gpio_in : \"level\" doit valoir 0 ou 1"; return false; }
         script[pin].push_back({t, static_cast<int>(level)});

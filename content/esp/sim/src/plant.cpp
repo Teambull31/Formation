@@ -80,7 +80,7 @@ bool parse_windows(const Json *list, const char *where, std::vector<Window> &out
         long long from = 0, to = 0;
         const Json *jf = e.type == Json::Object ? e.get("from_ms") : nullptr;
         const Json *jt = e.type == Json::Object ? e.get("to_ms") : nullptr;
-        if (!jf || !jf->as_int(0, INT64_MAX >> 11, from) || !jt || !jt->as_int(from, INT64_MAX >> 11, to)) {
+        if (!jf || !jf->as_int(0, INT64_MAX >> 12, from) || !jt || !jt->as_int(from, INT64_MAX >> 12, to)) {
             err = std::string(where) + " : {\"from_ms\", \"to_ms\"} entiers avec 0 <= from_ms <= to_ms attendus";
             return false;
         }

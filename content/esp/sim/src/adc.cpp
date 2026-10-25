@@ -53,7 +53,7 @@ bool adc_load_scenario(const Json &scenario, std::string &err) {
         const Json *jt = e.type == Json::Object ? e.get("t_ms") : nullptr;
         const Json *jc = e.type == Json::Object ? e.get("channel") : nullptr;
         const Json *jr = e.type == Json::Object ? e.get("raw") : nullptr;
-        if (!jt || !jt->as_int(0, INT64_MAX >> 11, t)) { err = "adc : \"t_ms\" entier >= 0 attendu"; return false; }
+        if (!jt || !jt->as_int(0, INT64_MAX >> 12, t)) { err = "adc : \"t_ms\" entier >= 0 attendu"; return false; }
         if (!jc || !jc->as_int(0, kChannels - 1, ch)) { err = "adc : \"channel\" entier entre 0 et 9 attendu"; return false; }
         if (!jr || !jr->as_int(0, kMaxRaw, raw)) { err = "adc : \"raw\" entier entre 0 et 4095 attendu"; return false; }
         points[ch].push_back({t, raw});
