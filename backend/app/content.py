@@ -24,6 +24,7 @@ class Tp:
     timeout_s: int
     workspace: str
     seed: list[str] = field(default_factory=list)
+    local_only: bool = False  # compile/execute du code apprenant : refuse en exec distante
 
 
 @dataclass
@@ -108,13 +109,17 @@ def _tp(path: Path, errors: list[str], module: Path) -> Tp | None:
     if not isinstance(seed, list) or not all(isinstance(e, str) and e for e in seed):
         errors.append(f"{path}: seed doit être une liste de chemins")
         return None
+    local_only = d.get("local_only", False)
+    if not isinstance(local_only, bool):
+        errors.append(f"{path}: local_only doit être un booléen")
+        return None
     root = module.resolve()
     for e in seed:
         p = path.parent / e
         if PurePath(e).is_absolute() or p.is_symlink() or not p.exists() or not p.resolve().is_relative_to(root):
             errors.append(f"{path}: seed {e!r} invalide (doit exister dans le module, sans lien symbolique)")
             return None
-    return Tp(**{k: d[k] for k in keys}, seed=seed)
+    return Tp(**{k: d[k] for k in keys}, seed=seed, local_only=local_only)
 
 
 def _safe_id(v) -> bool:

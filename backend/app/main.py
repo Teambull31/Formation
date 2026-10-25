@@ -24,7 +24,7 @@ from app import portfolio, push
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
 from app.review import INTERVALS, box_counts, due_reviews, record_answer
-from app.terminal import exec_ok, register_terminal
+from app.terminal import exec_ok, register_terminal, strictly_local
 from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
 
@@ -89,6 +89,12 @@ def local_only(request: Request) -> None:
         raise HTTPException(403, "Réservé à la machine locale")
 
 
+def require_strictly_local(request: Request) -> None:
+    # TP/boss `local_only` : jamais d'exécution distante, même avec FORMATION_REMOTE_EXEC=1
+    if not strictly_local(request):
+        raise HTTPException(403, "Réservé à la machine locale")
+
+
 def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Path | None = None,
                password: str | None = None, remote_exec: bool = False, allowed_hosts=()) -> FastAPI:
     sec = make_security(password, remote_exec, allowed_hosts)
@@ -97,6 +103,9 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     pool = json.loads((content_dir / "gacha.json").read_text(encoding="utf-8"))
     boss_files = sorted(p for p in (content_dir / "boss").glob("*/boss.json"))
     bosses = {json.loads(f.read_text(encoding="utf-8"))["id"]: f.parent for f in boss_files}
+    for f in boss_files:
+        if not isinstance(json.loads(f.read_text(encoding="utf-8")).get("local_only", False), bool):
+            raise ValueError(f"{f}: local_only doit être un booléen")
     rng = random.Random()
     app = FastAPI()
     app.state.remote_hosts = sec.allowed_hosts
@@ -340,8 +349,10 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         return {"dir": tp.workspace}
 
     @app.post("/api/tp/{tp_id}/check", dependencies=[Depends(local_only)])
-    def tp_check(tp_id: str, db=Depends(get_db)):
+    def tp_check(request: Request, tp_id: str, db=Depends(get_db)):
         lesson_dir, _, tp = find_tp(tp_id)
+        if tp.local_only:
+            require_strictly_local(request)
         r = run_check(tp, workspace, lesson_dir)
         if r.passed:
             db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES (?, '1')", (f"tp_passed:{tp.id}",))
@@ -380,8 +391,10 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                            for b, d in bosses.items()]}
 
     @app.post("/api/boss/attempt", dependencies=[Depends(local_only)])
-    def boss_attempt(id: str | None = None, db=Depends(get_db)):
+    def boss_attempt(request: Request, id: str | None = None, db=Depends(get_db)):
         boss_dir, boss = pick_boss(id)
+        if boss.get("local_only", False):
+            require_strictly_local(request)
         r = attempt_boss(db, boss, workspace, boss_dir)
         return {**asdict(r), "attempts": count_attempts(db, boss["id"])}
 

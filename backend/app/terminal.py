@@ -61,6 +61,11 @@ def exec_ok(conn, remote_hosts=frozenset()) -> bool:
     return bool(remote_hosts) and _origin_ok(conn, remote_hosts)
 
 
+def strictly_local(conn) -> bool:
+    """Pair loopback ET Host/Origin locaux, sans jamais consulter remote_hosts (TP/boss `local_only`)."""
+    return is_local(conn.client.host if conn.client else None) and _origin_ok(conn)
+
+
 def _resize(fd: int, rows: int, cols: int) -> None:
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
