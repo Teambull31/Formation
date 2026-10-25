@@ -5,6 +5,7 @@ against the self-test TP checks/_selftest.py (LED on GPIO 2 lit at 500 ms). Test
 need bwrap: they skip when it is unusable, and fail instead with ESP_SANDBOX_REQUIRED=1.
 """
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -391,6 +392,53 @@ def test_many_malformed_lines_fail_clearly(drv, monkeypatch, capsys):
     fake_run(drv, monkeypatch, '{"t_ms": 0, "ev": "gpio_set", "pin": 2}\n' * 4 + END_OK)
     code, out = verdict(drv, capsys)
     assert failed(code, out) and "illisible" in out, out
+
+
+# ---- several scenarios per TP: SCENARIOS = {name: (scenario, max_ms)} and verify(traces, source) ----
+
+MULTI = ("SCENARIOS = {'a': ({'k': 1}, 1000), 'b': ({'k': 2}, 2000)}\n"
+         "def verify(traces, source):\n"
+         "    assert list(traces) == ['a', 'b'] and all(hasattr(t, 'events') for t in traces.values())\n"
+         "    n = [len(t.events('end')) for t in traces.values()]\n"
+         "    from esp_trace import need\n"
+         "    need(n == [1, 1], 'un journal de fin par scénario (relire : la section X)')\n")
+
+
+def multi_fake(drv, monkeypatch, outs: list[tuple[str, int]]):
+    """Canned run-phase results, one per call; returns the list of (scenario, --max-ms, wall_s) seen."""
+    seen, it = [], iter(outs)
+
+    def fake(argv, args, **kw):
+        seen.append((json.loads((kw["cwd"] / "scenario.json").read_text()), args[args.index("--max-ms") + 1], kw["wall_s"]))
+        out, rc = next(it)
+        return drv.sandbox.Result(rc=rc, out=out, err="", timed_out=False, signal=None, phase="run")
+
+    monkeypatch.setattr(drv.sandbox, "compile_and_run", fake)
+    return seen
+
+
+def test_several_scenarios_run_in_order_and_verify_gets_all_traces(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "multi", MULTI)
+    seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)])
+    code, out = verdict(drv, capsys, "multi")
+    assert code == 0 and out.startswith("OK"), out
+    assert [(s, m) for s, m, _ in seen] == [({"k": 1}, "1000"), ({"k": 2}, "2000")]
+    assert seen[1][2] <= seen[0][2] <= drv.WALL_S  # the wall budget is shared, never renewed
+
+
+def test_failed_run_names_its_scenario(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "multi", MULTI)
+    multi_fake(drv, monkeypatch, [(END_OK, 0), ('{"t_ms": 5, "ev": "end", "reason": "crash", "signal": 11}\n', 1)])
+    code, out = verdict(drv, capsys, "multi")
+    assert failed(code, out) and out.startswith("ECHEC : scénario « b » : ") and "SIGSEGV" in out, out
+
+
+def test_single_scenario_modules_are_unchanged(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "one", "SCENARIO = {}\nMAX_MS = 1000\n"
+                 "def verify(trace, source):\n    assert hasattr(trace, 'events')\n")
+    fake_run(drv, monkeypatch, END_OK)
+    code, out = verdict(drv, capsys, "one")
+    assert code == 0 and out.startswith("OK"), out
 
 
 def test_crash_without_signal_message(drv, monkeypatch, capsys):

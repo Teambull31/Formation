@@ -3,7 +3,8 @@
 
 Lancer avec `python3 -I -B esp_check.py <tp_id>` (le répertoire courant est le dossier du TP). La
 vérification propre au TP est dans checks/<tp_id>.py : SCENARIO (dict), MAX_MS (int),
-verify(trace, source). Les messages de verify (CheckError / need) doivent finir par leur propre
+verify(trace, source) ; ou, pour plusieurs exécutions du même programme, SCENARIOS = {nom: (scénario, max_ms)}
+et verify({nom: trace}, source) (le temps d'exécution WALL_S est partagé entre elles). Les messages de verify (CheckError / need) doivent finir par leur propre
 « (relire : <section>) » ; ceux du pilote reçoivent HINT. Seuls ce dossier (contenu de confiance) et la bibliothèque standard sont
 chargés, par chemin ; le répertoire de l'apprenant n'est jamais sur sys.path ni monté dans le
 sandbox : le texte analysé est copié dans un dossier privé et c'est cette copie qui est compilée.
@@ -19,6 +20,7 @@ import signal
 import stat
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ESP = Path(__file__).resolve().parent
@@ -370,16 +372,31 @@ def _with_detail(e: CheckError, err: str) -> CheckError:
     return e
 
 
-def run_program(source: str, check) -> tuple[Trace, str]:
+def run_program(source: str, check) -> tuple[Trace | dict[str, Trace], str]:
+    """One run of SCENARIO/MAX_MS, or one run per entry of SCENARIOS (name -> (scenario, max_ms)), in order.
+
+    The wall time WALL_S is shared by all runs. Returns the Trace, or {name: Trace} for SCENARIOS."""
+    runs = getattr(check, "SCENARIOS", None)
+    if runs is None:
+        return _run_once(source, check.SCENARIO, check.MAX_MS, WALL_S, "")
+    deadline = time.monotonic() + WALL_S
+    traces: dict[str, Trace] = {}
+    err = ""
+    for name, (scenario, max_ms) in runs.items():
+        traces[name], err = _run_once(source, scenario, max_ms, max(deadline - time.monotonic(), 1.0), f"scénario « {name} » : ")
+    return traces, err
+
+
+def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: str) -> tuple[Trace, str]:
     sim = build.build_sim()
     with tempfile.TemporaryDirectory(prefix="espcheck-") as d:
         work = Path(d)
         (work / SOURCE).write_bytes(source.encode("utf-8"))
-        (work / "scenario.json").write_text(json.dumps(check.SCENARIO), encoding="utf-8")
+        (work / "scenario.json").write_text(json.dumps(scenario), encoding="utf-8")
         try:
             r = sandbox.compile_and_run(["g++", *GXX_FLAGS, "-I", f"{sim}/include", SOURCE, f"{sim}/libespsim.a"],
-                                        ["--max-ms", str(check.MAX_MS), "--scenario", "scenario.json"],
-                                        cwd=work, ro=[sim], wall_s=WALL_S, max_out=MAX_OUT)
+                                        ["--max-ms", str(max_ms), "--scenario", "scenario.json"],
+                                        cwd=work, ro=[sim], wall_s=wall_s, max_out=MAX_OUT)
         except (sandbox.SandboxUnavailable, sandbox.UnsafePath) as e:
             raise _not_learner(f"{MSG_NO_SANDBOX} ({e})") from None
     if r.phase == "compile":
@@ -387,7 +404,11 @@ def run_program(source: str, check) -> tuple[Trace, str]:
         need("undefined reference to `app_main'" not in r.err, MSG_NO_APP_MAIN)
         need("multiple definition of `main'" not in r.err, MSG_DEFINES_MAIN)
         raise CheckError(MSG_COMPILE.format(summary=_summary(r.err)))
-    return interpret(r), r.err
+    try:
+        return interpret(r), r.err
+    except CheckError as e:
+        e.args = (label + str(e),)  # keeps hint/detail
+        raise
 
 
 def interpret(r) -> Trace:
