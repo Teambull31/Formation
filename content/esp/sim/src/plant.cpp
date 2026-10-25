@@ -121,6 +121,28 @@ void plant_sync() {
     if (tank.present) advance(now_ms());
 }
 
+// Handed to the next boot by a restart: the physical tank keeps its level (sync first), and the stuck
+// windows already opened keep the value they froze.
+void plant_save(std::ostream &out) {
+    if (!tank.present) return;
+    out << "plant " << tank.level << " " << tank.last_ms << " " << tank.captured;
+    for (size_t i = 0; i < tank.captured; ++i) out << " " << tank.held[i];
+    out << "\n";
+}
+
+void plant_restore(std::istream &in) {
+    if (!tank.present) return;
+    size_t captured = 0;
+    int64_t level = 0, last = 0;
+    if (!(in >> level >> last >> captured) || captured > tank.stuck.size()) return;
+    std::vector<int64_t> held(captured);
+    for (auto &h : held) if (!(in >> h)) return;
+    tank.level = level;
+    tank.last_ms = last;
+    tank.captured = captured;
+    tank.held = std::move(held);
+}
+
 bool plant_sample(int channel, int64_t &raw) {
     if (!tank.present || channel != tank.channel) return false;
     int64_t now = now_ms();

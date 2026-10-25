@@ -18,6 +18,7 @@ BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char *const pcName,
 void vTaskDelay(const TickType_t xTicksToDelay);
 void vTaskDelete(TaskHandle_t xTaskToDelete);
 TickType_t xTaskGetTickCount(void);
+TaskHandle_t xTaskGetCurrentTaskHandle(void);
 
 #ifdef __cplusplus
 }

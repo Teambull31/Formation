@@ -25,6 +25,14 @@ FIELDS = {
     "queue_receive": {"queue": int, "task": str, "ok": bool},
     "adc_read": {"channel": int, "raw": int},  # successful adc_oneshot_read; raw is the value returned
     "i2c_xfer": {"addr": int, "ok": bool},  # one transfer to a device; ok False = NACK/no device (ESP_ERR_TIMEOUT)
+    "nvs_set": {"ns": str, "key": str, "type": str},  # plus "value" (number or text) or "size" for a blob
+    "nvs_commit": {"ns": str},
+    "wifi": {"event": str},  # sta_start | sta_connected | sta_disconnected (plus "reason") | got_ip | sta_stop
+    "mqtt": {"event": str},  # before_connect | connected | disconnected | error | subscribed | unsubscribed | published | data
+    "mqtt_publish": {"topic": str, "payload": str, "retain": bool, "qos": int},  # plus "msg_id"
+    "mqtt_subscribe": {"topic": str, "qos": int},
+    "wdt_reset": {"tasks": str, "panic": bool},  # task watchdog expiry; "tasks" = the names that did not reset it
+    "reboot": {"reason": str},  # sw | task_wdt | scripted; the program starts again from app_main
     "end": {"reason": str},
 }
 

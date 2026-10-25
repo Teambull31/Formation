@@ -499,6 +499,16 @@ SKIPPED_MACROS = {
     "ESP_LOGD": "same as ESP_LOGE",
     "ESP_LOGV": "same as ESP_LOGE",
     "ESP_ERROR_CHECK": "real body also depends on NDEBUG and Kconfig options",
+    # Not only macros: declarations the sim deliberately shortens (see the comment at the top of the header).
+    "WIFI_INIT_CONFIG_DEFAULT": "real initialiser fills ~25 driver-tuning fields and Kconfig-dependent values",
+    "wifi_init_config_t": "real struct has the full driver-tuning field list; a learner only passes the macro through",
+    "wifi_sta_config_t": "real struct also has the he_*/vht_* bit-fields (HE/VHT tuning, none used by the course)",
+    "wifi_ap_config_t": "AP mode is not simulated: shortened field list",
+    "wifi_event_t": "enum prefix: values of the listed constants are the real ones, later events are not simulated",
+    "wifi_err_reason_t": "subset of the constants (real values); the 802.11 reason codes the sim never raises are left out",
+    "esp_mqtt_client_config_t": "no TLS, certificate, ds, ecdsa or tcp_keep_alive fields; the fields present keep the real names and order",
+    "esp_mqtt_event_t": "no MQTT 5 properties; the fields present keep the real names and order",
+    "esp_mqtt_client_subscribe": "real macro dispatches with _Generic between the single and multiple variants",
 }
 
 
@@ -845,3 +855,496 @@ def test_plant_synced_when_output_is_disabled(lib, tmp_path):
     trace = compile_and_run(src, 50000, lib, tmp_path, tank(level0=50))
     # 50 % - 5 (10 s of loss, 0.5 %/s, pin not yet an output) = 45 ; +20 s fill = 65 ; -2.5 (5 s of loss) = 62.5 -> raw 2500
     assert adc_reads(trace) == [2500]
+
+
+# ---------------------------------------- NVS, event loop, Wi-Fi, MQTT, watchdog, restarts (Task 15)
+
+SYS = HEADERS + '''#include "driver/gpio.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_system.h"
+#include "esp_timer.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "esp_wifi.h"
+#include "esp_task_wdt.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include "mqtt_client.h"
+#include <string.h>
+#include <stdio.h>
+'''
+
+
+def msgs(trace, tag):
+    return [e["msg"] for e in logs(trace) if e["tag"] == tag]
+
+
+def sim_run(src, max_ms, lib, tmp_path, scenario=None):
+    return compile_and_run(SYS + src, max_ms, lib, tmp_path, scenario)
+
+
+NVS_BOOT = """
+static int ram = 0;
+extern "C" void app_main(void) {
+    ram++;
+    ESP_ERROR_CHECK(nvs_flash_init());
+    nvs_handle_t h;
+    ESP_ERROR_CHECK(nvs_open("cfg", NVS_READWRITE, &h));
+    uint32_t boots = 0;
+    esp_err_t e = nvs_get_u32(h, "boots", &boots);
+    int32_t tmp = 0;
+    esp_err_t e2 = nvs_get_i32(h, "tmp", &tmp);
+    ESP_LOGI("boot", "boots=%u get=%s tmp=%s ram=%d reason=%d", (unsigned)boots, esp_err_to_name(e),
+             esp_err_to_name(e2), ram, (int)esp_reset_reason());
+    ESP_ERROR_CHECK(nvs_set_u32(h, "boots", boots + 1));
+    ESP_ERROR_CHECK(nvs_commit(h));
+    ESP_ERROR_CHECK(nvs_set_i32(h, "tmp", 7));  // never committed
+    nvs_close(h);
+    for (;;) vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+
+
+def test_nvs_persists_across_scripted_reboot(lib, tmp_path):
+    trace = sim_run(NVS_BOOT, 5000, lib, tmp_path, '{"reboots_at_ms": [2000]}')
+    # boot 2: committed value survives, uncommitted write and RAM (static) are lost, reason is power-on (1)
+    assert msgs(trace, "boot") == [
+        "boots=0 get=ESP_ERR_NVS_NOT_FOUND tmp=ESP_ERR_NVS_NOT_FOUND ram=1 reason=1",
+        "boots=1 get=ESP_OK tmp=ESP_ERR_NVS_NOT_FOUND ram=1 reason=1",
+    ]
+    reboots = [e for e in trace if e["ev"] == "reboot"]
+    assert [(e["t_ms"], e["reason"]) for e in reboots] == [(2000, "scripted")]
+    assert [e["name"] for e in trace if e["ev"] == "task_create"] == ["main", "main"]
+    sets = [e for e in trace if e["ev"] == "nvs_set"]
+    assert sets[0]["ns"] == "cfg" and sets[0]["key"] == "boots" and sets[0]["value"] == 1
+    assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "deadline"
+
+
+def test_esp_restart_gives_sw_reason_and_restarts_the_chip_clock(lib, tmp_path):
+    trace = sim_run("""
+extern "C" void app_main(void) {
+    ESP_LOGI("r", "reason=%d t=%d", (int)esp_reset_reason(), (int)(esp_timer_get_time() / 1000));
+    vTaskDelay(pdMS_TO_TICKS(500));
+    if (esp_reset_reason() == ESP_RST_POWERON) esp_restart();
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+""", 3000, lib, tmp_path)
+    assert msgs(trace, "r") == ["reason=1 t=0", "reason=3 t=0"]  # the chip clock restarts at 0
+    assert [(e["t_ms"], e["reason"]) for e in trace if e["ev"] == "reboot"] == [(500, "sw")]
+    assert [e["t_ms"] for e in logs(trace)] == [0, 500]  # the trace clock does not
+
+
+def test_same_scenario_same_trace_across_reboots(lib, tmp_path):
+    prog = compile_src(lib, SYS + NVS_BOOT, tmp_path)
+    sc = '{"reboots_at_ms": [1000, 1000, 3000]}'
+    assert run(prog, 6000, sc) == run(prog, 6000, sc)
+
+
+def test_hardware_state_is_reset_by_reboot(lib, tmp_path):
+    trace = sim_run("""
+extern "C" void app_main(void) {
+    ESP_LOGI("r", "before=%d", gpio_get_level(GPIO_NUM_5));
+    gpio_config_t io = {}; io.pin_bit_mask = 1ULL << 5; io.mode = GPIO_MODE_INPUT_OUTPUT;
+    ESP_ERROR_CHECK(gpio_config(&io));
+    gpio_set_level(GPIO_NUM_5, 1);
+    ESP_LOGI("r", "after=%d", gpio_get_level(GPIO_NUM_5));
+    vTaskDelay(pdMS_TO_TICKS(1000));
+}
+""", 3000, lib, tmp_path, '{"reboots_at_ms": [1500]}')
+    # the pin is back to its reset state (disabled, reads 0) after the power cycle
+    assert msgs(trace, "r") == ["before=0", "after=1", "before=0", "after=1"]
+
+
+def test_nvs_error_cases(lib, tmp_path):
+    trace = sim_run("""
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+extern "C" void app_main(void) {
+    nvs_handle_t h = 0;
+    R(nvs_open("cfg", NVS_READWRITE, &h));                 // before nvs_flash_init
+    ESP_ERROR_CHECK(nvs_flash_init());
+    R(nvs_flash_init());                                   // twice is fine
+    R(nvs_open("nope", NVS_READONLY, &h));                 // unknown namespace
+    R(nvs_open("a_namespace_too_long", NVS_READWRITE, &h));
+    R(nvs_open("", NVS_READWRITE, &h));
+    ESP_ERROR_CHECK(nvs_open("cfg", NVS_READWRITE, &h));
+    uint8_t u8 = 0; int32_t i32 = 0; char buf[4]; size_t len = sizeof buf;
+    R(nvs_get_i32(h, "missing", &i32));                    // unknown key
+    R(nvs_set_i32(h, "k", 5));
+    R(nvs_get_u8(h, "k", &u8));                            // wrong type
+    R(nvs_set_i32(h, "this_key_is_too_long", 1));
+    R(nvs_set_str(h, "s", "toolong"));
+    R(nvs_get_str(h, "s", buf, &len));                     // buffer too small
+    ESP_LOGI("r", "len=%d", (int)len);
+    R(nvs_get_str(h, "s", NULL, &len));
+    ESP_LOGI("r", "len=%d", (int)len);
+    R(nvs_commit(h));
+    nvs_close(h);
+    R(nvs_set_i32(h, "k", 6));                             // closed handle
+    ESP_ERROR_CHECK(nvs_open("cfg", NVS_READONLY, &h));
+    R(nvs_set_i32(h, "k", 6));                             // read-only handle
+    R(nvs_get_i32(h, "k", &i32));
+    ESP_LOGI("r", "k=%d", (int)i32);
+    nvs_close(h);
+    R(nvs_flash_erase());
+    R(nvs_open("cfg", NVS_READONLY, &h));                  // erased: must init again
+    ESP_ERROR_CHECK(nvs_flash_init());
+    R(nvs_open("cfg", NVS_READONLY, &h));
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == [
+        "ESP_ERR_NVS_NOT_INITIALIZED", "ESP_OK", "ESP_ERR_NVS_NOT_FOUND", "ESP_ERR_NVS_INVALID_NAME",
+        "ESP_ERR_NVS_INVALID_NAME", "ESP_ERR_NVS_NOT_FOUND", "ESP_OK", "ESP_ERR_NVS_TYPE_MISMATCH",
+        "ESP_ERR_NVS_KEY_TOO_LONG", "ESP_OK", "ESP_ERR_NVS_INVALID_LENGTH", "len=8", "ESP_OK", "len=8",
+        "ESP_OK", "ESP_ERR_NVS_INVALID_HANDLE", "ESP_ERR_NVS_READ_ONLY", "ESP_OK", "k=5",
+        "ESP_OK", "ESP_ERR_NVS_NOT_INITIALIZED", "ESP_ERR_NVS_NOT_FOUND",
+    ]
+
+
+WIFI_APP = """
+static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    gpio_set_level(GPIO_NUM_2, 1);  // traced with the name of the task running the handler
+    if (id == WIFI_EVENT_STA_START) { ESP_LOGI("w", "start"); esp_wifi_connect(); }
+    else if (id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t *d = (wifi_event_sta_disconnected_t *)data;
+        ESP_LOGI("w", "disconnected reason=%d", d->reason);
+        esp_wifi_connect();
+    } else if (id == WIFI_EVENT_STA_CONNECTED) ESP_LOGI("w", "connected");
+}
+static void on_ip(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    ip_event_got_ip_t *e = (ip_event_got_ip_t *)data;
+    ESP_LOGI("w", "ip " IPSTR, IP2STR(&e->ip_info.ip));
+}
+static void wifi_up(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &on_wifi, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_ip, NULL));
+    wifi_config_t wc = {};
+    strcpy((char *)wc.sta.ssid, "maison");
+    strcpy((char *)wc.sta.password, "secret123");
+    wc.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
+    ESP_ERROR_CHECK(esp_wifi_start());
+}
+"""
+WIFI_MAIN = 'extern "C" void app_main(void) { wifi_up(); for (;;) vTaskDelay(pdMS_TO_TICKS(1000)); }\n'
+
+
+def test_wifi_fails_n_attempts_then_connects(lib, tmp_path):
+    trace = sim_run(WIFI_APP + WIFI_MAIN, 20000, lib, tmp_path, '{"wifi": {"up_from_ms": 0, "fail_attempts": 2}}')
+    assert [e["event"] for e in trace if e["ev"] == "wifi"] == [
+        "sta_start", "sta_disconnected", "sta_disconnected", "sta_connected", "got_ip"]
+    assert msgs(trace, "w") == ["start", "disconnected reason=205", "disconnected reason=205", "connected", "ip 192.168.1.42"]
+    assert {e["task"] for e in trace if e["ev"] == "gpio_set"} == {"sys_evt"}  # handlers run in the event-loop task
+    times = [e["t_ms"] for e in trace if e["ev"] == "wifi"]
+    assert times == sorted(times) and times[0] == 0 and times[-1] < 10000
+    assert all(t % 10 == 0 for t in times)
+
+
+def test_wifi_waits_for_up_from_and_down_windows(lib, tmp_path):
+    sc = '{"wifi": {"up_from_ms": 5000, "down": [{"from_ms": 8000, "to_ms": 12000}]}}'
+    trace = sim_run(WIFI_APP + WIFI_MAIN, 30000, lib, tmp_path, sc)
+    w = [(e["t_ms"], e["event"]) for e in trace if e["ev"] == "wifi"]
+    first_ok = next(t for t, ev in w if ev == "got_ip")
+    assert first_ok >= 5000
+    # the link drops when the window opens, and the learner's reconnect only succeeds after it closes
+    drop = next(t for t, ev in w if ev == "sta_disconnected" and t >= first_ok)
+    assert 8000 <= drop < 8100
+    assert [t for t, ev in w if ev == "got_ip"][-1] >= 12000
+
+
+def test_wifi_and_event_errors_out_of_order(lib, tmp_path):
+    trace = sim_run("""
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+static void h(void *, esp_event_base_t, int32_t, void *) {}
+extern "C" void app_main(void) {
+    R(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &h, NULL));  // no default loop
+    R(esp_event_post(WIFI_EVENT, 1, NULL, 0, 0));
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    R(esp_event_loop_create_default());
+    R(esp_wifi_start());       // no esp_wifi_init
+    R(esp_wifi_connect());
+    R(esp_wifi_set_mode(WIFI_MODE_STA));
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    R(esp_wifi_connect());     // not started
+    wifi_config_t wc = {};
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    R(esp_wifi_set_config(WIFI_IF_STA, &wc));  // STA interface not enabled
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    R(esp_wifi_connect());     // empty SSID
+    R(esp_event_loop_delete_default());
+    R(esp_event_loop_delete_default());
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == [
+        "ESP_ERR_INVALID_STATE", "ESP_ERR_INVALID_STATE", "ESP_ERR_INVALID_STATE", "ESP_ERR_WIFI_NOT_INIT",
+        "ESP_ERR_WIFI_NOT_INIT", "ESP_ERR_WIFI_NOT_INIT", "ESP_ERR_WIFI_NOT_STARTED", "ESP_ERR_WIFI_MODE",
+        "ESP_ERR_WIFI_SSID", "ESP_OK", "ESP_ERR_INVALID_STATE"]
+
+
+def test_default_wifi_sta_needs_the_event_loop(lib, tmp_path):
+    prog = compile_src(lib, SYS + 'extern "C" void app_main(void) { esp_netif_init(); esp_netif_create_default_wifi_sta(); }\n', tmp_path)
+    trace = run(prog, 100)
+    assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "abort"
+
+
+MQTT_APP = """
+static esp_mqtt_client_handle_t client;
+static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    esp_mqtt_event_handle_t ev = (esp_mqtt_event_handle_t)data;
+    switch ((esp_mqtt_event_id_t)id) {
+    case MQTT_EVENT_CONNECTED:
+        ESP_LOGI("m", "connected");
+        esp_mqtt_client_subscribe(client, "home/devices/d1/command", 1);
+        esp_mqtt_client_publish(client, "home/devices/d1/status", "online", 0, 1, 1);
+        break;
+    case MQTT_EVENT_DISCONNECTED: ESP_LOGI("m", "disconnected"); break;
+    case MQTT_EVENT_ERROR: ESP_LOGI("m", "error type=%d", (int)ev->error_handle->error_type); break;
+    case MQTT_EVENT_DATA:
+        ESP_LOGI("m", "data %.*s=%.*s", ev->topic_len, ev->topic, ev->data_len, ev->data);
+        gpio_set_level(GPIO_NUM_2, 1);
+        break;
+    default: break;
+    }
+}
+static void mqtt_up(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtt://broker.local";
+    cfg.credentials.client_id = "d1";
+    client = esp_mqtt_client_init(&cfg);
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, on_mqtt, NULL));
+    ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+}
+static void telemetry_loop(void) {
+    for (int i = 0;; ++i) {
+        vTaskDelay(pdMS_TO_TICKS(5000));
+        char p[16]; snprintf(p, sizeof p, "{\\"n\\":%d}", i);
+        int id = esp_mqtt_client_publish(client, "home/devices/d1/telemetry", p, 0, 0, 0);
+        ESP_LOGI("m", "pub %d", id);
+    }
+}
+"""
+MQTT_MAIN = 'extern "C" void app_main(void) { mqtt_up(); telemetry_loop(); }\n'
+
+
+def test_mqtt_publish_traced_with_flags(lib, tmp_path):
+    trace = sim_run(MQTT_APP + MQTT_MAIN, 12000, lib, tmp_path)
+    pubs = [e for e in trace if e["ev"] == "mqtt_publish"]
+    assert pubs[0]["topic"] == "home/devices/d1/status" and pubs[0]["payload"] == "online"
+    assert pubs[0]["retain"] is True and pubs[0]["qos"] == 1
+    assert pubs[1]["topic"] == "home/devices/d1/telemetry" and pubs[1]["payload"] == '{"n":0}'
+    assert pubs[1]["retain"] is False and pubs[1]["qos"] == 0 and pubs[1]["t_ms"] == 5000
+    subs = [e for e in trace if e["ev"] == "mqtt_subscribe"]
+    assert [(e["topic"], e["qos"]) for e in subs] == [("home/devices/d1/command", 1)]
+    assert msgs(trace, "m")[:2] == ["connected", "pub 0"]  # qos 0 publish returns msg_id 0
+
+
+def test_mqtt_incoming_is_delivered_only_when_subscribed(lib, tmp_path):
+    sc = ('{"mqtt": {"incoming": [{"t_ms": 100, "topic": "home/devices/d1/command", "payload": "early"},'
+          '{"t_ms": 2000, "topic": "home/devices/d1/command", "payload": "{\\"on\\":true}"},'
+          '{"t_ms": 2500, "topic": "home/devices/other/command", "payload": "x"}]}}')
+    trace = sim_run(MQTT_APP + MQTT_MAIN, 4000, lib, tmp_path, sc)
+    assert [m for m in msgs(trace, "m") if m.startswith("data")] == ['data home/devices/d1/command={"on":true}']
+    assert [e["task"] for e in trace if e["ev"] == "gpio_set"] == ["mqtt_task"]
+
+
+def test_mqtt_reconnect_after_broker_outage(lib, tmp_path):
+    trace = sim_run(MQTT_APP + MQTT_MAIN, 60000, lib, tmp_path, '{"mqtt": {"broker_down": [{"from_ms": 3000, "to_ms": 25000}]}}')
+    m = [(e["t_ms"], e["event"]) for e in trace if e["ev"] == "mqtt"]
+    m = [(t, n) for t, n in m if n in ("before_connect", "connected", "disconnected", "error")]
+    names = [n for _, n in m]
+    assert names[:3] == ["before_connect", "connected", "disconnected"]
+    assert 3000 <= m[2][0] < 3100
+    # reconnect_timeout_ms defaults to 10 s: the attempts at 13 s and 23 s fail, the one at 33 s works
+    errors = [t for t, n in m if n == "error"]
+    assert len(errors) == 2 and 13000 <= errors[0] < 13500 and 23000 <= errors[1] < 23500
+    back = [t for t, n in m if n == "connected"][-1]
+    assert 33000 <= back < 33500
+    assert msgs(trace, "m").count("connected") == 2
+    # a clean session forgets subscriptions: the handler subscribed again, and publishes resumed
+    assert len([e for e in trace if e["ev"] == "mqtt_subscribe"]) == 2
+    assert any(e["topic"].endswith("telemetry") and e["t_ms"] > back for e in trace if e["ev"] == "mqtt_publish")
+    assert not any(e["topic"].endswith("telemetry") and 3000 <= e["t_ms"] < back for e in trace if e["ev"] == "mqtt_publish")
+    assert "pub -1" in msgs(trace, "m")  # qos 0 publish while disconnected fails
+
+
+def test_mqtt_waits_for_wifi_when_wifi_is_used(lib, tmp_path):
+    main = 'extern "C" void app_main(void) { wifi_up(); mqtt_up(); telemetry_loop(); }\n'
+    trace = sim_run(WIFI_APP + MQTT_APP + main, 30000, lib, tmp_path, '{"wifi": {"up_from_ms": 4000}}')
+    ev = [(e["t_ms"], e["event"]) for e in trace if e["ev"] == "mqtt"]
+    up = next(e["t_ms"] for e in trace if e["ev"] == "wifi" and e["event"] == "got_ip")
+    assert up >= 4000
+    assert [t for t, n in ev if n == "connected"][0] > up
+    assert "error" in [n for _, n in ev]  # the first attempts found no network
+
+
+def test_mqtt_api_errors(lib, tmp_path):
+    trace = sim_run("""
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    esp_mqtt_client_handle_t c = esp_mqtt_client_init(&cfg);
+    R(esp_mqtt_client_start(c));                 // no broker address
+    R(esp_mqtt_client_stop(c));                  // never started
+    cfg.broker.address.uri = "mqtt://x";
+    c = esp_mqtt_client_init(&cfg);
+    ESP_LOGI("r", "%d", esp_mqtt_client_publish(c, "t", "x", 0, 0, 0));   // not connected, qos 0
+    ESP_LOGI("r", "%d", esp_mqtt_client_publish(c, "t", "x", 0, 3, 0));   // bad qos
+    R(esp_mqtt_client_start(c));
+    R(esp_mqtt_client_start(c));                 // twice
+    R(esp_mqtt_client_stop(c));
+    R(esp_mqtt_client_destroy(c));
+    R(esp_mqtt_client_start(NULL));
+    ESP_LOGI("r", "%d", esp_mqtt_client_init(NULL) == NULL);
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == ["ESP_ERR_INVALID_ARG", "ESP_FAIL", "-1", "-1", "ESP_OK", "ESP_FAIL", "ESP_OK", "ESP_OK",
+                                "ESP_ERR_INVALID_ARG", "1"]
+
+
+WDT_APP = """
+extern "C" void app_main(void) {
+    esp_task_wdt_config_t cfg = {};
+    cfg.timeout_ms = 1000; cfg.idle_core_mask = 0; cfg.trigger_panic = %s;
+    ESP_LOGI("r", "init=%%s", esp_err_to_name(esp_task_wdt_init(&cfg)));   // already initialised at boot
+    ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));
+    ESP_LOGI("r", "reason=%%d", (int)esp_reset_reason());
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+    for (int i = 0; i < 3; ++i) { vTaskDelay(pdMS_TO_TICKS(400)); ESP_ERROR_CHECK(esp_task_wdt_reset()); }
+    vTaskDelay(pdMS_TO_TICKS(5000));              // stops feeding
+    ESP_LOGI("r", "alive");
+}
+"""
+
+
+def test_wdt_fires_when_task_not_fed(lib, tmp_path):
+    trace = sim_run(WDT_APP % "true", 8000, lib, tmp_path)
+    fired = [e for e in trace if e["ev"] == "wdt_reset"]
+    # the program restarts and starves the watchdog again: one expiry and one reboot per boot, 2.2 s apart
+    assert [e["t_ms"] for e in fired] == [2200, 4400, 6600]
+    assert fired[0]["tasks"] == "main" and fired[0]["panic"] is True
+    assert [(e["t_ms"], e["reason"]) for e in trace if e["ev"] == "reboot"] == [(t, "task_wdt") for t in (2200, 4400, 6600)]
+    assert msgs(trace, "r")[:4] == ["init=ESP_ERR_INVALID_STATE", "reason=1", "init=ESP_ERR_INVALID_STATE", "reason=6"]
+    assert "alive" not in msgs(trace, "r")
+    assert any(e["tag"] == "task_wdt" and "Task watchdog got triggered" in e["msg"] for e in logs(trace))
+
+
+def test_wdt_without_panic_only_warns_and_repeats(lib, tmp_path):
+    trace = sim_run(WDT_APP % "false", 8000, lib, tmp_path)
+    fired = [e for e in trace if e["ev"] == "wdt_reset"]
+    assert [e["t_ms"] for e in fired][:2] == [2200, 3200] and not fired[0]["panic"]
+    assert not [e for e in trace if e["ev"] == "reboot"]
+    assert "alive" in msgs(trace, "r")
+
+
+def test_wdt_fed_task_never_fires_and_api_errors(lib, tmp_path):
+    trace = sim_run("""
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+extern "C" void app_main(void) {
+    R(esp_task_wdt_reset());                    // not subscribed
+    R(esp_task_wdt_status(NULL));
+    R(esp_task_wdt_delete(NULL));
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+    R(esp_task_wdt_add(NULL));                  // twice
+    R(esp_task_wdt_status(NULL));
+    esp_task_wdt_config_t cfg = {};
+    cfg.timeout_ms = 1000;
+    R(esp_task_wdt_deinit());                   // a task is still subscribed
+    for (int i = 0; i < 20; ++i) { vTaskDelay(pdMS_TO_TICKS(900)); esp_task_wdt_reset(); }
+    ESP_ERROR_CHECK(esp_task_wdt_delete(NULL));
+    ESP_ERROR_CHECK(esp_task_wdt_deinit());
+    R(esp_task_wdt_reset());
+    R(esp_task_wdt_status(NULL));
+    R(esp_task_wdt_reconfigure(&cfg));
+    R(esp_task_wdt_init(&cfg));
+    vTaskDelay(pdMS_TO_TICKS(30000));
+}
+""", 60000, lib, tmp_path)
+    assert not [e for e in trace if e["ev"] in ("wdt_reset", "reboot")]
+    assert msgs(trace, "r") == [
+        "ESP_ERR_NOT_FOUND", "ESP_ERR_NOT_FOUND", "ESP_ERR_NOT_FOUND", "ESP_ERR_INVALID_ARG", "ESP_OK",
+        "ESP_ERR_INVALID_STATE", "ESP_ERR_INVALID_STATE", "ESP_ERR_INVALID_STATE", "ESP_ERR_INVALID_STATE", "ESP_OK"]
+
+
+def test_wdt_names_every_unfed_task(lib, tmp_path):
+    trace = sim_run("""
+static void lazy(void *) { esp_task_wdt_add(NULL); vTaskDelay(pdMS_TO_TICKS(100000)); }
+extern "C" void app_main(void) {
+    esp_task_wdt_config_t cfg = {}; cfg.timeout_ms = 1000; cfg.trigger_panic = false;
+    ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));
+    xTaskCreate(lazy, "lazy", 2048, NULL, 5, NULL);
+    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+    for (;;) { vTaskDelay(pdMS_TO_TICKS(300)); esp_task_wdt_reset(); }
+}
+""", 1500, lib, tmp_path)
+    fired = [e for e in trace if e["ev"] == "wdt_reset"]
+    assert len(fired) == 1 and fired[0]["tasks"] == "lazy"  # main fed, lazy never did
+
+
+@pytest.mark.parametrize("scenario", [
+    '{"wifi": 3}', '{"wifi": {"up_from_ms": -1}}', '{"wifi": {"fail_attempts": -2}}', '{"wifi": {"fail_attempts": 1.5}}',
+    '{"wifi": {"down": [{"from_ms": 5, "to_ms": 1}]}}', '{"wifi": {"down": 1}}',
+    '{"mqtt": []}', '{"mqtt": {"broker_down": [{"from_ms": 1}]}}', '{"mqtt": {"incoming": [{"t_ms": 1, "payload": "x"}]}}',
+    '{"mqtt": {"incoming": [{"t_ms": 1, "topic": "", "payload": "x"}]}}',
+    '{"mqtt": {"incoming": [{"t_ms": 1, "topic": "a", "payload": 3}]}}', '{"mqtt": {"incoming": {}}}',
+    '{"reboots_at_ms": 5}', '{"reboots_at_ms": [-1]}', '{"reboots_at_ms": ["a"]}', '{"reboots_at_ms": [2251799813685248]}',
+])
+def test_malformed_sys_scenario_fails_cleanly(lib, tmp_path, scenario):
+    prog = compile_src(lib, SYS + 'extern "C" void app_main(void) {}\n', tmp_path)
+    path = tmp_path / "bad.json"
+    path.write_text(scenario)
+    r = subprocess.run([str(prog), "--scenario", str(path)], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and r.stdout == "" and "scénario" in r.stderr
+
+
+def test_restart_loop_is_bounded_by_the_deadline(lib, tmp_path):
+    trace = sim_run('extern "C" void app_main(void) { vTaskDelay(pdMS_TO_TICKS(100)); esp_restart(); }\n', 1000, lib, tmp_path)
+    assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "deadline"
+    assert len([e for e in trace if e["ev"] == "reboot"]) == 10
+
+
+def test_plant_level_survives_reboot(lib, tmp_path):
+    # 1 %/s for 4 s with the relay on, a power cycle at 5 s (the relay drops), no loss: the level is kept
+    sc = tank(level0=0, loss=0).replace('{"plant"', '{"reboots_at_ms": [5000], "plant"')
+    prog = compile_src(lib, ADC + """
+extern "C" void app_main(void) {
+    adc_oneshot_unit_handle_t adc;
+    adc_oneshot_unit_init_cfg_t ucfg = {};
+    ucfg.unit_id = ADC_UNIT_1;
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&ucfg, &adc));
+    adc_oneshot_chan_cfg_t ccfg = {};
+    ccfg.atten = ADC_ATTEN_DB_12;
+    ccfg.bitwidth = ADC_BITWIDTH_DEFAULT;
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc, ADC_CHANNEL_0, &ccfg));
+    gpio_config_t io = {}; io.pin_bit_mask = 1ULL << 5; io.mode = GPIO_MODE_OUTPUT;
+    ESP_ERROR_CHECK(gpio_config(&io));
+    gpio_set_level(GPIO_NUM_5, 1);
+    vTaskDelay(pdMS_TO_TICKS(4000));
+    int raw = -1;
+    ESP_ERROR_CHECK(adc_oneshot_read(adc, ADC_CHANNEL_0, &raw));
+    ESP_LOGI("adc", "0 %d", raw);
+    vTaskDelay(pdMS_TO_TICKS(20000));
+}
+""", tmp_path)
+    trace = run(prog, 12000, sc)
+    # boot 1: relay on 0-5 s (read 160 at 4 s). The cycle at 5 s drops the relay and the level (5 %) is kept.
+    # Boot 2 drives the relay again for 4 s: 9 % -> 360
+    assert adc_reads(trace) == [160, 360]
+
+
+def test_new_fields_are_known_to_the_trace_reader():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("esp_trace", SIM.parent / "trace.py")
+    esp_trace = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(esp_trace)
+    good = esp_trace.Trace('{"t_ms": 1, "ev": "mqtt_publish", "topic": "a", "payload": "b", "retain": true, "qos": 1}\n'
+                           '{"t_ms": 2, "ev": "mqtt_publish", "topic": "a", "payload": "b", "retain": 1, "qos": 1}\n')
+    assert len(good.events("mqtt_publish")) == 1 and good.bad_lines == 1

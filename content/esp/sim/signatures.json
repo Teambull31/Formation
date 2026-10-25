@@ -579,5 +579,1076 @@
     "decl": "#define ESP_ERR_TIMEOUT 0x107",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/error-codes.html",
     "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "ESP_ERR_NO_MEM",
+    "decl": "#define ESP_ERR_NO_MEM 0x101",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/error-codes.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "ESP_ERR_INVALID_STATE",
+    "decl": "#define ESP_ERR_INVALID_STATE 0x103",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/error-codes.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "ESP_ERR_NOT_SUPPORTED",
+    "decl": "#define ESP_ERR_NOT_SUPPORTED 0x106",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/error-codes.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_loop_create_default",
+    "decl": "esp_err_t esp_event_loop_create_default(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_loop_delete_default",
+    "decl": "esp_err_t esp_event_loop_delete_default(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_handler_register",
+    "decl": "esp_err_t esp_event_handler_register(esp_event_base_t event_base, int32_t event_id, esp_event_handler_t event_handler, void *event_handler_arg);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_handler_instance_register",
+    "decl": "esp_err_t esp_event_handler_instance_register(esp_event_base_t event_base, int32_t event_id, esp_event_handler_t event_handler, void *event_handler_arg, esp_event_handler_instance_t *instance);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_handler_unregister",
+    "decl": "esp_err_t esp_event_handler_unregister(esp_event_base_t event_base, int32_t event_id, esp_event_handler_t event_handler);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_handler_instance_unregister",
+    "decl": "esp_err_t esp_event_handler_instance_unregister(esp_event_base_t event_base, int32_t event_id, esp_event_handler_instance_t instance);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event.h",
+    "name": "esp_event_post",
+    "decl": "esp_err_t esp_event_post(esp_event_base_t event_base, int32_t event_id, const void *event_data, size_t event_data_size, TickType_t ticks_to_wait);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "ESP_EVENT_DECLARE_BASE",
+    "decl": "#define ESP_EVENT_DECLARE_BASE(id) extern esp_event_base_t const id",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "ESP_EVENT_DEFINE_BASE",
+    "decl": "#define ESP_EVENT_DEFINE_BASE(id) esp_event_base_t const id = #id",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "ESP_EVENT_ANY_BASE",
+    "decl": "#define ESP_EVENT_ANY_BASE NULL",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "ESP_EVENT_ANY_ID",
+    "decl": "#define ESP_EVENT_ANY_ID -1",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "esp_event_base_t",
+    "decl": "typedef const char *esp_event_base_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "esp_event_loop_handle_t",
+    "decl": "typedef void *esp_event_loop_handle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "esp_event_handler_t",
+    "decl": "typedef void (*esp_event_handler_t)(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_event_base.h",
+    "name": "esp_event_handler_instance_t",
+    "decl": "typedef void *esp_event_handler_instance_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_event.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_interface.h",
+    "name": "esp_interface_t",
+    "decl": "typedef enum { ESP_IF_WIFI_STA = 0, ESP_IF_WIFI_AP, ESP_IF_WIFI_NAN, ESP_IF_ETH, ESP_IF_IEEE802154, ESP_IF_MAX } esp_interface_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif.h",
+    "name": "esp_netif_init",
+    "decl": "esp_err_t esp_netif_init(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr_get_byte",
+    "decl": "#define esp_ip4_addr_get_byte(ipaddr, idx) (((const uint8_t *)(&(ipaddr)->addr))[idx])",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr1",
+    "decl": "#define esp_ip4_addr1(ipaddr) esp_ip4_addr_get_byte(ipaddr, 0)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr2",
+    "decl": "#define esp_ip4_addr2(ipaddr) esp_ip4_addr_get_byte(ipaddr, 1)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr3",
+    "decl": "#define esp_ip4_addr3(ipaddr) esp_ip4_addr_get_byte(ipaddr, 2)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr4",
+    "decl": "#define esp_ip4_addr4(ipaddr) esp_ip4_addr_get_byte(ipaddr, 3)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr1_16",
+    "decl": "#define esp_ip4_addr1_16(ipaddr) ((uint16_t)esp_ip4_addr1(ipaddr))",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr2_16",
+    "decl": "#define esp_ip4_addr2_16(ipaddr) ((uint16_t)esp_ip4_addr2(ipaddr))",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr3_16",
+    "decl": "#define esp_ip4_addr3_16(ipaddr) ((uint16_t)esp_ip4_addr3(ipaddr))",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr4_16",
+    "decl": "#define esp_ip4_addr4_16(ipaddr) ((uint16_t)esp_ip4_addr4(ipaddr))",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "IP2STR",
+    "decl": "#define IP2STR(ipaddr) esp_ip4_addr1_16(ipaddr), esp_ip4_addr2_16(ipaddr), esp_ip4_addr3_16(ipaddr), esp_ip4_addr4_16(ipaddr)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "IPSTR",
+    "decl": "#define IPSTR \"%d.%d.%d.%d\"",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_ip_addr.h",
+    "name": "esp_ip4_addr_t",
+    "decl": "typedef struct { uint32_t addr; } esp_ip4_addr_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_types.h",
+    "name": "esp_netif_t",
+    "decl": "typedef struct esp_netif_obj esp_netif_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_types.h",
+    "name": "esp_netif_ip_info_t",
+    "decl": "typedef struct { esp_ip4_addr_t ip; esp_ip4_addr_t netmask; esp_ip4_addr_t gw; } esp_netif_ip_info_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_types.h",
+    "name": "ESP_EVENT_DECLARE_BASE",
+    "decl": "ESP_EVENT_DECLARE_BASE(IP_EVENT);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_types.h",
+    "name": "ip_event_t",
+    "decl": "typedef enum { IP_EVENT_STA_GOT_IP, IP_EVENT_STA_LOST_IP, IP_EVENT_AP_STAIPASSIGNED, IP_EVENT_GOT_IP6, IP_EVENT_ETH_GOT_IP, IP_EVENT_ETH_LOST_IP, IP_EVENT_PPP_GOT_IP, IP_EVENT_PPP_LOST_IP, } ip_event_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_netif_types.h",
+    "name": "ip_event_got_ip_t",
+    "decl": "typedef struct { esp_netif_t *esp_netif; esp_netif_ip_info_t ip_info; bool ip_changed; } ip_event_got_ip_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_system.h",
+    "name": "esp_reset_reason_t",
+    "decl": "typedef enum { ESP_RST_UNKNOWN, ESP_RST_POWERON, ESP_RST_EXT, ESP_RST_SW, ESP_RST_PANIC, ESP_RST_INT_WDT, ESP_RST_TASK_WDT, ESP_RST_WDT, ESP_RST_DEEPSLEEP, ESP_RST_BROWNOUT, ESP_RST_SDIO, ESP_RST_USB, ESP_RST_JTAG, ESP_RST_EFUSE, ESP_RST_PWR_GLITCH, ESP_RST_CPU_LOCKUP, } esp_reset_reason_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/misc_system_api.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_system.h",
+    "name": "esp_restart",
+    "decl": "void esp_restart(void) __attribute__((noreturn));",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/misc_system_api.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_system.h",
+    "name": "esp_reset_reason",
+    "decl": "esp_reset_reason_t esp_reset_reason(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/misc_system_api.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_config_t",
+    "decl": "typedef struct { uint32_t timeout_ms; uint32_t idle_core_mask; bool trigger_panic; } esp_task_wdt_config_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_init",
+    "decl": "esp_err_t esp_task_wdt_init(const esp_task_wdt_config_t *config);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_reconfigure",
+    "decl": "esp_err_t esp_task_wdt_reconfigure(const esp_task_wdt_config_t *config);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_deinit",
+    "decl": "esp_err_t esp_task_wdt_deinit(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_add",
+    "decl": "esp_err_t esp_task_wdt_add(TaskHandle_t task_handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_reset",
+    "decl": "esp_err_t esp_task_wdt_reset(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_delete",
+    "decl": "esp_err_t esp_task_wdt_delete(TaskHandle_t task_handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_task_wdt.h",
+    "name": "esp_task_wdt_status",
+    "decl": "esp_err_t esp_task_wdt_status(TaskHandle_t task_handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/wdts.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_BASE",
+    "decl": "#define ESP_ERR_WIFI_BASE 0x3000",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_NOT_INIT",
+    "decl": "#define ESP_ERR_WIFI_NOT_INIT (ESP_ERR_WIFI_BASE + 1)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_NOT_STARTED",
+    "decl": "#define ESP_ERR_WIFI_NOT_STARTED (ESP_ERR_WIFI_BASE + 2)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_NOT_STOPPED",
+    "decl": "#define ESP_ERR_WIFI_NOT_STOPPED (ESP_ERR_WIFI_BASE + 3)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_IF",
+    "decl": "#define ESP_ERR_WIFI_IF (ESP_ERR_WIFI_BASE + 4)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_MODE",
+    "decl": "#define ESP_ERR_WIFI_MODE (ESP_ERR_WIFI_BASE + 5)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_STATE",
+    "decl": "#define ESP_ERR_WIFI_STATE (ESP_ERR_WIFI_BASE + 6)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_CONN",
+    "decl": "#define ESP_ERR_WIFI_CONN (ESP_ERR_WIFI_BASE + 7)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_NVS",
+    "decl": "#define ESP_ERR_WIFI_NVS (ESP_ERR_WIFI_BASE + 8)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_MAC",
+    "decl": "#define ESP_ERR_WIFI_MAC (ESP_ERR_WIFI_BASE + 9)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_SSID",
+    "decl": "#define ESP_ERR_WIFI_SSID (ESP_ERR_WIFI_BASE + 10)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_PASSWORD",
+    "decl": "#define ESP_ERR_WIFI_PASSWORD (ESP_ERR_WIFI_BASE + 11)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_TIMEOUT",
+    "decl": "#define ESP_ERR_WIFI_TIMEOUT (ESP_ERR_WIFI_BASE + 12)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_WAKE_FAIL",
+    "decl": "#define ESP_ERR_WIFI_WAKE_FAIL (ESP_ERR_WIFI_BASE + 13)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_WOULD_BLOCK",
+    "decl": "#define ESP_ERR_WIFI_WOULD_BLOCK (ESP_ERR_WIFI_BASE + 14)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "ESP_ERR_WIFI_NOT_CONNECT",
+    "decl": "#define ESP_ERR_WIFI_NOT_CONNECT (ESP_ERR_WIFI_BASE + 15)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "WIFI_INIT_CONFIG_MAGIC",
+    "decl": "#define WIFI_INIT_CONFIG_MAGIC 0x1F2F3F4F",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_init",
+    "decl": "esp_err_t esp_wifi_init(const wifi_init_config_t *config);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_deinit",
+    "decl": "esp_err_t esp_wifi_deinit(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_set_mode",
+    "decl": "esp_err_t esp_wifi_set_mode(wifi_mode_t mode);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_start",
+    "decl": "esp_err_t esp_wifi_start(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_stop",
+    "decl": "esp_err_t esp_wifi_stop(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_connect",
+    "decl": "esp_err_t esp_wifi_connect(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_disconnect",
+    "decl": "esp_err_t esp_wifi_disconnect(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi.h",
+    "name": "esp_wifi_set_config",
+    "decl": "esp_err_t esp_wifi_set_config(wifi_interface_t interface, wifi_config_t *conf);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_default.h",
+    "name": "esp_netif_create_default_wifi_sta",
+    "decl": "esp_netif_t *esp_netif_create_default_wifi_sta(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_netif.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "SAE_H2E_IDENTIFIER_LEN",
+    "decl": "#define SAE_H2E_IDENTIFIER_LEN 32",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_mode_t",
+    "decl": "typedef enum { WIFI_MODE_NULL = 0, WIFI_MODE_STA, WIFI_MODE_AP, WIFI_MODE_APSTA, WIFI_MODE_NAN, WIFI_MODE_MAX } wifi_mode_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_interface_t",
+    "decl": "typedef enum { WIFI_IF_STA = 0, WIFI_IF_AP = 1, WIFI_IF_NAN = 2, WIFI_IF_MAX } wifi_interface_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_auth_mode_t",
+    "decl": "typedef enum { WIFI_AUTH_OPEN = 0, WIFI_AUTH_WEP, WIFI_AUTH_WPA_PSK, WIFI_AUTH_WPA2_PSK, WIFI_AUTH_WPA_WPA2_PSK, WIFI_AUTH_ENTERPRISE, WIFI_AUTH_WPA2_ENTERPRISE = WIFI_AUTH_ENTERPRISE, WIFI_AUTH_WPA3_PSK, WIFI_AUTH_WPA2_WPA3_PSK, WIFI_AUTH_WAPI_PSK, WIFI_AUTH_OWE, WIFI_AUTH_WPA3_ENT_192, WIFI_AUTH_WPA3_EXT_PSK, WIFI_AUTH_WPA3_EXT_PSK_MIXED_MODE, WIFI_AUTH_DPP, WIFI_AUTH_WPA3_ENTERPRISE, WIFI_AUTH_WPA2_WPA3_ENTERPRISE, WIFI_AUTH_WPA_ENTERPRISE, WIFI_AUTH_MAX } wifi_auth_mode_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_scan_method_t",
+    "decl": "typedef enum { WIFI_FAST_SCAN = 0, WIFI_ALL_CHANNEL_SCAN } wifi_scan_method_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_sort_method_t",
+    "decl": "typedef enum { WIFI_CONNECT_AP_BY_SIGNAL = 0, WIFI_CONNECT_AP_BY_SECURITY } wifi_sort_method_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_scan_threshold_t",
+    "decl": "typedef struct { int8_t rssi; wifi_auth_mode_t authmode; uint8_t rssi_5g_adjustment; } wifi_scan_threshold_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_pmf_config_t",
+    "decl": "typedef struct { bool capable; bool required; } wifi_pmf_config_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_sae_pwe_method_t",
+    "decl": "typedef enum { WPA3_SAE_PWE_UNSPECIFIED, WPA3_SAE_PWE_HUNT_AND_PECK, WPA3_SAE_PWE_HASH_TO_ELEMENT, WPA3_SAE_PWE_BOTH, } wifi_sae_pwe_method_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_sae_pk_mode_t",
+    "decl": "typedef enum { WPA3_SAE_PK_MODE_AUTOMATIC = 0, WPA3_SAE_PK_MODE_ONLY = 1, WPA3_SAE_PK_MODE_DISABLED = 2, } wifi_sae_pk_mode_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_config_t",
+    "decl": "typedef union { wifi_ap_config_t ap; wifi_sta_config_t sta; } wifi_config_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "ESP_EVENT_DECLARE_BASE",
+    "decl": "ESP_EVENT_DECLARE_BASE(WIFI_EVENT);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_event_sta_connected_t",
+    "decl": "typedef struct { uint8_t ssid[32]; uint8_t ssid_len; uint8_t bssid[6]; uint8_t channel; wifi_auth_mode_t authmode; uint16_t aid; } wifi_event_sta_connected_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_wifi_types.h",
+    "name": "wifi_event_sta_disconnected_t",
+    "decl": "typedef struct { uint8_t ssid[32]; uint8_t ssid_len; uint8_t bssid[6]; uint8_t reason; int8_t rssi; } wifi_event_sta_disconnected_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/network/esp_wifi.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "xTaskGetCurrentTaskHandle",
+    "decl": "TaskHandle_t xTaskGetCurrentTaskHandle(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "ESP_EVENT_DECLARE_BASE",
+    "decl": "ESP_EVENT_DECLARE_BASE(MQTT_EVENTS);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_handle_t",
+    "decl": "typedef struct esp_mqtt_client *esp_mqtt_client_handle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_event_id_t",
+    "decl": "typedef enum { MQTT_EVENT_ANY = -1, MQTT_EVENT_ERROR = 0, MQTT_EVENT_CONNECTED, MQTT_EVENT_DISCONNECTED, MQTT_EVENT_SUBSCRIBED, MQTT_EVENT_UNSUBSCRIBED, MQTT_EVENT_PUBLISHED, MQTT_EVENT_DATA, MQTT_EVENT_BEFORE_CONNECT, MQTT_EVENT_DELETED, MQTT_USER_EVENT, } esp_mqtt_event_id_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_transport_t",
+    "decl": "typedef enum { MQTT_TRANSPORT_UNKNOWN = 0x0, MQTT_TRANSPORT_OVER_TCP, MQTT_TRANSPORT_OVER_SSL, MQTT_TRANSPORT_OVER_WS, MQTT_TRANSPORT_OVER_WSS } esp_mqtt_transport_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_protocol_ver_t",
+    "decl": "typedef enum { MQTT_PROTOCOL_UNDEFINED = 0, MQTT_PROTOCOL_V_3_1, MQTT_PROTOCOL_V_3_1_1, MQTT_PROTOCOL_V_5, } esp_mqtt_protocol_ver_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_error_type_t",
+    "decl": "typedef enum { MQTT_ERROR_TYPE_NONE = 0, MQTT_ERROR_TYPE_TCP_TRANSPORT, MQTT_ERROR_TYPE_CONNECTION_REFUSED, MQTT_ERROR_TYPE_SUBSCRIBE_FAILED } esp_mqtt_error_type_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_connect_return_code_t",
+    "decl": "typedef enum { MQTT_CONNECTION_ACCEPTED = 0, MQTT_CONNECTION_REFUSE_PROTOCOL, MQTT_CONNECTION_REFUSE_ID_REJECTED, MQTT_CONNECTION_REFUSE_SERVER_UNAVAILABLE, MQTT_CONNECTION_REFUSE_BAD_USERNAME, MQTT_CONNECTION_REFUSE_NOT_AUTHORIZED } esp_mqtt_connect_return_code_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_error_codes_t",
+    "decl": "typedef struct esp_mqtt_error_codes { esp_err_t esp_tls_last_esp_err; int esp_tls_stack_err; int esp_tls_cert_verify_flags; esp_mqtt_error_type_t error_type; esp_mqtt_connect_return_code_t connect_return_code; int esp_transport_sock_errno; } esp_mqtt_error_codes_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_event_handle_t",
+    "decl": "typedef esp_mqtt_event_t *esp_mqtt_event_handle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_init",
+    "decl": "esp_mqtt_client_handle_t esp_mqtt_client_init(const esp_mqtt_client_config_t *config);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_start",
+    "decl": "esp_err_t esp_mqtt_client_start(esp_mqtt_client_handle_t client);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_stop",
+    "decl": "esp_err_t esp_mqtt_client_stop(esp_mqtt_client_handle_t client);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_destroy",
+    "decl": "esp_err_t esp_mqtt_client_destroy(esp_mqtt_client_handle_t client);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_register_event",
+    "decl": "esp_err_t esp_mqtt_client_register_event(esp_mqtt_client_handle_t client, esp_mqtt_event_id_t event, esp_event_handler_t event_handler, void *event_handler_arg);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_subscribe_single",
+    "decl": "int esp_mqtt_client_subscribe_single(esp_mqtt_client_handle_t client, const char *topic, int qos);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_unsubscribe",
+    "decl": "int esp_mqtt_client_unsubscribe(esp_mqtt_client_handle_t client, const char *topic);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_publish",
+    "decl": "int esp_mqtt_client_publish(esp_mqtt_client_handle_t client, const char *topic, const char *data, int len, int qos, int retain);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_BASE",
+    "decl": "#define ESP_ERR_NVS_BASE 0x1100",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_NOT_INITIALIZED",
+    "decl": "#define ESP_ERR_NVS_NOT_INITIALIZED (ESP_ERR_NVS_BASE + 0x01)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_NOT_FOUND",
+    "decl": "#define ESP_ERR_NVS_NOT_FOUND (ESP_ERR_NVS_BASE + 0x02)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_TYPE_MISMATCH",
+    "decl": "#define ESP_ERR_NVS_TYPE_MISMATCH (ESP_ERR_NVS_BASE + 0x03)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_READ_ONLY",
+    "decl": "#define ESP_ERR_NVS_READ_ONLY (ESP_ERR_NVS_BASE + 0x04)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_NOT_ENOUGH_SPACE",
+    "decl": "#define ESP_ERR_NVS_NOT_ENOUGH_SPACE (ESP_ERR_NVS_BASE + 0x05)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_INVALID_NAME",
+    "decl": "#define ESP_ERR_NVS_INVALID_NAME (ESP_ERR_NVS_BASE + 0x06)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_INVALID_HANDLE",
+    "decl": "#define ESP_ERR_NVS_INVALID_HANDLE (ESP_ERR_NVS_BASE + 0x07)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_REMOVE_FAILED",
+    "decl": "#define ESP_ERR_NVS_REMOVE_FAILED (ESP_ERR_NVS_BASE + 0x08)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_KEY_TOO_LONG",
+    "decl": "#define ESP_ERR_NVS_KEY_TOO_LONG (ESP_ERR_NVS_BASE + 0x09)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_PAGE_FULL",
+    "decl": "#define ESP_ERR_NVS_PAGE_FULL (ESP_ERR_NVS_BASE + 0x0a)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_INVALID_STATE",
+    "decl": "#define ESP_ERR_NVS_INVALID_STATE (ESP_ERR_NVS_BASE + 0x0b)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_INVALID_LENGTH",
+    "decl": "#define ESP_ERR_NVS_INVALID_LENGTH (ESP_ERR_NVS_BASE + 0x0c)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_NO_FREE_PAGES",
+    "decl": "#define ESP_ERR_NVS_NO_FREE_PAGES (ESP_ERR_NVS_BASE + 0x0d)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_VALUE_TOO_LONG",
+    "decl": "#define ESP_ERR_NVS_VALUE_TOO_LONG (ESP_ERR_NVS_BASE + 0x0e)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "ESP_ERR_NVS_PART_NOT_FOUND",
+    "decl": "#define ESP_ERR_NVS_PART_NOT_FOUND (ESP_ERR_NVS_BASE + 0x0f)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "NVS_DEFAULT_PART_NAME",
+    "decl": "#define NVS_DEFAULT_PART_NAME \"nvs\"",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_handle_t",
+    "decl": "typedef uint32_t nvs_handle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_open_mode_t",
+    "decl": "typedef enum { NVS_READONLY, NVS_READWRITE, } nvs_open_mode_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_open",
+    "decl": "esp_err_t nvs_open(const char *namespace_name, nvs_open_mode_t open_mode, nvs_handle_t *out_handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_i8",
+    "decl": "esp_err_t nvs_set_i8(nvs_handle_t handle, const char *key, int8_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_u8",
+    "decl": "esp_err_t nvs_set_u8(nvs_handle_t handle, const char *key, uint8_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_i16",
+    "decl": "esp_err_t nvs_set_i16(nvs_handle_t handle, const char *key, int16_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_u16",
+    "decl": "esp_err_t nvs_set_u16(nvs_handle_t handle, const char *key, uint16_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_i32",
+    "decl": "esp_err_t nvs_set_i32(nvs_handle_t handle, const char *key, int32_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_u32",
+    "decl": "esp_err_t nvs_set_u32(nvs_handle_t handle, const char *key, uint32_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_i64",
+    "decl": "esp_err_t nvs_set_i64(nvs_handle_t handle, const char *key, int64_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_u64",
+    "decl": "esp_err_t nvs_set_u64(nvs_handle_t handle, const char *key, uint64_t value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_str",
+    "decl": "esp_err_t nvs_set_str(nvs_handle_t handle, const char *key, const char *value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_set_blob",
+    "decl": "esp_err_t nvs_set_blob(nvs_handle_t handle, const char *key, const void *value, size_t length);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_i8",
+    "decl": "esp_err_t nvs_get_i8(nvs_handle_t handle, const char *key, int8_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_u8",
+    "decl": "esp_err_t nvs_get_u8(nvs_handle_t handle, const char *key, uint8_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_i16",
+    "decl": "esp_err_t nvs_get_i16(nvs_handle_t handle, const char *key, int16_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_u16",
+    "decl": "esp_err_t nvs_get_u16(nvs_handle_t handle, const char *key, uint16_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_i32",
+    "decl": "esp_err_t nvs_get_i32(nvs_handle_t handle, const char *key, int32_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_u32",
+    "decl": "esp_err_t nvs_get_u32(nvs_handle_t handle, const char *key, uint32_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_i64",
+    "decl": "esp_err_t nvs_get_i64(nvs_handle_t handle, const char *key, int64_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_u64",
+    "decl": "esp_err_t nvs_get_u64(nvs_handle_t handle, const char *key, uint64_t *out_value);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_str",
+    "decl": "esp_err_t nvs_get_str(nvs_handle_t handle, const char *key, char *out_value, size_t *length);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_get_blob",
+    "decl": "esp_err_t nvs_get_blob(nvs_handle_t handle, const char *key, void *out_value, size_t *length);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_erase_key",
+    "decl": "esp_err_t nvs_erase_key(nvs_handle_t handle, const char *key);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_erase_all",
+    "decl": "esp_err_t nvs_erase_all(nvs_handle_t handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_commit",
+    "decl": "esp_err_t nvs_commit(nvs_handle_t handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
+    "name": "nvs_close",
+    "decl": "void nvs_close(nvs_handle_t handle);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs_flash.h",
+    "name": "nvs_flash_init",
+    "decl": "esp_err_t nvs_flash_init(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs_flash.h",
+    "name": "nvs_flash_deinit",
+    "decl": "esp_err_t nvs_flash_deinit(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs_flash.h",
+    "name": "nvs_flash_erase",
+    "decl": "esp_err_t nvs_flash_erase(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
   }
 ]

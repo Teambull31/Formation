@@ -12,6 +12,8 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
+#include "nvs.h"
 #include "sim.h"
 
 extern "C" void app_main(void);
@@ -25,6 +27,39 @@ const char *esp_err_to_name(esp_err_t code) {
         case ESP_ERR_INVALID_ARG: return "ESP_ERR_INVALID_ARG";
         case ESP_ERR_NOT_FOUND: return "ESP_ERR_NOT_FOUND";
         case ESP_ERR_TIMEOUT: return "ESP_ERR_TIMEOUT";
+        case ESP_ERR_NO_MEM: return "ESP_ERR_NO_MEM";
+        case ESP_ERR_INVALID_STATE: return "ESP_ERR_INVALID_STATE";
+        case ESP_ERR_NOT_SUPPORTED: return "ESP_ERR_NOT_SUPPORTED";
+        case ESP_ERR_NVS_NOT_INITIALIZED: return "ESP_ERR_NVS_NOT_INITIALIZED";
+        case ESP_ERR_NVS_NOT_FOUND: return "ESP_ERR_NVS_NOT_FOUND";
+        case ESP_ERR_NVS_TYPE_MISMATCH: return "ESP_ERR_NVS_TYPE_MISMATCH";
+        case ESP_ERR_NVS_READ_ONLY: return "ESP_ERR_NVS_READ_ONLY";
+        case ESP_ERR_NVS_NOT_ENOUGH_SPACE: return "ESP_ERR_NVS_NOT_ENOUGH_SPACE";
+        case ESP_ERR_NVS_INVALID_NAME: return "ESP_ERR_NVS_INVALID_NAME";
+        case ESP_ERR_NVS_INVALID_HANDLE: return "ESP_ERR_NVS_INVALID_HANDLE";
+        case ESP_ERR_NVS_REMOVE_FAILED: return "ESP_ERR_NVS_REMOVE_FAILED";
+        case ESP_ERR_NVS_KEY_TOO_LONG: return "ESP_ERR_NVS_KEY_TOO_LONG";
+        case ESP_ERR_NVS_PAGE_FULL: return "ESP_ERR_NVS_PAGE_FULL";
+        case ESP_ERR_NVS_INVALID_STATE: return "ESP_ERR_NVS_INVALID_STATE";
+        case ESP_ERR_NVS_INVALID_LENGTH: return "ESP_ERR_NVS_INVALID_LENGTH";
+        case ESP_ERR_NVS_NO_FREE_PAGES: return "ESP_ERR_NVS_NO_FREE_PAGES";
+        case ESP_ERR_NVS_VALUE_TOO_LONG: return "ESP_ERR_NVS_VALUE_TOO_LONG";
+        case ESP_ERR_NVS_PART_NOT_FOUND: return "ESP_ERR_NVS_PART_NOT_FOUND";
+        case ESP_ERR_WIFI_NOT_INIT: return "ESP_ERR_WIFI_NOT_INIT";
+        case ESP_ERR_WIFI_NOT_STARTED: return "ESP_ERR_WIFI_NOT_STARTED";
+        case ESP_ERR_WIFI_NOT_STOPPED: return "ESP_ERR_WIFI_NOT_STOPPED";
+        case ESP_ERR_WIFI_IF: return "ESP_ERR_WIFI_IF";
+        case ESP_ERR_WIFI_MODE: return "ESP_ERR_WIFI_MODE";
+        case ESP_ERR_WIFI_STATE: return "ESP_ERR_WIFI_STATE";
+        case ESP_ERR_WIFI_CONN: return "ESP_ERR_WIFI_CONN";
+        case ESP_ERR_WIFI_NVS: return "ESP_ERR_WIFI_NVS";
+        case ESP_ERR_WIFI_MAC: return "ESP_ERR_WIFI_MAC";
+        case ESP_ERR_WIFI_SSID: return "ESP_ERR_WIFI_SSID";
+        case ESP_ERR_WIFI_PASSWORD: return "ESP_ERR_WIFI_PASSWORD";
+        case ESP_ERR_WIFI_TIMEOUT: return "ESP_ERR_WIFI_TIMEOUT";
+        case ESP_ERR_WIFI_WAKE_FAIL: return "ESP_ERR_WIFI_WAKE_FAIL";
+        case ESP_ERR_WIFI_WOULD_BLOCK: return "ESP_ERR_WIFI_WOULD_BLOCK";
+        case ESP_ERR_WIFI_NOT_CONNECT: return "ESP_ERR_WIFI_NOT_CONNECT";
         default: return "UNKNOWN ERROR";
     }
 }
@@ -56,7 +91,7 @@ void _esp_error_check_failed(esp_err_t rc, const char *file, int line, const cha
     sim::end("abort");
 }
 
-int64_t esp_timer_get_time(void) { return sim::now_ms() * 1000; }
+int64_t esp_timer_get_time(void) { return (sim::now_ms() - sim::boot_ms()) * 1000; }  // the chip's timer restarts at each boot
 
 // usStackDepth is in bytes on ESP-IDF (words on vanilla FreeRTOS); the sim only traces it, it never overflows.
 BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char *const pcName, const configSTACK_DEPTH_TYPE usStackDepth,
@@ -72,6 +107,8 @@ void vTaskDelete(TaskHandle_t xTaskToDelete) { sim::remove(xTaskToDelete); }
 
 TickType_t xTaskGetTickCount(void) { return sim::ticks(); }
 
+TaskHandle_t xTaskGetCurrentTaskHandle(void) { return sim::current_task(); }
+
 }  // extern "C"
 
 namespace {
@@ -86,7 +123,10 @@ void on_crash(int sig) {
     ::raise(sig);
 }
 
-void app_main_task(void *) { app_main(); }
+void app_main_task(void *) {
+    sim::boot_begin();
+    app_main();
+}
 
 // Each later task validates its own section of the scenario here.
 bool load_scenario(const char *path, std::string &err) {
@@ -97,12 +137,14 @@ bool load_scenario(const char *path, std::string &err) {
     if (!sim::json_parse(text, root, err)) return false;
     if (root.type != sim::Json::Object) { err = "un objet JSON est attendu à la racine"; return false; }
     return sim::gpio_load_scenario(root, err) && sim::adc_load_scenario(root, err) &&
-           sim::i2c_load_scenario(root, err) && sim::plant_load_scenario(root, err);
+           sim::i2c_load_scenario(root, err) && sim::plant_load_scenario(root, err) &&
+           sim::wifi_load_scenario(root, err) && sim::mqtt_load_scenario(root, err) && sim::boot_load_scenario(root, err);
 }
 
 }  // namespace
 
 int main(int argc, char **argv) {
+    sim::boot_args(argc, argv);
     int64_t max_ms = 60000;
     const char *scenario_path = nullptr;
     for (int i = 1; i < argc; ++i) {
@@ -127,11 +169,16 @@ int main(int argc, char **argv) {
             return 2;
         }
     }
-    sim::trace_fd = ::dup(STDOUT_FILENO);
-    if (sim::trace_fd < 0 || ::dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
-        std::perror("trace");
-        return 2;
+    // After a restart (boot.cpp) the previous boot already moved the trace to a private fd.
+    int64_t start_ms = sim::boot_restore();
+    if (start_ms < 0) {
+        start_ms = 0;
+        sim::trace_fd = ::dup(STDOUT_FILENO);
+        if (sim::trace_fd < 0 || ::dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
+            std::perror("trace");
+            return 2;
+        }
     }
     for (int sig : {SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT}) ::signal(sig, on_crash);
-    sim::start(app_main_task, max_ms);
+    sim::start(app_main_task, max_ms, start_ms);
 }

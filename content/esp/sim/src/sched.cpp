@@ -22,6 +22,7 @@ struct tskTaskControlBlock {
     uint64_t wake = 0;
     uint64_t seq = 0;
     bool alive = true;
+    bool hidden = false;               // simulator-internal task: not traced by task_create
     const void *waiting_on = nullptr;  // kernel object this task is blocked on, if any
     std::condition_variable cv;
 };
@@ -39,6 +40,7 @@ std::atomic<uint64_t> now{0};
 uint64_t next_seq = 0;
 Clock::time_point clock_moved_at;  // last real time the virtual clock advanced
 int64_t max_ms = 0;
+uint64_t boot_at = 0;  // tick of the current boot: the chip's tick and timer counters restart from here
 tskTaskControlBlock *main_task_tcb = nullptr;
 
 int64_t to_ms(uint64_t t) { return static_cast<int64_t>(t) * portTICK_PERIOD_MS; }
@@ -90,16 +92,17 @@ void entry(tskTaskControlBlock *self) {
 
 // stack < 0: the main task, whose stack comes from sdkconfig, not from xTaskCreate.
 tskTaskControlBlock *create_locked(TaskFunction_t fn, const char *name, void *arg, int64_t stack = -1,
-                                   UBaseType_t priority = 0) {
+                                   UBaseType_t priority = 0, bool hidden = false) {
     auto t = std::make_unique<tskTaskControlBlock>();
     t->name = name ? name : "";
     t->fn = fn;
     t->arg = arg;
     t->wake = now;
     t->seq = next_seq++;
+    t->hidden = hidden;
     tskTaskControlBlock *raw = t.get();
     tasks.push_back(std::move(t));
-    {
+    if (!hidden) {
         Event e(to_ms(now), "task_create");
         e.str("name", raw->name);
         if (stack >= 0) e.num("stack", stack).num("priority", priority);
@@ -110,9 +113,11 @@ tskTaskControlBlock *create_locked(TaskFunction_t fn, const char *name, void *ar
 
 }  // namespace
 
-void start(TaskFunction_t main_task, int64_t limit_ms) {
+void start(TaskFunction_t main_task, int64_t limit_ms, int64_t start_ms) {
     std::unique_lock<std::mutex> lk(m);
     max_ms = limit_ms;
+    boot_at = static_cast<uint64_t>(start_ms) / portTICK_PERIOD_MS;
+    now = boot_at;
     current = main_task_tcb = create_locked(main_task, "main", nullptr);
     clock_moved_at = Clock::now();
     current->cv.notify_one();
@@ -129,6 +134,13 @@ TaskHandle_t create(TaskFunction_t fn, const char *name, void *arg, uint32_t sta
     return create_locked(fn, name, arg, stack, priority);
 }
 
+TaskHandle_t create_hidden(TaskFunction_t fn, const char *name, void *arg) {
+    std::lock_guard<std::mutex> lk(m);
+    return create_locked(fn, name, arg, -1, 0, true);
+}
+
+TaskHandle_t current_task() { return current; }
+const std::string &name_of(TaskHandle_t task) { return task->name; }
 const std::string &current_name() { return current->name; }
 
 bool wait_for(const void *object, TickType_t ticks, const std::function<bool()> &ready) {
@@ -176,7 +188,9 @@ void remove(TaskHandle_t task) {
     park(lk, self);
 }
 
-TickType_t ticks() { return static_cast<TickType_t>(now); }  // wraps like the real counter
+TickType_t ticks() { return static_cast<TickType_t>(now - boot_at); }  // wraps like the real counter
+uint64_t ticks64() { return now; }
+int64_t boot_ms() { return to_ms(boot_at); }
 
 int64_t now_ms() { return to_ms(now); }
 

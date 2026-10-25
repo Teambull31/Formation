@@ -3,6 +3,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <istream>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -30,11 +32,18 @@ private:
 };
 
 // sched.cpp: baton-passing scheduler over real threads, with a virtual clock.
-[[noreturn]] void start(TaskFunction_t main_task, int64_t max_ms);
+[[noreturn]] void start(TaskFunction_t main_task, int64_t max_ms, int64_t start_ms);
 TaskHandle_t create(TaskFunction_t fn, const char *name, void *arg, uint32_t stack, UBaseType_t priority);
 void delay(TickType_t ticks);
 void remove(TaskHandle_t task);  // nullptr: the calling task; never returns then
-TickType_t ticks();
+TickType_t ticks();              // since the current boot, like xTaskGetTickCount
+uint64_t ticks64();              // since the start of the run, never restarts
+int64_t boot_ms();               // run time at which the current boot began
+// Simulator-internal tasks (event loop, MQTT client, timeline): they run like any task but task_create
+// does not trace them. They are stopped like the rest by a restart.
+TaskHandle_t create_hidden(TaskFunction_t fn, const char *name, void *arg);
+TaskHandle_t current_task();
+const std::string &name_of(TaskHandle_t task);
 int64_t now_ms();                // lock-free, safe from a signal handler
 [[noreturn]] void end(const char *reason);
 const std::string &current_name();
@@ -62,5 +71,40 @@ bool parse_windows(const Json *list, const char *where, std::vector<Window> &out
 // and before every pin change, so the relay level is constant between two integration points.
 void plant_sync();
 bool plant_sample(int channel, int64_t &raw);  // true when `channel` is the tank sensor; raw is 0..4095
+
+// timeline.cpp: actions at a virtual time. fn runs in the hidden task "sim_hw" (holding the baton, so it may
+// post events and wake tasks, but must not block) at the first tick >= t_ms (at once when already past).
+void at(int64_t t_ms, std::function<void()> fn);
+
+// Restarts (boot.cpp). A restart re-executes the simulator binary: the learner's program really starts again
+// (statics, heap, tasks and peripherals are fresh), and only what survives a reset on the chip is handed over
+// through a memfd: the run clock, the reset reason, the committed NVS, the tank, the Wi-Fi attempt counter.
+bool boot_load_scenario(const Json &scenario, std::string &err);  // "reboots_at_ms"
+void boot_args(int argc, char **argv);
+// Reads the state left by the previous boot (no-op on the first one). Sets the trace fd and returns the run time.
+int64_t boot_restore();
+void boot_begin();                                                // from the main task, before app_main
+[[noreturn]] void reboot(const char *why);                        // "sw", "task_wdt" or "scripted"
+
+// Handed-over state: one "<key> <values>" line per item.
+void plant_save(std::ostream &out);
+void plant_restore(std::istream &in);
+void nvs_save(std::ostream &out);
+void nvs_restore(const std::string &key, std::istream &in);
+void wifi_save(std::ostream &out);
+void wifi_restore(std::istream &in);
+
+// event.cpp, wifi.cpp, mqtt.cpp: scenario sections, boot hooks and cross-module queries.
+bool wifi_load_scenario(const Json &scenario, std::string &err);
+bool mqtt_load_scenario(const Json &scenario, std::string &err);
+void wifi_boot();
+void mqtt_boot();
+bool event_loop_ready();
+bool wifi_in_use();   // esp_wifi_init was called in this boot
+bool wifi_has_ip();
+void mqtt_network_lost();
+
+// A broker/AP outage or a reconnect timer never needs more precision than a tick.
+inline uint64_t tick_of(int64_t ms) { return static_cast<uint64_t>((ms + portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS); }
 
 }  // namespace sim
