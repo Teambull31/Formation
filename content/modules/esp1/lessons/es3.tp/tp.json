@@ -1,0 +1,17 @@
+{
+  "id": "es3-tp",
+  "title": "TP 3 : deux tâches et une file",
+  "instructions_md": "**main.cpp** contient déjà la configuration de la LED (**GPIO 2**) et du bouton (**GPIO 4**), et l'anti-rebond du TP 2 dans la fonction `tache_bouton`. Il reste à relier deux **tâches FreeRTOS** par une **file** : la tâche « bouton » poste un événement à chaque appui, la tâche « led » attend ces événements et inverse la LED. Suivez les étapes dans l'ordre, chacune est marquée `TODO étape N` dans le fichier :\n\n1. **Déclarer la file** en haut du fichier, partagée par les deux tâches : `static QueueHandle_t appuis;`.\n2. **Poster l'appui** dans `tache_bouton`, là où l'appui est accepté : `xQueueSend(appuis, &numero, 0)` ; s'il ne renvoie pas `pdTRUE` (file pleine), écrire un `ESP_LOGW`.\n3. **Attendre l'événement** dans `tache_led` : `if (xQueueReceive(appuis, &numero, portMAX_DELAY) == pdTRUE) { ... }`, et dans ce `if`, inverser `led_level`, appeler `gpio_set_level(GPIO_NUM_2, led_level)` puis `ESP_LOGI(TAG, ...)`. Pas de `vTaskDelay` dans cette boucle : c'est `xQueueReceive` qui fait dormir la tâche.\n4. **Créer la file** dans `app_main` : `appuis = xQueueCreate(8, sizeof(int));` et, si `appuis == NULL`, `ESP_LOGE` puis `return`.\n5. **Créer les deux tâches**, la LED d'abord, avec **4096 octets** de pile et la priorité 5 : `xTaskCreate(tache_led, \"led\", 4096, NULL, 5, NULL)` puis `xTaskCreate(tache_bouton, \"bouton\", 4096, NULL, 5, NULL)`, en vérifiant que chacune renvoie `pdPASS`. `app_main` peut ensuite se terminer.\n\nLe contrôle compile votre code contre un faux ESP-IDF et simule **5 secondes** avec les **3 appuis** du TP 2 (rebonds compris). Il vérifie : au moins **2 tâches** créées par `xTaskCreate`, chacune avec **au moins 2048 octets** de pile ; des événements réellement **envoyés et reçus** par une file, l'envoi venant d'une tâche créée et non de `app_main` ; aucune tâche qui tourne sans jamais rendre la main ; la LED qui change **exactement une fois par appui**, dans les **60 ms** après le premier front stable, et jamais sans appui. Ses messages disent ce qu'il a observé et quelle section de la leçon relire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Relisez les sections de la leçon dans l'ordre des étapes : tâches et xTaskCreate, files, producteur et consommateur. Le message du contrôle nomme celle à relire.",
+    "Une file se crée avant les tâches qui l'utilisent (dans app_main), la tâche « bouton » y écrit avec xQueueSend(appuis, &numero, 0), la tâche « led » y lit avec xQueueReceive(appuis, &numero, portMAX_DELAY) : ce délai portMAX_DELAY la fait dormir sans consommer de processeur jusqu'au prochain appui.",
+    "Dans `tache_led` : `if (xQueueReceive(appuis, &numero, portMAX_DELAY) == pdTRUE) { led_level = !led_level; gpio_set_level(GPIO_NUM_2, led_level); ESP_LOGI(TAG, \"appui %d reçu\", numero); }`. Dans `app_main` : `appuis = xQueueCreate(8, sizeof(int)); if (appuis == NULL) { ESP_LOGE(TAG, \"file non créée\"); return; } xTaskCreate(tache_led, \"led\", 4096, NULL, 5, NULL); xTaskCreate(tache_bouton, \"bouton\", 4096, NULL, 5, NULL);`."
+  ],
+  "local_only": true,
+  "timeout_s": 60,
+  "workspace": "es3",
+  "seed": [
+    "seed/main.cpp"
+  ]
+}

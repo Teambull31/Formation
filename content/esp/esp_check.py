@@ -60,7 +60,8 @@ MSG_FLOOD = (f"la trace dépasse {MAX_OUT} octets et a été tronquée : votre p
              "(un ESP_LOGI dans une boucle sans vTaskDelay ?)")
 MSG_BAD_TRACE = "la trace du simulateur est illisible ({n} lignes inattendues)"
 MSG_BUSY_LOOP = ("votre tâche « {task} » ne rend jamais la main : ajoutez un vTaskDelay(pdMS_TO_TICKS(...)) "
-                 "dans sa boucle pour laisser tourner les autres tâches")
+                 "dans sa boucle, ou faites-la attendre avec un délai non nul (xQueueReceive(..., portMAX_DELAY)), "
+                 "pour laisser tourner les autres tâches")
 MSG_TOO_MANY_TASKS = "trop de tâches : le simulateur en autorise 4 en plus de app_main"
 MSG_SEGV = "le programme a planté (SIGSEGV, accès mémoire invalide : pointeur nul ou tableau dépassé ?)"
 MSG_CRASH = "le programme a planté (signal {sig})"

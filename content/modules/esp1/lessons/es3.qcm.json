@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es3-q1",
+  "text": "Sous ESP-IDF, en quelle unité s'exprime la taille de pile passée à xTaskCreate ?",
+  "options": [
+   "En mots de 4 octets, comme dans le FreeRTOS d'origine",
+   "En octets, contrairement au FreeRTOS d'origine",
+   "En nombre de variables locales de la tâche",
+   "En kilo-octets, arrondis au multiple supérieur"
+  ],
+  "answer": 1,
+  "explain": "La documentation d'ESP-IDF le précise : la pile de xTaskCreate se compte en octets, alors que le FreeRTOS d'origine la compte en mots. Une valeur copiée d'un exemple pour un autre microcontrôleur peut donc être quatre fois trop petite.",
+  "remedial_lesson_id": "es3"
+ },
+ {
+  "id": "es3-q2",
+  "text": "Que renvoie xQueueReceive(file, &x, pdMS_TO_TICKS(100)) si la file reste vide pendant 100 ms ?",
+  "options": [
+   "pdTRUE, et x garde simplement sa valeur précédente",
+   "errQUEUE_FULL, le code d'erreur des files",
+   "Rien : la tâche reste bloquée pour toujours sur la file",
+   "pdFALSE, une fois les 100 ms d'attente écoulées"
+  ],
+  "answer": 3,
+  "explain": "Le délai fixe l'attente maximale : si aucun élément n'arrive pendant ce délai, xQueueReceive renvoie pdFALSE et la tâche continue. errQUEUE_FULL est le retour de xQueueSend sur une file pleine. Seul portMAX_DELAY attend sans limite.",
+  "remedial_lesson_id": "es3"
+ },
+ {
+  "id": "es3-q3",
+  "text": "Pourquoi la tâche de la LED attend-elle avec xQueueReceive(..., portMAX_DELAY) plutôt qu'en relisant une variable globale en boucle ?",
+  "options": [
+   "Bloquée, elle ne consomme pas de processeur jusqu'au message",
+   "Parce qu'une variable globale ne peut pas contenir un entier",
+   "Parce que portMAX_DELAY rend la LED plus lumineuse sur la carte",
+   "Parce que FreeRTOS interdit toute boucle infinie dans une tâche créée"
+  ],
+  "answer": 0,
+  "explain": "Une tâche bloquée sur une file dort sans consommer de processeur et se réveille dès qu'un élément arrive. Relire une variable en boucle est une attente active, et un deuxième appui arrivé avant la relecture serait perdu ; la file garde les événements dans l'ordre.",
+  "remedial_lesson_id": "es3"
+ },
+ {
+  "id": "es3-q4",
+  "text": "Une tâche créée par xTaskCreate a fini son travail. Que doit-elle faire au lieu de return ?",
+  "options": [
+   "Rien, FreeRTOS relance automatiquement la tâche au début",
+   "Appeler app_main pour revenir au programme principal",
+   "Appeler vTaskDelete(NULL) pour se supprimer elle-même",
+   "Augmenter sa priorité pour se terminer plus vite que les autres"
+  ],
+  "answer": 2,
+  "explain": "Une fonction de tâche ne doit jamais se terminer : sous ESP-IDF, avec l'option de protection active, un return écrit « should not return, Aborting now! » et arrête le programme. vTaskDelete(NULL) supprime proprement la tâche appelante. Seule app_main a le droit de se terminer.",
+  "remedial_lesson_id": "es3"
+ },
+ {
+  "id": "es3-q5",
+  "text": "Que fait xQueueSend(file, &x, 0) quand la file est pleine ?",
+  "options": [
+   "Il attend qu'une place se libère, aussi longtemps qu'il faut",
+   "Il renvoie errQUEUE_FULL tout de suite, sans attendre",
+   "Il écrase le plus ancien élément pour mettre x à sa place",
+   "Il agrandit la file pour y ranger x"
+  ],
+  "answer": 1,
+  "explain": "Avec un délai 0, xQueueSend n'attend pas : la file étant pleine, il renvoie errQUEUE_FULL immédiatement et x n'est pas ajouté. Une file a une longueur fixe, choisie à xQueueCreate, et n'écrase rien.",
+  "remedial_lesson_id": "es3"
+ }
+]

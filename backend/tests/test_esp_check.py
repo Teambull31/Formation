@@ -659,3 +659,74 @@ def test_es2_check_sections_exist_in_lesson():
     titles = set(re.findall(r"^## (.+)$", lesson, re.M))
     cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es2-tp.py").read_text(encoding="utf-8")))
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es3 (tâches FreeRTOS et files) : solution livrée + variantes fautives ----
+
+ES3 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp1" / "lessons" / "es3.tp"
+
+
+def _es3_reference() -> str:
+    text = (ES3 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es3_mutant(*edits: tuple[str, str]) -> str:
+    src = _es3_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es3_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es3-tp")
+
+
+def test_es3_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es3_run(tmp_path, _es3_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es3_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es3_run(tmp_path, (ES3 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "0 tâche(s) créée(s) par xTaskCreate" in out and "relire" in out, out
+
+
+ES3_LED_TASK = ('    if (xTaskCreate(tache_led, "led", 4096, NULL, 5, NULL) != pdPASS) {\n'
+                '        ESP_LOGE(TAG, "tâche led non créée");\n    }\n')
+# nom -> (remplacements (ancien, nouveau), fragment de message attendu)
+ES3_MUTANTS = {
+    "single_task": ([(ES3_LED_TASK, "")], "1 tâche(s) créée(s) par xTaskCreate (« bouton »)"),
+    "global_without_queue": ([
+        ("static QueueHandle_t appuis;", "static QueueHandle_t appuis;\nstatic volatile int appui_en_attente = 0;"),
+        ("if (xQueueSend(appuis, &numero, 0) != pdTRUE) {", "appui_en_attente = 1;\n                if (false) {"),
+        ("if (xQueueReceive(appuis, &numero, portMAX_DELAY) == pdTRUE) {",
+         "vTaskDelay(pdMS_TO_TICKS(POLL_MS));\n        if (appui_en_attente) {\n            appui_en_attente = 0;"),
+    ], "aucun événement n'est passé par la file"),
+    "receive_zero_wait": ([("portMAX_DELAY", "0")], "votre tâche « led » ne rend jamais la main"),
+    "stack_256": ([('tache_bouton, "bouton", 4096', 'tache_bouton, "bouton", 256')],
+                  "la tâche « bouton » est créée avec une pile de 256 octets"),
+    "stack_in_words": ([('tache_led, "led", 4096', 'tache_led, "led", 1024')],
+                       "la tâche « led » est créée avec une pile de 1024 octets"),
+    "poll_zero": ([("POLL_MS = 10;", "POLL_MS = 0;")], "votre tâche « bouton » ne rend jamais la main"),
+    "send_from_app_main": ([('if (xTaskCreate(tache_bouton, "bouton", 4096, NULL, 5, NULL) != pdPASS) {',
+                             "tache_bouton(NULL);\n    if (false) {")],
+                           "xQueueSend est appelé depuis app_main"),
+    "no_debounce": ([("STABLE_MS = 30", "STABLE_MS = 0")], "changements de la LED pour l'appui n°1"),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES3_MUTANTS.values(), ids=ES3_MUTANTS.keys())
+def test_es3_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es3_run(tmp_path, _es3_mutant(*edits))
+    assert failed(code, out) and expected in out and "relire" in out, out
+
+
+def test_es3_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES3.parent / "es3.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es3-tp.py").read_text(encoding="utf-8")))
+    assert cited and cited <= titles, cited - titles
