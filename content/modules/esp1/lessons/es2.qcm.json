@@ -16,7 +16,7 @@
   "id": "es2-q2",
   "text": "Pourquoi active-t-on le pull-up sur une entrée de bouton ?",
   "options": [
-   "Pour qu'elle ne flotte pas quand le bouton est relâché",
+   "Pour qu'elle ne flotte pas quand le bouton est lâché",
    "Pour que le bouton puisse allumer la LED directement",
    "Pour que gpio_get_level réponde plus vite à l'appui",
    "Pour protéger la broche contre les coups de tension"
