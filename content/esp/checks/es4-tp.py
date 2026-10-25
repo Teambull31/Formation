@@ -13,6 +13,7 @@ TOLERANCE = 2.0  # points de pourcentage
 PERIOD_MS = 1000
 PERIOD_TOLERANCE_MS = 50
 MIN_READS = 8
+MIN_INSTANTS = 4  # lectures à au moins 4 instants différents entre deux journaux : sinon, pas de pause entre elles
 MIN_LOGS = 19
 
 # Rampe bruitée : la tension du capteur monte linéairement de 0,35 V à 3,15 V en 20 s (le niveau vrai passe
@@ -47,9 +48,24 @@ def true_level(t_ms: float) -> float:
     return min(max((mv - LOW_MV) * 100.0 / (HIGH_MV - LOW_MV), 0.0), 100.0)
 
 
+# Aux instants où une lecture unique est la plus probable (début de chaque seconde : sans pause, ou une seule
+# lecture ; 70 ms plus tard : dernière des 8 lectures), le bruit vaut ±FORCED_RAW (+ puis -, la moyenne de 8 n'en
+# est pas gênée) : une mesure isolée à ces instants sort donc de la tolérance (2,9 points, 2,4 après arrondi).
+FORCED_RAW = 90
 _n = _noise()
+
+
+def _noise_at(t: int) -> int:
+    n = next(_n)  # toujours tiré, pour que le reste de la suite ne dépende pas des instants forcés
+    if t % 1000 == 0:
+        return FORCED_RAW
+    if t % 1000 == 70:
+        return -FORCED_RAW
+    return n
+
+
 SCENARIO = {"adc": [
-    {"t_ms": t, "channel": CHANNEL, "raw": min(max(round(true_raw(t)) + next(_n), 0), RAW_MAX)}
+    {"t_ms": t, "channel": CHANNEL, "raw": min(max(round(true_raw(t)) + _noise_at(t), 0), RAW_MAX)}
     for t in range(0, RAMP_MS + 1, STEP_MS)]}
 
 LEVEL = re.compile(r"level=(\d{1,3})%")
@@ -103,6 +119,11 @@ def verify(trace: Trace, source: str) -> None:
         n = sum(1 for e in mine if previous < e["t_ms"] <= t)
         need(n >= MIN_READS, f"seulement {n} lecture(s) adc_oneshot_read avant le journal de {t} ms : il en faut au moins "
              f"{MIN_READS} par seconde pour moyenner le bruit (relire : « Le bruit et la moyenne de 8 échantillons »)")
+        instants = {e["t_ms"] for e in mine if previous < e["t_ms"] <= t}
+        need(len(instants) >= MIN_INSTANTS,
+             f"les lectures avant le journal de {t} ms ont lieu à {len(instants)} instant(s) seulement : aucune pause "
+             "(ou presque) entre elles, donc pas de vraie moyenne. Le temps du simulateur n'avance que pendant vTaskDelay : "
+             "mettez vTaskDelay(pdMS_TO_TICKS(10)) après chaque lecture (relire : « Pourquoi 10 ms entre deux lectures ? »)")
         previous = t
 
     # Niveau attendu à chaque journal : true_level(t) au moment du journal. Les 8 mesures sont prises dans les

@@ -787,7 +787,22 @@ ES4_MUTANTS = {
     "log_every_2s": ([("PERIODE_MS = 1000;", "PERIODE_MS = 2000;")], "journaux espacés de 2000 ms"),
     "wrong_channel": ([("ADC_CHANNEL_6", "ADC_CHANNEL_3")], "lectures sur le canal 3 au lieu du canal 6"),
     "bad_format": ([('"level=%d%%"', '"niveau %d%%"')], "aucun journal level=NN%"),
+    "no_delay": ([("ATTENTE_MS = 10;", "ATTENTE_MS = 0;")], "aucune pause"),
+    "delay_5ms": ([("ATTENTE_MS = 10;", "ATTENTE_MS = 5;")], "aucune pause"),  # pdMS_TO_TICKS(5) vaut 0 tick à 100 Hz
 }
+
+# Variantes légitimes qui doivent passer : plus de mesures, ou des mesures plus espacées.
+ES4_VARIANTS = {
+    "16_samples_10ms": [("ECHANTILLONS = 8;", "ECHANTILLONS = 16;")],
+    "8_samples_20ms": [("ATTENTE_MS = 10;", "ATTENTE_MS = 20;")],
+    "8_samples_30ms": [("ATTENTE_MS = 10;", "ATTENTE_MS = 30;")],
+}
+
+
+@pytest.mark.parametrize("edits", ES4_VARIANTS.values(), ids=ES4_VARIANTS.keys())
+def test_es4_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es4_run(tmp_path, _es4_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
 
 
 @pytest.mark.parametrize("edits,expected", ES4_MUTANTS.values(), ids=ES4_MUTANTS.keys())

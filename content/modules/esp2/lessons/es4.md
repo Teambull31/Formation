@@ -89,7 +89,9 @@ Le journal ne s'écrit qu'**une fois par seconde**, mais il ne faut pas pour aut
 
 Dans le TP, chaque tour de boucle fait donc : 8 lectures espacées de 10 ms (80 ms au total), la moyenne, la conversion, **un** journal, puis une attente pour compléter la seconde : `1000 - 8 × 10 = 920 ms`. Le contrôle compte les événements de lecture `adc_read` entre deux journaux : il en faut **au moins 8**. Calculer une « moyenne » sur des valeurs inventées ou relues dans une variable ne passe donc pas.
 
-**Pourquoi 10 ms entre deux lectures ?** C'est une particularité du **simulateur** : le temps n'y avance que pendant `vTaskDelay`, et son bruit change toutes les 10 ms. Huit lectures à la suite sans pause donneraient huit fois la même valeur, donc pas de moyenne. La pause de 10 ms (`vTaskDelay(pdMS_TO_TICKS(10))`) rend chaque lecture indépendante.
+## Pourquoi 10 ms entre deux lectures ?
+
+C'est une particularité du **simulateur** : le temps n'y avance que pendant `vTaskDelay`, et son bruit change toutes les 10 ms. Huit lectures à la suite sans pause donneraient huit fois la même valeur, donc pas de moyenne ; le contrôle le détecte : il exige que les lectures entre deux journaux tombent à au moins 4 instants différents. La pause de 10 ms (`vTaskDelay(pdMS_TO_TICKS(10))`) rend chaque lecture indépendante.
 
 ## Les quatre étapes de l'API oneshot
 
