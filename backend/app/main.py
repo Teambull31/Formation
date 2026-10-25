@@ -161,23 +161,26 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         raise HTTPException(404, "TP inconnu")
 
     @app.get("/api/quest")
-    def quest(minutes: str = Query("30", pattern="^(30|60)$"), db=Depends(get_db)):
+    def quest(request: Request, minutes: str = Query("30", pattern="^(30|60)$"), db=Depends(get_db)):
         minutes = int(minutes)
+        local = strictly_local(request)
         today = date.today()
         mods = modules()
         for _, m in mods:
-            q = build_daily_quest(db, m, today, minutes)
+            q = build_daily_quest(db, m, today, minutes, local)
             if q.steps:
                 return asdict(q)
-        return asdict(build_daily_quest(db, mods[0][1], today, minutes)) if mods else \
+        return asdict(build_daily_quest(db, mods[0][1], today, minutes, local)) if mods else \
             {"day": today, "steps": [], "bonus": None, "imposed_topic": None}
 
     @app.post("/api/quest/step")
-    def quest_step(body: StepIn, db=Depends(get_db)):
+    def quest_step(body: StepIn, request: Request, db=Depends(get_db)):
         if body.kind not in XP:
             raise HTTPException(400, "Type d'étape invalide")
         _, m, les = find_lesson(body.lesson_id)
         if body.kind == "tp" and les.tp:
+            if les.tp.local_only:
+                require_strictly_local(request)
             if db.execute("SELECT 1 FROM settings WHERE key = ?", (f"tp_passed:{les.tp.id}",)).fetchone() is None:
                 raise HTTPException(409, "TP non validé : lancez la vérification d'abord")
         xp = None

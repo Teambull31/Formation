@@ -44,14 +44,16 @@ def _step(db: sqlite3.Connection, kind: str, lesson_id: str) -> Step:
     return Step(kind, lesson_id, MINUTES[kind], XP[kind], _is_done(db, kind, lesson_id))
 
 
-def applicable_kinds(lesson) -> tuple[str, ...]:
-    return tuple(k for k in KINDS if (k != "tp" or lesson.tp) and (k != "qcm" or lesson.qcm))
+def applicable_kinds(lesson, local: bool = True) -> tuple[str, ...]:
+    # hors machine locale, le TP `local_only` est inatteignable (403 sur /check) : on ne l'offre pas
+    return tuple(k for k in KINDS if (k != "tp" or (lesson.tp and (local or not lesson.tp.local_only)))
+                 and (k != "qcm" or lesson.qcm))
 
 
-def build_daily_quest(db: sqlite3.Connection, module: Module, today: date, minutes: int = 30) -> Quest:
+def build_daily_quest(db: sqlite3.Connection, module: Module, today: date, minutes: int = 30, local: bool = True) -> Quest:
     topic = _setting(db, "imposed_topic")
     ids = [lesson.id for lesson in module.lessons]
-    kinds = [applicable_kinds(lesson) for lesson in module.lessons]
+    kinds = [applicable_kinds(lesson, local) for lesson in module.lessons]
     todo = [i for i, lid in enumerate(ids) if not all(_is_done(db, k, lid) for k in kinds[i])]
     if not todo:
         return Quest(today, [], None, topic)
