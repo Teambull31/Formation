@@ -1,0 +1,275 @@
+[
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_num_t",
+    "decl": "typedef enum { GPIO_NUM_NC = -1, GPIO_NUM_0 = 0, GPIO_NUM_1, GPIO_NUM_2, GPIO_NUM_3, GPIO_NUM_4, GPIO_NUM_5, GPIO_NUM_6, GPIO_NUM_7, GPIO_NUM_8, GPIO_NUM_9, GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_12, GPIO_NUM_13, GPIO_NUM_14, GPIO_NUM_15, GPIO_NUM_16, GPIO_NUM_17, GPIO_NUM_18, GPIO_NUM_19, GPIO_NUM_20, GPIO_NUM_21, GPIO_NUM_22, GPIO_NUM_23, GPIO_NUM_24, GPIO_NUM_25, GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_28, GPIO_NUM_29, GPIO_NUM_30, GPIO_NUM_31, GPIO_NUM_32, GPIO_NUM_33, GPIO_NUM_34, GPIO_NUM_35, GPIO_NUM_36, GPIO_NUM_37, GPIO_NUM_38, GPIO_NUM_39, GPIO_NUM_MAX, } gpio_num_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_int_type_t",
+    "decl": "typedef enum { GPIO_INTR_DISABLE = 0, GPIO_INTR_POSEDGE = 1, GPIO_INTR_NEGEDGE = 2, GPIO_INTR_ANYEDGE = 3, GPIO_INTR_LOW_LEVEL = 4, GPIO_INTR_HIGH_LEVEL = 5, GPIO_INTR_MAX, } gpio_int_type_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_mode_t",
+    "decl": "typedef enum { GPIO_MODE_DISABLE = 0, GPIO_MODE_INPUT = 1, GPIO_MODE_OUTPUT = 2, GPIO_MODE_OUTPUT_OD = 6, GPIO_MODE_INPUT_OUTPUT_OD = 7, GPIO_MODE_INPUT_OUTPUT = 3, } gpio_mode_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_pullup_t",
+    "decl": "typedef enum { GPIO_PULLUP_DISABLE = 0x0, GPIO_PULLUP_ENABLE = 0x1, } gpio_pullup_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_pulldown_t",
+    "decl": "typedef enum { GPIO_PULLDOWN_DISABLE = 0x0, GPIO_PULLDOWN_ENABLE = 0x1, } gpio_pulldown_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_pull_mode_t",
+    "decl": "typedef enum { GPIO_PULLUP_ONLY, GPIO_PULLDOWN_ONLY, GPIO_PULLUP_PULLDOWN, GPIO_FLOATING, } gpio_pull_mode_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_config_t",
+    "decl": "typedef struct { uint64_t pin_bit_mask; gpio_mode_t mode; gpio_pullup_t pull_up_en; gpio_pulldown_t pull_down_en; gpio_int_type_t intr_type; } gpio_config_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_config",
+    "decl": "esp_err_t gpio_config(const gpio_config_t *pGPIOConfig);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_set_direction",
+    "decl": "esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_set_pull_mode",
+    "decl": "esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_set_level",
+    "decl": "esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
+    "name": "gpio_get_level",
+    "decl": "int gpio_get_level(gpio_num_t gpio_num);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "ESP_OK",
+    "decl": "#define ESP_OK 0",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_err.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "ESP_FAIL",
+    "decl": "#define ESP_FAIL -1",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_err.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "ESP_ERR_INVALID_ARG",
+    "decl": "#define ESP_ERR_INVALID_ARG 0x102",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_err.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "esp_err_t",
+    "decl": "typedef int esp_err_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_err.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "esp_err_to_name",
+    "decl": "const char *esp_err_to_name(esp_err_t code);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_err.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_err.h",
+    "name": "_esp_error_check_failed",
+    "decl": "void _esp_error_check_failed(esp_err_t rc, const char *file, int line, const char *function, const char *expression) __attribute__((__noreturn__));",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_err.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_log.h",
+    "name": "esp_log_level_t",
+    "decl": "typedef enum { ESP_LOG_NONE = 0, ESP_LOG_ERROR = 1, ESP_LOG_WARN = 2, ESP_LOG_INFO = 3, ESP_LOG_DEBUG = 4, ESP_LOG_VERBOSE = 5, ESP_LOG_MAX = 6, } esp_log_level_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/log.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_log.h",
+    "name": "esp_log_write",
+    "decl": "void esp_log_write(esp_log_level_t level, const char *tag, const char *format, ...) __attribute__((format(printf, 3, 4)));",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/log.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_timer.h",
+    "name": "esp_timer_get_time",
+    "decl": "int64_t esp_timer_get_time(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_timer.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "configTICK_RATE_HZ",
+    "decl": "#define configTICK_RATE_HZ CONFIG_FREERTOS_HZ",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "configSTACK_DEPTH_TYPE",
+    "decl": "#define configSTACK_DEPTH_TYPE uint32_t",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "pdFALSE",
+    "decl": "#define pdFALSE ((BaseType_t)0)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "pdTRUE",
+    "decl": "#define pdTRUE ((BaseType_t)1)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "pdPASS",
+    "decl": "#define pdPASS (pdTRUE)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "pdFAIL",
+    "decl": "#define pdFAIL (pdFALSE)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "portMAX_DELAY",
+    "decl": "#define portMAX_DELAY ( TickType_t ) 0xffffffffUL",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "portTICK_PERIOD_MS",
+    "decl": "#define portTICK_PERIOD_MS ( ( TickType_t ) 1000 / configTICK_RATE_HZ )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "pdMS_TO_TICKS",
+    "decl": "#define pdMS_TO_TICKS( xTimeInMs ) ( ( TickType_t ) ( ( ( TickType_t ) ( xTimeInMs ) * ( TickType_t ) configTICK_RATE_HZ ) / ( TickType_t ) 1000U ) )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "TickType_t",
+    "decl": "typedef uint32_t TickType_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "BaseType_t",
+    "decl": "typedef int BaseType_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "UBaseType_t",
+    "decl": "typedef unsigned int UBaseType_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "TaskHandle_t",
+    "decl": "typedef struct tskTaskControlBlock *TaskHandle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "TaskFunction_t",
+    "decl": "typedef void (*TaskFunction_t)(void *);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "xTaskCreate",
+    "decl": "BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char *const pcName, const configSTACK_DEPTH_TYPE usStackDepth, void *const pvParameters, UBaseType_t uxPriority, TaskHandle_t *const pxCreatedTask);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "vTaskDelay",
+    "decl": "void vTaskDelay(const TickType_t xTicksToDelay);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "vTaskDelete",
+    "decl": "void vTaskDelete(TaskHandle_t xTaskToDelete);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/task.h",
+    "name": "xTaskGetTickCount",
+    "decl": "TickType_t xTaskGetTickCount(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  }
+]

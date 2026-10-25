@@ -1,6 +1,7 @@
 """The fake ESP-IDF runs learner code in virtual time, deterministically, and reports misbehaviour in its trace."""
 import importlib.util
 import json
+import re
 import subprocess
 import tempfile
 import time
@@ -322,3 +323,104 @@ def test_missing_scenario_file_fails_cleanly(lib, tmp_path):
     prog = compile_src(lib, GPIO + 'extern "C" void app_main(void) {}\n', tmp_path)
     r = subprocess.run([str(prog), "--scenario", str(tmp_path / "nope.json")], capture_output=True, text=True, timeout=30)
     assert r.returncode == 2 and "scénario" in r.stderr
+
+
+# --- Fidelity of the exposed API to the real ESP-IDF -------------------------------------------------
+# Learners copy their code to a real ESP-IDF project, so every declaration of sim/include must match
+# the official API. signatures.json holds one entry per function, type or macro, with the official
+# docs URL and the ESP-IDF version it was checked against. The parser below is deliberately small:
+# comments and #include/#if/#pragma/#error lines are dropped, every other statement outside braces
+# (function prototype, typedef, #define) is one declaration, compared with all whitespace removed.
+# Enum constants and struct fields are covered by their enclosing typedef text.
+
+INCLUDE = SIM / "include"
+SIGNATURES = SIM / "signatures.json"
+
+# Macros not compared with the real text, one reason each. Anything else must be in the table.
+SKIPPED_MACROS = {
+    "INC_FREERTOS_H": "include guard, same name as the real FreeRTOS.h",
+    "CONFIG_FREERTOS_HZ": "sdkconfig (Kconfig) symbol, ESP-IDF default 100",
+    "ESP_LOGE": "real expansion goes through ESP_LOG_LEVEL_LOCAL and the tag level filter; the form (tag, format, ...) is identical",
+    "ESP_LOGW": "same as ESP_LOGE",
+    "ESP_LOGI": "same as ESP_LOGE",
+    "ESP_LOGD": "same as ESP_LOGE",
+    "ESP_LOGV": "same as ESP_LOGE",
+    "ESP_ERROR_CHECK": "real body also depends on NDEBUG and Kconfig options",
+}
+
+
+def _squash(s: str) -> str:
+    return re.sub(r"\s+", "", s)
+
+
+def parse_header(text: str) -> dict[str, str]:
+    """name -> declaration text for the public functions, typedefs and macros of one header."""
+    text = re.sub(r"/\*.*?\*/|//[^\n]*", "", text, flags=re.S)
+    text = text.replace("\\\n", " ")
+    found: dict[str, str] = {}
+    body = []
+    for line in text.splitlines():
+        s = line.strip()
+        m = re.match(r"#\s*define\s+(\w+)", s)
+        if m:
+            found[m.group(1)] = "#define " + s.split(None, 1)[1]
+        elif not s.startswith("#"):
+            body.append(line)
+    code = re.sub(r'extern\s+"C"\s*\{', "", "\n".join(body))
+    depth, start = 0, 0
+    for i, ch in enumerate(code):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            if depth == 0:  # closing brace of extern "C"
+                start = i + 1
+            else:
+                depth -= 1
+        elif ch == ";" and depth == 0:
+            stmt = code[start:i + 1].strip()
+            start = i + 1
+            if stmt.startswith("typedef"):
+                m = re.search(r"\(\s*\*\s*(\w+)\s*\)", stmt) or re.search(r"(\w+)\s*;$", stmt)
+            else:
+                m = re.search(r"(\w+)\s*\(", stmt)
+            assert m, f"unparsable statement: {stmt!r}"
+            found[m.group(1)] = stmt
+    return found
+
+
+def exposed_declarations() -> dict[tuple[str, str], str]:
+    out = {}
+    for h in sorted(INCLUDE.rglob("*.h")):
+        rel = h.relative_to(INCLUDE).as_posix()
+        for name, decl in parse_header(h.read_text(encoding="utf-8")).items():
+            if name not in SKIPPED_MACROS:
+                out[(rel, name)] = decl
+    return out
+
+
+def load_signatures() -> dict[tuple[str, str], dict]:
+    entries = json.loads(SIGNATURES.read_text(encoding="utf-8"))
+    table = {(e["header"], e["name"]): e for e in entries}
+    assert len(table) == len(entries), "duplicate (header, name) in signatures.json"
+    return table
+
+
+def test_every_exposed_function_has_a_verified_signature():
+    table, problems = load_signatures(), []
+    for key, decl in exposed_declarations().items():
+        e = table.get(key)
+        if e is None:
+            problems.append(f"{key}: no entry in signatures.json")
+        elif not e["source"].startswith("https://docs.espressif.com/projects/esp-idf/") or not e["idf"]:
+            problems.append(f"{key}: source must be an Espressif docs URL and idf set")
+        elif _squash(e["decl"]) != _squash(decl):
+            problems.append(f"{key}: sim has {decl!r}, official is {e['decl']!r}")
+    assert not problems, "\n".join(problems)
+
+
+def test_no_stale_signature():
+    exposed = exposed_declarations()
+    stale = [k for k in load_signatures() if k not in exposed]
+    assert not stale, f"entries without a declaration in sim/include: {stale}"
+    all_names = {n for h in INCLUDE.rglob("*.h") for n in parse_header(h.read_text(encoding="utf-8"))}
+    assert not set(SKIPPED_MACROS) - all_names, "stale SKIPPED_MACROS entries"

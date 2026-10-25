@@ -12,6 +12,7 @@ typedef enum {
     ESP_LOG_INFO = 3,
     ESP_LOG_DEBUG = 4,
     ESP_LOG_VERBOSE = 5,
+    ESP_LOG_MAX = 6,
 } esp_log_level_t;
 
 void esp_log_write(esp_log_level_t level, const char *tag, const char *format, ...)
@@ -21,6 +22,7 @@ void esp_log_write(esp_log_level_t level, const char *tag, const char *format, .
 #define ESP_LOGW(tag, format, ...) esp_log_write(ESP_LOG_WARN, tag, format, ##__VA_ARGS__)
 #define ESP_LOGI(tag, format, ...) esp_log_write(ESP_LOG_INFO, tag, format, ##__VA_ARGS__)
 #define ESP_LOGD(tag, format, ...) esp_log_write(ESP_LOG_DEBUG, tag, format, ##__VA_ARGS__)
+#define ESP_LOGV(tag, format, ...) esp_log_write(ESP_LOG_VERBOSE, tag, format, ##__VA_ARGS__)
 
 #ifdef __cplusplus
 }
