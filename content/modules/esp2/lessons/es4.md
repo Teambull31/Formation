@@ -79,7 +79,7 @@ Le principe : le bruit est tantôt positif, tantôt négatif ; en additionnant p
 
 La somme vaut 16120 et la moyenne `16120 / 8 = 2015`, alors que la lecture 2050 prise seule se serait trompée de 35 unités. Plus on moyenne de lectures, plus le résultat est stable ; en contrepartie, on met plus de temps à mesurer.
 
-Dans le TP, le bruit vaut jusqu'à ± 75 unités, soit plus de ± 2 points : **une seule lecture** peut donc sortir de la tolérance de ± 2 points, alors que la **moyenne de 8** reste en moyenne à environ 1 point de la vraie valeur.
+Dans le TP, le bruit vaut environ ± 75 unités, avec des pointes à ± 90, soit plus de ± 2 points : **une seule lecture** peut donc sortir de la tolérance de ± 2 points, alors que la **moyenne de 8** reste en moyenne à environ 1 point de la vraie valeur.
 
 Deux règles de calcul : **additionnez d'abord, divisez ensuite** (`somme / nombre`), et divisez par le nombre de lectures **réussies**.
 

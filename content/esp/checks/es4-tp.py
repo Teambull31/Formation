@@ -24,7 +24,7 @@ MIN_LOGS = 19
 RAMP_MS = 20000
 START_MV, END_MV = 350.0, 3150.0
 STEP_MS = 10
-NOISE_RAW = 75
+NOISE_RAW = 75  # bruit ordinaire ; des pointes à ±90 sont forcées plus bas (voir _noise_at)
 SEED = 20251025
 MAX_MS = 20500
 
