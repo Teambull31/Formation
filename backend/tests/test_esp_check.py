@@ -146,7 +146,7 @@ extern "C" void app_main(void) {
 
 def test_output_flood_truncated(tmp_path, bwrap_ok):
     code, out = run(tmp_path, app('for (;;) ESP_LOGI("flood", "encore une ligne de journal pour remplir la sortie");'))
-    assert failed(code, out) and "tronqu" in out, out
+    assert failed(code, out) and "tronqu" in out and "journalise trop" in out and "1000000 octets" in out, out
     assert len(out) <= 4000, len(out)
 
 
@@ -432,11 +432,22 @@ def test_several_scenarios_run_in_order_and_verify_gets_all_traces(drv, monkeypa
     assert seen[0][2] == drv.WALL_S and seen[1][2] == pytest.approx(drv.WALL_S - 30.0), seen
 
 
-def test_exhausted_budget_leaves_a_one_second_floor(drv, monkeypatch, tmp_path, capsys):
+def test_exhausted_budget_stops_with_a_timeout_message(drv, monkeypatch, tmp_path, capsys):
     check_module(drv, monkeypatch, tmp_path, "multi", MULTI)
     seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)], spend=drv.WALL_S + 5.0)
     code, out = verdict(drv, capsys, "multi")
-    assert code == 0 and seen[1][2] == 1.0, (out, seen)
+    assert failed(code, out) and out.startswith("ECHEC : scénario « b » : ") and "temps d'exécution autorisé" in out, out
+    assert len(seen) == 1, seen  # the second run is never started
+
+
+def test_budget_at_the_one_second_floor_is_not_enough_but_a_bit_more_is(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "multi", MULTI)
+    seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)], spend=drv.WALL_S - 1.0)
+    code, out = verdict(drv, capsys, "multi")
+    assert failed(code, out) and len(seen) == 1, (out, seen)
+    seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)], spend=drv.WALL_S - 1.5)
+    code, out = verdict(drv, capsys, "multi")
+    assert code == 0 and seen[1][2] == pytest.approx(1.5), (out, seen)
 
 
 def test_multi_verify_failure_shows_no_stderr_of_another_run(drv, monkeypatch, tmp_path, capsys):
@@ -1060,10 +1071,19 @@ ES6_MUTANTS = {
     "sampling_every_20s": ([("PERIODE_MS = 5000;", "PERIODE_MS = 20000;")], ["scénario a", "sans lire le capteur", "toutes les 10 s"]),
 }
 
+def _MANY_READS(extra: int) -> list[tuple[str, str]]:
+    """Lectures supplémentaires à chaque tour (moyenne de plusieurs mesures) : la trace grossit très vite."""
+    return [("int brut = lire_brut();", f"for (int i = 0; i < {extra}; i++) lire_brut();\n        int brut = lire_brut();")]
+
+
 # Variantes légitimes qui doivent passer.
 ES6_VARIANTS = {
     "period_10s": [("PERIODE_MS = 5000;", "PERIODE_MS = 10000;")],
     "period_1s": [("PERIODE_MS = 5000;", "PERIODE_MS = 1000;")],
+    "period_1s_8_reads": [("PERIODE_MS = 5000;", "PERIODE_MS = 1000;"), *_MANY_READS(7)],
+    "period_1s_16_reads": [("PERIODE_MS = 5000;", "PERIODE_MS = 1000;"), *_MANY_READS(15)],
+    "period_2s_8_reads": [("PERIODE_MS = 5000;", "PERIODE_MS = 2000;"), *_MANY_READS(7)],
+    "period_5s_16_reads": [*_MANY_READS(15)],
     "max_run_time_without_rise_reset": [("niveau >= niveau_debut + HAUSSE_MIN", "false")],
     "stop_inclusive": [("niveau > SEUIL_HAUT) {  // FILLING", "niveau >= SEUIL_HAUT) {  // FILLING")],
     "start_inclusive": [("if (niveau < SEUIL_BAS) {", "if (niveau <= SEUIL_BAS) {")],
@@ -1078,6 +1098,14 @@ ES6_VARIANTS = {
 def test_es6_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
     code, out = _es6_run(tmp_path, _es6_mutant(*edits))
     assert code == 0 and out.startswith("OK"), out
+
+
+def test_es6_tp_logging_flood_still_fails_with_the_wide_cap(tmp_path, bwrap_ok):
+    src = _es6_mutant(("PERIODE_MS = 5000;", "PERIODE_MS = 10;"),
+                      ("int brut = lire_brut();", 'int brut = lire_brut();\n        ESP_LOGI(TAG, "mesure %d", brut);'))
+    code, out = _es6_run(tmp_path, src)
+    assert failed(code, out) and "12000000 octets" in out and "trop d'événements" in out and "scénario « a »" in out, out
+    assert len(out) <= 4000, len(out)
 
 
 @pytest.mark.parametrize("edits,expected", ES6_MUTANTS.values(), ids=ES6_MUTANTS.keys())

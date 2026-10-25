@@ -109,8 +109,8 @@ int main(int argc, char **argv) {
         if (std::strcmp(argv[i], "--max-ms") == 0 && i + 1 < argc) {
             char *rest = nullptr;
             max_ms = std::strtoll(argv[++i], &rest, 10);
-            if (*rest != '\0' || max_ms < 0) {
-                std::fprintf(stderr, "--max-ms: entier positif attendu\n");
+            if (*rest != '\0' || max_ms < 0 || max_ms > (INT64_MAX >> 11)) {  // same bound as the scenario times
+                std::fprintf(stderr, "--max-ms: entier entre 0 et %lld attendu\n", static_cast<long long>(INT64_MAX >> 11));
                 return 2;
             }
         } else if (std::strcmp(argv[i], "--scenario") == 0 && i + 1 < argc) {

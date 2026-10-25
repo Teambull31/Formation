@@ -58,6 +58,9 @@ def _scenario(level0: int, stuck: list[dict], fill: float = FILL_PER_MIN) -> dic
     return {"plant": {"tank": tank}}
 
 
+# Scenario a lasts 2 h: a program reading the sensor 16 times per second would write ~115 200 adc_read
+# lines (~55 bytes each, ~6.3 MB). 12 MB keeps a margin; the driver still caps it hard (16 MB ceiling).
+MAX_OUT = 12_000_000
 LEVEL0 = {"a": 72, "b": 40, "c": 70, "d": 50.1}
 MAX_MS = {"a": 7_200_500, "b": 1_800_500, "c": 720_500, "d": 900_500}
 SCENARIOS = {

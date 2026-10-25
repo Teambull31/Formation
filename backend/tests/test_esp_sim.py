@@ -210,6 +210,19 @@ extern "C" void app_main(void) {
         assert text in r.stderr
 
 
+@pytest.mark.parametrize("value", [str(((2**63 - 1) >> 11) + 1), "9223372036854775807"])
+def test_max_ms_above_the_cap_is_refused(lib, tmp_path, value):
+    prog = compile_src(lib, HEADERS + "extern \"C\" void app_main(void) {}\n", tmp_path)
+    r = subprocess.run([str(prog), "--max-ms", value], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and "--max-ms" in r.stderr and r.stdout == ""
+
+
+def test_max_ms_at_the_cap_is_accepted(lib, tmp_path):
+    prog = compile_src(lib, HEADERS + "extern \"C\" void app_main(void) {}\n", tmp_path)
+    r = subprocess.run([str(prog), "--max-ms", str((2**63 - 1) >> 11)], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 0 and '"reason":"deadline"' in r.stdout.replace(" ", "")
+
+
 def test_max_delay_never_wraps(lib, tmp_path):
     trace = compile_and_run(HEADERS + """
 extern "C" void app_main(void) {

@@ -27,7 +27,10 @@ ESP = Path(__file__).resolve().parent
 CHECKS = ESP / "checks"
 SOURCE = "main.cpp"
 MAX_BYTES = 200_000
-MAX_OUT = 1_000_000  # trace bytes kept; a 60 s TP logging every 10 ms stays well under
+MAX_OUT = 1_000_000  # trace bytes kept by default; a 60 s TP logging every 10 ms stays well under. A check module may
+# set its own MAX_OUT (long scenarios), always a hard cap: the sandbox reader stores nothing beyond it.
+MIN_RUN_S = 1.0  # a run is not started with less wall time than this
+MAX_OUT_LIMIT = 16_000_000  # ceiling for a check module's MAX_OUT (memory of the parent process)
 MAX_BAD_LINES = 3
 WALL_S = 40  # compile + run, under the TP timeout (60 s)
 GXX_FLAGS = ["-std=c++17", "-O1", "-pthread", "-w", "-fmax-errors=5", "-fno-diagnostics-show-caret",
@@ -58,8 +61,10 @@ MSG_NO_EXTERN_C = ("app_main doit être déclarée en extern \"C\" : extern \"C\
 MSG_COMPILE = "main.cpp ne compile pas :\n{summary}"
 MSG_COMPILE_TIMEOUT = "la compilation de main.cpp a pris trop de temps"
 MSG_NO_SANDBOX = "le sandbox d'exécution (bwrap) est indisponible : le code n'est pas exécuté sans lui"
-MSG_FLOOD = (f"la trace dépasse {MAX_OUT} octets et a été tronquée : votre programme journalise trop "
-             "(un ESP_LOGI dans une boucle sans vTaskDelay ?)")
+MSG_FLOOD = ("la trace dépasse {cap} octets et a été tronquée : trop d'événements dans la trace en peu de temps "
+             "(trop de lectures ADC par seconde, ou votre programme journalise trop : un ESP_LOGI dans une boucle "
+             "sans vTaskDelay ?)")
+MSG_BUDGET = "le temps d'exécution autorisé est épuisé avant la fin des simulations (programme trop lent à compiler ou à s'exécuter)"
 MSG_BAD_TRACE = "la trace du simulateur est illisible ({n} lignes inattendues)"
 MSG_BUSY_LOOP = ("votre tâche « {task} » ne rend jamais la main : ajoutez un vTaskDelay(pdMS_TO_TICKS(...)) "
                  "dans sa boucle, ou faites-la attendre avec un délai non nul (xQueueReceive(..., portMAX_DELAY)), "
@@ -377,18 +382,22 @@ def run_program(source: str, check) -> tuple[Trace | dict[str, Trace], str]:
 
     The wall time WALL_S is shared by all runs. Returns the Trace, or {name: Trace} for SCENARIOS."""
     runs = getattr(check, "SCENARIOS", None)
+    cap = min(getattr(check, "MAX_OUT", MAX_OUT), MAX_OUT_LIMIT)
     if runs is None:
-        return _run_once(source, check.SCENARIO, check.MAX_MS, WALL_S, "")
+        return _run_once(source, check.SCENARIO, check.MAX_MS, WALL_S, "", cap)
     deadline = time.monotonic() + WALL_S
     traces: dict[str, Trace] = {}
     for name, (scenario, max_ms) in runs.items():
-        traces[name], _ = _run_once(source, scenario, max_ms, max(deadline - time.monotonic(), 1.0), f"scénario « {name} » : ")
+        left = deadline - time.monotonic()
+        # Not enough time left to compile and run: say so, instead of a misleading compile timeout.
+        need(left > MIN_RUN_S, f"scénario « {name} » : {MSG_BUDGET}")
+        traces[name], _ = _run_once(source, scenario, max_ms, left, f"scénario « {name} » : ", cap)
     # No stderr excerpt for a verify failure: verify names the failing scenario, the driver does not know which
     # run's stderr would match. (A failing run itself still carries its own excerpt, see interpret.)
     return traces, ""
 
 
-def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: str) -> tuple[Trace, str]:
+def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: str, cap: int) -> tuple[Trace, str]:
     sim = build.build_sim()
     with tempfile.TemporaryDirectory(prefix="espcheck-") as d:
         work = Path(d)
@@ -397,7 +406,7 @@ def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: st
         try:
             r = sandbox.compile_and_run(["g++", *GXX_FLAGS, "-I", f"{sim}/include", SOURCE, f"{sim}/libespsim.a"],
                                         ["--max-ms", str(max_ms), "--scenario", "scenario.json"],
-                                        cwd=work, ro=[sim], wall_s=wall_s, max_out=MAX_OUT)
+                                        cwd=work, ro=[sim], wall_s=wall_s, max_out=cap)
         except (sandbox.SandboxUnavailable, sandbox.UnsafePath) as e:
             raise _not_learner(f"{MSG_NO_SANDBOX} ({e})") from None
     if r.phase == "compile":
@@ -406,19 +415,19 @@ def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: st
         need("multiple definition of `main'" not in r.err, MSG_DEFINES_MAIN)
         raise CheckError(MSG_COMPILE.format(summary=_summary(r.err)))
     try:
-        return interpret(r), r.err
+        return interpret(r, cap), r.err
     except CheckError as e:
         e.args = (label + str(e),)  # keeps hint/detail
         raise
 
 
-def interpret(r) -> Trace:
+def interpret(r, cap: int = MAX_OUT) -> Trace:
     """Trace from the private trace fd (stdout only); stderr is learner/diagnostic text shown on failure."""
     def fail(message: str):
         raise _with_detail(CheckError(message), r.err)
 
     if r.out.endswith(sandbox.TRUNCATED):
-        fail(MSG_FLOOD)
+        fail(MSG_FLOOD.format(cap=cap))
     trace = Trace(r.out)
     if trace.bad_lines > MAX_BAD_LINES:
         fail(MSG_BAD_TRACE.format(n=trace.bad_lines))

@@ -132,7 +132,7 @@ Une régulation doit savoir ce qu'elle fait quand tout va mal. On définit un **
 
 ## Choisir la période d'échantillonnage
 
-La **période d'échantillonnage** est le temps entre deux lectures du capteur. Pour la choisir, comparez-la à la vitesse du procédé : le niveau monte de 2,5 points par minute, soit 0,4 point en 10 secondes. Lire toutes les 5 secondes suffit largement. Trop lent (20 secondes, ou une minute), on dépasse le seuil de plusieurs points avant de réagir : le contrôle exige **une lecture au moins toutes les 10 secondes**. Trop rapide (toutes les 10 ms), on lit pour rien, on use le processeur, et la trace du simulateur (limitée à environ 1 Mo) déborde si vous journalisez chaque mesure.
+La **période d'échantillonnage** est le temps entre deux lectures du capteur. Pour la choisir, comparez-la à la vitesse du procédé : le niveau monte de 2,5 points par minute, soit 0,4 point en 10 secondes. Lire toutes les 5 secondes suffit largement. Trop lent (20 secondes, ou une minute), on dépasse le seuil de plusieurs points avant de réagir : le contrôle exige **une lecture au moins toutes les 10 secondes**. Trop rapide (toutes les 10 ms), on lit pour rien, on use le processeur, et la trace du simulateur (limitée à environ 12 Mo pour ce TP : jusqu'à environ 16 lectures par seconde pendant 2 heures y tiennent) déborde si vous journalisez chaque mesure ou lisez sans pause.
 
 Le TP prend **5 secondes**. Toute période entre 1 et 10 secondes convient : le contrôle l'accepte, que vous lisiez une fois ou plusieurs fois par tour. **Ne journalisez pas chaque mesure** : sur 2 heures, cela fait des milliers de lignes ; écrivez seulement les changements d'état (démarrage, arrêt, alarme).
 
