@@ -687,6 +687,16 @@ def test_i2c_nack_returns_timeout(lib, tmp_path):
         (0, 0x44, True), (1500, 0x44, False), (2000, 0x44, True)]
 
 
+def test_i2c_series_changes_bytes_over_time(lib, tmp_path):
+    # step function: the last step with t_ms <= now wins (unsorted input is fine); before the first step, "bytes"
+    series = '[{"t_ms": 1800, "bytes": [3, 4]}, {"t_ms": 1000, "bytes": [1]}]'
+    trace = compile_and_run(I2C_PROBE % "0x44", 5000, lib, tmp_path, '{"i2c": {"0x44": {"bytes": [18, 52], "series": %s}}}' % series)
+    assert [e["msg"] for e in logs(trace)] == ["0 18 52 0", "0 1 0 0", "0 3 4 0"]
+    # series alone: the device answers zeros before the first step
+    trace = compile_and_run(I2C_PROBE % "0x44", 5000, lib, tmp_path, '{"i2c": {"0x44": {"series": [{"t_ms": 1000, "bytes": [9]}]}}}')
+    assert [e["msg"] for e in logs(trace)] == ["0 0 0 0", "0 9 0 0", "0 9 0 0"]
+
+
 def test_i2c_unknown_address_returns_timeout(lib, tmp_path):
     trace = compile_and_run(I2C_PROBE % "0x45", 5000, lib, tmp_path, I2C_SCENARIO)
     assert [e["msg"] for e in logs(trace)] == [f"{TIMEOUT} 1 1 1"] * 3
@@ -733,7 +743,9 @@ def test_scenario_without_adc_i2c_plant_is_unchanged(lib, tmp_path):
 @pytest.mark.parametrize("scenario", [
     '{"adc": 3}', '{"adc": [{"t_ms": 0, "channel": 0}]}', '{"adc": [{"t_ms": 0, "channel": 0, "raw": 4096}]}',
     '{"i2c": []}', '{"i2c": {"zz": {"bytes": []}}}', '{"i2c": {"0x44": {"bytes": [256]}}}',
-    '{"i2c": {"0x44": {"bytes": [1], "nack": [{"from_ms": 5}]}}}',
+    '{"i2c": {"0x44": {"bytes": [1], "nack": [{"from_ms": 5}]}}}', '{"i2c": {"0x44": {}}}',
+    '{"i2c": {"0x44": {"series": 3}}}', '{"i2c": {"0x44": {"series": [{"t_ms": 0}]}}}',
+    '{"i2c": {"0x44": {"series": [{"t_ms": 0, "bytes": [300]}]}}}', '{"i2c": {"0x44": {"series": [{"bytes": [1]}]}}}',
     '{"plant": {"tank": {"level_pct0": 120}}}', '{"plant": []}',
 ])
 def test_malformed_adc_i2c_plant_scenario_fails_cleanly(lib, tmp_path, scenario):

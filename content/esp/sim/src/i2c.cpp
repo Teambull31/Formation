@@ -1,4 +1,5 @@
-// driver/i2c_master.h shim: devices answer with their scenario bytes; unknown address or NACK window -> ESP_ERR_TIMEOUT.
+// driver/i2c_master.h shim: devices answer with their scenario bytes (fixed, or a step function over time); unknown address or NACK window -> ESP_ERR_TIMEOUT.
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -18,9 +19,15 @@ struct i2c_master_dev_t {
 
 namespace {
 
+struct Step {
+    int64_t t_ms;
+    std::vector<uint8_t> bytes;
+};
+
 struct Target {
     int addr;
     std::vector<uint8_t> bytes;
+    std::vector<Step> series;  // sorted by t_ms, later entries win on equal times; overrides "bytes" from its t_ms on
     std::vector<sim::Window> nack;
 };
 
@@ -34,13 +41,22 @@ i2c_master_dev_t *find_dev(i2c_master_dev_handle_t h) {
     return nullptr;
 }
 
+bool parse_bytes(const sim::Json *bytes, std::vector<uint8_t> &out, std::string &err) {
+    for (const sim::Json &b : bytes->arr) {
+        long long v = 0;
+        if (!b.as_int(0, 255, v)) { err = "i2c : chaque octet de \"bytes\" doit être un entier entre 0 et 255"; return false; }
+        out.push_back(static_cast<uint8_t>(v));
+    }
+    return true;
+}
+
 bool find_bus(i2c_master_bus_handle_t h) {
     for (auto &b : buses) if (b.get() == h) return true;
     return false;
 }
 
 // One transfer to the device: the trace records it, a missing or NACKing device times out (the docs'
-// ESP_ERR_TIMEOUT). A read gets the scenario bytes, zero padded.
+// ESP_ERR_TIMEOUT). A read gets the scenario bytes in force now (last series step, else "bytes"), zero padded.
 esp_err_t transfer(i2c_master_dev_handle_t handle, const uint8_t *write_buffer, size_t write_size, uint8_t *read_buffer,
                    size_t read_size, bool writes, bool reads) {
     i2c_master_dev_t *d = find_dev(handle);
@@ -53,8 +69,11 @@ esp_err_t transfer(i2c_master_dev_handle_t handle, const uint8_t *write_buffer, 
     if (t) for (const sim::Window &w : t->nack) if (w.from_ms <= now && now < w.to_ms) ok = false;
     sim::Event(now, "i2c_xfer").num("addr", d->addr).flag("ok", ok);
     if (!ok) return ESP_ERR_TIMEOUT;
-    if (reads)
-        for (size_t i = 0; i < read_size; ++i) read_buffer[i] = i < t->bytes.size() ? t->bytes[i] : 0;
+    if (reads) {
+        const std::vector<uint8_t> *b = &t->bytes;
+        for (const Step &s : t->series) if (s.t_ms <= now) b = &s.bytes;
+        for (size_t i = 0; i < read_size; ++i) read_buffer[i] = i < b->size() ? (*b)[i] : 0;
+    }
     return ESP_OK;
 }
 
@@ -71,13 +90,28 @@ bool i2c_load_scenario(const Json &scenario, std::string &err) {
         long addr = std::strtol(key.c_str(), &rest, 0);
         if (key.empty() || *rest != '\0' || addr < 0 || addr > 0x3FF) { err = "i2c : adresse \"" + key + "\" invalide (ex. \"0x44\")"; return false; }
         if (dev.type != Json::Object) { err = "i2c : \"" + key + "\" doit être un objet"; return false; }
-        Target t{static_cast<int>(addr), {}, {}};
-        const Json *bytes = dev.get("bytes");
-        if (!bytes || bytes->type != Json::Array) { err = "i2c : \"bytes\" tableau attendu pour " + key; return false; }
-        for (const Json &b : bytes->arr) {
-            long long v = 0;
-            if (!b.as_int(0, 255, v)) { err = "i2c : chaque octet de \"bytes\" doit être un entier entre 0 et 255"; return false; }
-            t.bytes.push_back(static_cast<uint8_t>(v));
+        Target t{static_cast<int>(addr), {}, {}, {}};
+        const Json *bytes = dev.get("bytes"), *series = dev.get("series");
+        if (!bytes && !series) { err = "i2c : \"bytes\" ou \"series\" attendu pour " + key; return false; }
+        if (bytes && (bytes->type != Json::Array || !parse_bytes(bytes, t.bytes, err))) {
+            if (err.empty()) err = "i2c : \"bytes\" tableau attendu pour " + key;
+            return false;
+        }
+        if (series) {
+            if (series->type != Json::Array) { err = "i2c : \"series\" tableau attendu pour " + key; return false; }
+            for (const Json &e : series->arr) {
+                long long at = 0;
+                const Json *jt = e.type == Json::Object ? e.get("t_ms") : nullptr;
+                const Json *jb = e.type == Json::Object ? e.get("bytes") : nullptr;
+                if (!jt || !jt->as_int(0, INT64_MAX >> 11, at) || !jb || jb->type != Json::Array) {
+                    err = "i2c : chaque pas de \"series\" attend {\"t_ms\": entier >= 0, \"bytes\": tableau}";
+                    return false;
+                }
+                Step s{at, {}};
+                if (!parse_bytes(jb, s.bytes, err)) return false;
+                t.series.push_back(std::move(s));
+            }
+            std::stable_sort(t.series.begin(), t.series.end(), [](const Step &a, const Step &b) { return a.t_ms < b.t_ms; });
         }
         if (!parse_windows(dev.get("nack"), "i2c : \"nack\"", t.nack, err)) return false;
         targets.push_back(std::move(t));
