@@ -44,7 +44,7 @@
   "options": [
     "Parce que le compilateur refuse les boucles vides sur un ESP32",
     "Parce que vTaskDelay est précis au millionième de seconde, pas la boucle",
-    "Parce qu'il rend la main aux autres tâches, que la boucle vide prive du processeur",
+    "Parce qu'il rend la main aux autres tâches, qu'une boucle vide affame",
     "Parce que la boucle vide efface les journaux déjà écrits dans la mémoire"
   ],
   "answer": 2,
