@@ -22,13 +22,22 @@ counted per user, so set before bwrap it would count every host process of the b
 Memory worst case per call: max_procs processes x mem_mb of address space each (threads share
 their process's address space) + tmp_mb of tmpfs, e.g. 8 x 256 MB + 64 MB for a run.
 
+compile_and_run() is what lesson checks use: one sandbox, g++ under the compile limits (worst
+case COMPILE_MAX_PROCS x GXX_MEM_MB = 16 x 512 MB of address space, all of it g++'s own
+processes, + COMPILE_TMP_MB of tmpfs), then the learner binary under a nested prlimit with the
+run limits (prlimit can only lower them): RUN_MAX_PROCS x RUN_MEM_MB = 8 x 256 MB + the same
+tmpfs. The program's own exit status and signal are reported, with phase="run".
+
 Result.signal is a hint only: bwrap reports a death by signal N as exit status 128+N, so a
 program calling exit(139) is reported as SIGSEGV.
 """
 import os
+import secrets
+import shlex
 import shutil
 import signal
 import subprocess
+import tempfile
 import threading
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -40,16 +49,22 @@ FSIZE_MB = 64  # largest single file (on top of the tmpfs cap): a simulator bina
 NOFILE = 256
 TRUNCATED = "\n[... sortie tronquée ...]\n"
 ENV = {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "TMPDIR": "/tmp", "LANG": "C.UTF-8"}
-# Defaults are for running a simulator program: main + a few FreeRTOS task threads + bwrap's init
-# (NPROC counts threads too). /tmp only receives small scratch files at run time.
+# Run limits for a simulator program (NPROC counts threads too). Measured with g++ 16: with 8, a
+# program can create 5 FreeRTOS tasks (init + main + app_main thread + 5), 6 fail. Address space:
+# each thread reserves a stack and a malloc arena, so 5 tasks fail at 64 MB and pass at 128 MB;
+# 256 MB is a 2x margin. /tmp only receives small scratch files at run time.
 RUN_MAX_PROCS = 8
 RUN_TMP_MB = 64
-# Compile+run in one call. Measured with g++ 16 (see the task report): `sh -c "g++ ... && prog"`
-# needs 5 processes (init, sh, g++, collect2, ld) and fails at 4; 32 leaves room for the program's
-# task threads. The same compile+run succeeds with a 1 MB /tmp (76 KB binary, g++ temporaries
-# deleted as it goes); 64 MB leaves room for bigger lessons while bounding RAM per call.
-COMPILE_MAX_PROCS = 32
+RUN_MEM_MB = 256
+RUN_CPU_S = 5  # virtual time makes a scenario take milliseconds; seconds of CPU mean a busy loop
+# Compile phase. Measured with g++ 16 (see the task report): `sh -c "g++ ... && prog"` needs 5
+# processes (init, sh, g++, collect2, ld) and fails at 4; 16 is about 3x that. These are g++'s
+# own processes: the learner binary runs under the RUN_* limits (nested prlimit). The compile
+# succeeds with a 1 MB /tmp (76 KB binary, temporaries deleted as it goes); 64 MB is ample.
+COMPILE_MAX_PROCS = 16
 COMPILE_TMP_MB = 64
+COMPILE_CPU_S = 60
+PROG = "/tmp/prog"
 # Measured with g++ 16: a C++17 file including <iostream>, <thread> and <map> fails to compile
 # at 96 MB of address space and passes at 128 MB; 4x margin for bigger lessons, -O2 and g++ 15.
 GXX_MEM_MB = 512
@@ -71,6 +86,7 @@ class Result:
     err: str
     timed_out: bool
     signal: str | None
+    phase: str | None = None  # compile_and_run only: "compile" (rc/signal/err are g++'s) or "run"
 
 
 _probed = False
@@ -115,7 +131,7 @@ def _bwrap_argv(bwrap: str, tmp_mb: int, binds: list[tuple[str, int, str]]) -> l
     for flag, fd, dest in sorted(binds, key=lambda b: len(Path(b[2]).parts)):
         args += [flag, str(fd), dest]
     # bwrap's root is an unbounded tmpfs (RAM): freeze it once every mount point exists.
-    return args + ["--remount-ro", "/", "--chdir", WORK if any(b[2] == WORK for b in binds) else "/"]
+    return args + ["--remount-ro", "/", "--chdir", WORK]
 
 
 def _limits(cpu_s: int, mem_mb: int, max_procs: int) -> list[str]:
@@ -132,11 +148,21 @@ def _check_available() -> str:
         raise SandboxUnavailable(f"{bwrap} n'appartient pas à root : exécution refusée.")
     with _probe_lock:
         if not _probed:
+            # Same flags as a real call (fd binds, --size, --chdir /work, prlimit): an older bwrap
+            # that lacks one fails here as SandboxUnavailable, not later as a learner error.
+            d = tempfile.mkdtemp(prefix="espsandbox-probe-")
+            # One fd per bind: bwrap closes each bind fd once it has used it.
+            fds = [os.open(d, os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC) for _ in range(2)]
             try:
-                r = subprocess.run([*_bwrap_argv(bwrap, 1, []), *_limits(5, 64, 4), "/usr/bin/true"],
+                binds = [("--ro-bind-fd", fds[0], WORK), ("--bind-fd", fds[1], "/probe")]
+                r = subprocess.run([*_bwrap_argv(bwrap, 1, binds), *_limits(5, 64, 4), "/usr/bin/true"], pass_fds=fds,
                                    env=ENV, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30)
             except subprocess.TimeoutExpired:
                 raise SandboxUnavailable("bwrap ne répond pas (sonde bloquée plus de 30 s).") from None
+            finally:
+                for fd in fds:
+                    os.close(fd)
+                os.rmdir(d)
             if r.returncode != 0:
                 raise SandboxUnavailable(f"bwrap ne peut pas créer le sandbox : {r.stderr.strip()}")
             _probed = True
@@ -196,6 +222,31 @@ def run_sandboxed(argv: list[str], *, cwd: Path, rw: Sequence[Path] = (), ro: Se
     proc.stderr.close()
     return Result(rc=proc.returncode, out="".join(out), err="".join(err), timed_out=timed_out,
                   signal=_signal_name(proc.returncode))
+
+
+def compile_and_run(compile_argv: list[str], run_args: Sequence[str] = (), *, cwd: Path, ro: Sequence[Path] = (),
+                    wall_s: float, run_cpu_s: int = RUN_CPU_S, max_out: int = 200_000) -> Result:
+    """Compile with `compile_argv + ["-o", PROG]`, then run `PROG run_args`, in one sandbox.
+
+    phase="compile": g++ failed (or the call timed out while compiling); rc/signal are g++'s and
+    err holds its diagnostics. phase="run": rc/signal are the program's own, out is its stdout
+    (the simulator trace) and err its stderr. Compiler warnings of a successful build are dropped.
+    """
+    # The marker is printed on stdout between the phases; g++ never writes stdout, and the learner
+    # cannot know a per-call nonce, so "stdout starts with the marker" means "the program started".
+    marker = f"[espsandbox-run-{secrets.token_hex(16)}]"
+    run_limits = shlex.join(_limits(run_cpu_s, RUN_MEM_MB, RUN_MAX_PROCS))
+    script = (f"{shlex.join([*compile_argv, '-o', PROG])} 2>/tmp/diag; rc=$?; "
+              f"if [ $rc -ne 0 ]; then cat /tmp/diag >&2; exit $rc; fi; "
+              f"printf %s {shlex.quote(marker)}; exec {run_limits} {shlex.join([PROG, *run_args])}")
+    r = run_sandboxed(["/usr/bin/sh", "-c", script], cwd=cwd, ro=ro, wall_s=wall_s, cpu_s=COMPILE_CPU_S + run_cpu_s,
+                      mem_mb=GXX_MEM_MB, max_out=max_out + len(marker), tmp_mb=COMPILE_TMP_MB,
+                      max_procs=COMPILE_MAX_PROCS)
+    if r.out.startswith(marker):
+        r.out, r.phase = r.out[len(marker):], "run"
+    else:
+        r.phase = "compile"
+    return r
 
 
 def _signal_name(rc: int) -> str | None:

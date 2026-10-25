@@ -101,20 +101,23 @@ def test_memory_across_processes_bounded(work):
 #include <string.h>
 #include <unistd.h>
 int main(void){
-  int n = 0;
+  int n = 0, ready[2];
+  char c;
+  pipe(ready);
   for (int i = 0; i < 20; i++) {
     pid_t p = fork();
     if (p == 0) {
       if (malloc((size_t)200 << 20)) { puts("BIG_OK"); fflush(stdout); }
       char *m = malloc((size_t)100 << 20);
       if (m) { memset(m, 1, (size_t)100 << 20); puts("child 100MB"); fflush(stdout); }
+      write(ready[1], "r", 1);  /* handshake: this child is done allocating */
       pause();
       _exit(0);
     }
     if (p < 0) break;
     n++;
   }
-  sleep(2);
+  for (int i = 0; i < n; i++) read(ready[0], &c, 1);
   printf("forked %d\n", n);
   return 0;
 }""")
@@ -390,15 +393,56 @@ def test_probe_hang_is_unavailable(tmp_path, monkeypatch):
         sandbox.run_sandboxed(["/usr/bin/true"], cwd=tmp_path, wall_s=5, cpu_s=1, mem_mb=64)
 
 
-def test_compiler_runs_inside_sandbox(work):
+@pytest.fixture(scope="module")
+def sim():
+    return _load("espsim_build", ESP / "sim" / "build.py").build_sim()
+
+
+def compile_and_run(work: Path, sim: Path, src: str, run_args=("--max-ms", "10"), with_sim=True):
+    (work / "main.cpp").write_text(src, encoding="utf-8")
+    argv = ["g++", "-std=c++17", "main.cpp"] + (["-I", f"{sim}/include", f"{sim}/libespsim.a", "-pthread"] if with_sim else [])
+    return sandbox.compile_and_run(argv, list(run_args), cwd=work, ro=[sim], wall_s=120)
+
+
+def test_compiler_runs_inside_sandbox(work, sim):
     """Compile AND run in one call, with the workspace read-only: only the tmpfs /tmp is written."""
-    sim = _load("espsim_build", ESP / "sim" / "build.py").build_sim()
-    (work / "main.cpp").write_text(
-        '#include "esp_log.h"\nextern "C" void app_main(void) { ESP_LOGI("t", "bonjour"); }\n', encoding="utf-8")
-    script = f"g++ -std=c++17 -I {sim}/include main.cpp {sim}/libespsim.a -pthread -o /tmp/prog && /tmp/prog --max-ms 10"
-    r = sandbox.run_sandboxed(["/usr/bin/sh", "-c", script], cwd=work, ro=[sim], wall_s=120, cpu_s=60,
-                              mem_mb=sandbox.GXX_MEM_MB, tmp_mb=sandbox.COMPILE_TMP_MB,
-                              max_procs=sandbox.COMPILE_MAX_PROCS)
-    assert r.rc == 0, r
-    assert '"msg": "bonjour"' in r.out
+    r = compile_and_run(work, sim, '#include <cstdio>\n#include "esp_log.h"\n'
+                        'extern "C" void app_main(void) { ESP_LOGI("t", "bonjour"); std::printf("learner says hi\\n"); std::fflush(stdout); }\n')
+    assert (r.phase, r.rc) == ("run", 0), r
+    assert '"msg": "bonjour"' in r.out and "learner" not in r.out
+    assert "learner says hi" in r.err and "bonjour" not in r.err
     assert sorted(p.name for p in work.iterdir()) == ["main.cpp"]
+
+
+def test_program_gets_run_limits_not_compile_limits(work, sim):
+    r = compile_and_run(work, sim, r"""
+#include <cstdio>
+#include <cstdlib>
+#include <sys/resource.h>
+int main() {
+  rlimit as, np;
+  getrlimit(RLIMIT_AS, &as);
+  getrlimit(RLIMIT_NPROC, &np);
+  std::printf("AS=%llu NPROC=%llu %s\n", (unsigned long long)as.rlim_max, (unsigned long long)np.rlim_max,
+              std::malloc(size_t(400) << 20) ? "ALLOC_400MB_OK" : "alloc refused");
+}""", run_args=(), with_sim=False)
+    # g++ needed GXX_MEM_MB (> RUN_MEM_MB) to build this; the program only gets the run limits.
+    assert sandbox.GXX_MEM_MB > sandbox.RUN_MEM_MB
+    assert (r.phase, r.rc) == ("run", 0), r
+    assert r.out == f"AS={sandbox.RUN_MEM_MB << 20} NPROC={sandbox.RUN_MAX_PROCS} alloc refused\n"
+
+
+def test_compile_error_is_compile_phase(work, sim):
+    r = compile_and_run(work, sim, 'extern "C" void app_main(void) { this is not C++ }\n')
+    assert r.phase == "compile" and r.rc != 0, r
+    assert "error" in r.err and r.out == ""
+
+
+def test_program_segfault_is_run_phase(work, sim):
+    r = compile_and_run(work, sim, "int main() { volatile int *p = nullptr; return *p; }\n", run_args=(), with_sim=False)
+    assert (r.phase, r.signal) == ("run", "SIGSEGV"), r
+
+
+def test_program_exit_status_is_reported(work, sim):
+    r = compile_and_run(work, sim, "int main() { return 7; }\n", run_args=(), with_sim=False)
+    assert (r.phase, r.rc, r.signal) == ("run", 7, None), r
