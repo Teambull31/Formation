@@ -793,3 +793,42 @@ def test_plant_integration_is_exact_and_drift_free(lib, tmp_path):
     reads = ", ".join(str(t) for t in range(1000, 11000, 1000)) + ", 600000"
     trace = compile_and_run(ADC_READER % f"{RELAY_ON}, {reads}", 700000, lib, tmp_path, tank(level0=0, fill=6, loss=0))
     assert adc_reads(trace)[0] == 4 and adc_reads(trace)[-1] == 2400
+
+
+PIN_BEFORE_CONFIG = ADC + """
+extern "C" void app_main(void) {
+    adc_oneshot_unit_handle_t adc;
+    adc_oneshot_unit_init_cfg_t ucfg = {};
+    ucfg.unit_id = ADC_UNIT_1;
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&ucfg, &adc));
+    adc_oneshot_chan_cfg_t ccfg = {};
+    ccfg.atten = ADC_ATTEN_DB_12;
+    ccfg.bitwidth = ADC_BITWIDTH_DEFAULT;
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc, ADC_CHANNEL_0, &ccfg));
+    gpio_set_level(GPIO_NUM_5, 1);            // not an output yet: drives nothing
+    vTaskDelay(pdMS_TO_TICKS(10000));
+    %s
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    int raw = -1;
+    ESP_ERROR_CHECK(adc_oneshot_read(adc, ADC_CHANNEL_0, &raw));
+    ESP_LOGI("adc", "0 %%d", raw);
+}
+"""
+CONFIG_OUT = "gpio_config_t io = {}; io.pin_bit_mask = 1ULL << 5; io.mode = GPIO_MODE_OUTPUT; ESP_ERROR_CHECK(gpio_config(&io));"
+DIRECTION_OUT = "ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_5, GPIO_MODE_OUTPUT));"
+
+
+@pytest.mark.parametrize("make_output", [CONFIG_OUT, DIRECTION_OUT], ids=["gpio_config", "gpio_set_direction"])
+def test_plant_synced_when_pin_becomes_output(lib, tmp_path, make_output):
+    # 1 %/s: the relay drives the tank only once the pin is an output, i.e. 5 s -> 5 % (raw 200), not 15 % (600)
+    trace = compile_and_run(PIN_BEFORE_CONFIG % make_output, 30000, lib, tmp_path, tank(level0=0, loss=0))
+    assert adc_reads(trace) == [200]
+
+
+def test_plant_synced_when_output_is_disabled(lib, tmp_path):
+    # driven high for 20 s (20 %), then the pin is released: the tank stops filling, 5 s of loss (30 %/min) follow
+    src = PIN_BEFORE_CONFIG % (CONFIG_OUT + " gpio_set_level(GPIO_NUM_5, 1); vTaskDelay(pdMS_TO_TICKS(20000)); "
+                               "ESP_ERROR_CHECK(gpio_set_direction(GPIO_NUM_5, GPIO_MODE_DISABLE));")
+    trace = compile_and_run(src, 50000, lib, tmp_path, tank(level0=50))
+    # 50 % - 5 (10 s of loss, 0.5 %/s, pin not yet an output) = 45 ; +20 s fill = 65 ; -2.5 (5 s of loss) = 62.5 -> raw 2500
+    assert adc_reads(trace) == [2500]

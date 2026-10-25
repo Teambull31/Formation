@@ -81,6 +81,7 @@ extern "C" {
 esp_err_t gpio_config(const gpio_config_t *cfg) {
     if (!cfg || cfg->pin_bit_mask == 0 || (cfg->pin_bit_mask >> kPins) != 0) return ESP_ERR_INVALID_ARG;
     if (!valid_mode(cfg->mode)) return ESP_ERR_INVALID_ARG;
+    sim::plant_sync();  // a direction change can change the driven level: integrate with the old one first
     for (int n = 0; n < kPins; ++n) {
         if (!(cfg->pin_bit_mask >> n & 1)) continue;
         if (esp_err_t err = apply_direction(n, cfg->mode)) return err;
@@ -91,6 +92,7 @@ esp_err_t gpio_config(const gpio_config_t *cfg) {
 }
 
 esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode) {
+    sim::plant_sync();
     if (esp_err_t err = apply_direction(gpio_num, mode)) return err;
     trace_config(gpio_num);
     return ESP_OK;
