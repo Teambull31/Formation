@@ -44,11 +44,11 @@
   "options": [
    "60 %, car on arrondit toujours au plus proche",
    "59 %, car la division entière tronque 59,9",
-   "80 %, car on divise 2480 par 3103 sans retirer 620",
+   "79 %, car on divise 2480 par 3103 sans retirer 620",
    "18 %, car on retire 620 puis on divise par 100"
   ],
   "answer": 1,
-  "explain": "(2480 - 620) × 100 = 186000, divisé par 3103 donne 59,94 : la division entière tronque et garde 59. Ce niveau est sous 60, donc la pompe doit démarrer. Un arrondi donnerait 60 (la pompe ne démarrerait pas), oublier de retirer 620 donne 80, et diviser par 100 au lieu de 3103 n'a aucun sens pour l'étalonnage.",
+  "explain": "(2480 - 620) × 100 = 186000, divisé par 3103 donne 59,94 : la division entière tronque et garde 59. Ce niveau est sous 60, donc la pompe doit démarrer. Un arrondi donnerait 60 (la pompe ne démarrerait pas), oublier de retirer 620 donne 79, et diviser par 100 au lieu de 3103 n'a aucun sens pour l'étalonnage.",
   "remedial_lesson_id": "es6"
  },
  {

@@ -41,7 +41,7 @@ static int lire_brut(void) {
     return raw;
 }
 
-// Étalonnage du TP 6 : 620 = 0 %, 3723 = 100 %, calcul en entiers, borné entre 0 et 100.
+// Étalonnage du TP 4, repris ici : 620 = 0 %, 3723 = 100 %, calcul en entiers, borné entre 0 et 100.
 static int brut_vers_pourcent(int raw) {
     int pct = (raw - RAW_0_PCT) * 100 / (RAW_100_PCT - RAW_0_PCT);
     if (pct < 0) {

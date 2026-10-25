@@ -381,10 +381,11 @@ def run_program(source: str, check) -> tuple[Trace | dict[str, Trace], str]:
         return _run_once(source, check.SCENARIO, check.MAX_MS, WALL_S, "")
     deadline = time.monotonic() + WALL_S
     traces: dict[str, Trace] = {}
-    err = ""
     for name, (scenario, max_ms) in runs.items():
-        traces[name], err = _run_once(source, scenario, max_ms, max(deadline - time.monotonic(), 1.0), f"scénario « {name} » : ")
-    return traces, err
+        traces[name], _ = _run_once(source, scenario, max_ms, max(deadline - time.monotonic(), 1.0), f"scénario « {name} » : ")
+    # No stderr excerpt for a verify failure: verify names the failing scenario, the driver does not know which
+    # run's stderr would match. (A failing run itself still carries its own excerpt, see interpret.)
+    return traces, ""
 
 
 def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: str) -> tuple[Trace, str]:

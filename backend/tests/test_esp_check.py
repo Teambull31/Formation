@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -404,14 +405,18 @@ MULTI = ("SCENARIOS = {'a': ({'k': 1}, 1000), 'b': ({'k': 2}, 2000)}\n"
          "    need(n == [1, 1], 'un journal de fin par scénario (relire : la section X)')\n")
 
 
-def multi_fake(drv, monkeypatch, outs: list[tuple[str, int]]):
-    """Canned run-phase results, one per call; returns the list of (scenario, --max-ms, wall_s) seen."""
-    seen, it = [], iter(outs)
+def multi_fake(drv, monkeypatch, outs: list[tuple[str, int]], spend: float = 0.0, err: str = ""):
+    """Canned run-phase results, one per call; returns the list of (scenario, --max-ms, wall_s) seen.
+
+    The driver clock is fake: each call "takes" `spend` seconds, so the shared wall budget can be observed."""
+    seen, it, clock = [], iter(outs), [1000.0]
+    monkeypatch.setattr(drv, "time", types.SimpleNamespace(monotonic=lambda: clock[0]))
 
     def fake(argv, args, **kw):
         seen.append((json.loads((kw["cwd"] / "scenario.json").read_text()), args[args.index("--max-ms") + 1], kw["wall_s"]))
+        clock[0] += spend
         out, rc = next(it)
-        return drv.sandbox.Result(rc=rc, out=out, err="", timed_out=False, signal=None, phase="run")
+        return drv.sandbox.Result(rc=rc, out=out, err=err, timed_out=False, signal=None, phase="run")
 
     monkeypatch.setattr(drv.sandbox, "compile_and_run", fake)
     return seen
@@ -419,11 +424,26 @@ def multi_fake(drv, monkeypatch, outs: list[tuple[str, int]]):
 
 def test_several_scenarios_run_in_order_and_verify_gets_all_traces(drv, monkeypatch, tmp_path, capsys):
     check_module(drv, monkeypatch, tmp_path, "multi", MULTI)
-    seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)])
+    seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)], spend=30.0)
     code, out = verdict(drv, capsys, "multi")
     assert code == 0 and out.startswith("OK"), out
     assert [(s, m) for s, m, _ in seen] == [({"k": 1}, "1000"), ({"k": 2}, "2000")]
-    assert seen[1][2] <= seen[0][2] <= drv.WALL_S  # the wall budget is shared, never renewed
+    # run 1 gets the whole budget and "takes" 30 s: run 2 only gets what is left, never a renewed WALL_S
+    assert seen[0][2] == drv.WALL_S and seen[1][2] == pytest.approx(drv.WALL_S - 30.0), seen
+
+
+def test_exhausted_budget_leaves_a_one_second_floor(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "multi", MULTI)
+    seen = multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)], spend=drv.WALL_S + 5.0)
+    code, out = verdict(drv, capsys, "multi")
+    assert code == 0 and seen[1][2] == 1.0, (out, seen)
+
+
+def test_multi_verify_failure_shows_no_stderr_of_another_run(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "multi", MULTI.replace("[1, 1]", "[9, 9]"))
+    multi_fake(drv, monkeypatch, [(END_OK, 0), (END_OK, 0)], err="sortie du dernier scénario")
+    code, out = verdict(drv, capsys, "multi")
+    assert failed(code, out) and "un journal de fin par scénario" in out and "sortie du dernier" not in out, out
 
 
 def test_failed_run_names_its_scenario(drv, monkeypatch, tmp_path, capsys):
