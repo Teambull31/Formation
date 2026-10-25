@@ -3,7 +3,8 @@
 
 Lancer avec `python3 -I -B esp_check.py <tp_id>` (le répertoire courant est le dossier du TP). La
 vérification propre au TP est dans checks/<tp_id>.py : SCENARIO (dict), MAX_MS (int),
-verify(trace, source). Seuls ce dossier (contenu de confiance) et la bibliothèque standard sont
+verify(trace, source). Les messages de verify (CheckError / need) doivent finir par leur propre
+« (relire : <section>) » ; ceux du pilote reçoivent HINT. Seuls ce dossier (contenu de confiance) et la bibliothèque standard sont
 chargés, par chemin ; le répertoire de l'apprenant n'est jamais sur sys.path ni monté dans le
 sandbox : le texte analysé est copié dans un dossier privé et c'est cette copie qui est compilée.
 """
@@ -34,6 +35,7 @@ TP_ID = re.compile(r"[A-Za-z0-9_-]+")
 MSG_NO_SOURCE = "main.cpp est introuvable dans le dossier du TP"
 MSG_SYMLINK = "main.cpp est un lien symbolique : enregistrez votre code dans un vrai fichier main.cpp"
 MSG_NOT_REGULAR = "main.cpp n'est pas un fichier ordinaire"
+MSG_HARD_LINK = "main.cpp a plusieurs liens physiques : enregistrez votre code dans un fichier main.cpp à part"
 MSG_UNREADABLE = "main.cpp est illisible ({})"
 MSG_TOO_BIG = f"main.cpp est trop gros (plus de {MAX_BYTES} octets)"
 MSG_NOT_UTF8 = "main.cpp n'est pas encodé en UTF-8 (octet invalide en position {pos}) : enregistrez-le en UTF-8"
@@ -62,12 +64,15 @@ MSG_BUSY_LOOP = ("votre tâche « {task} » ne rend jamais la main : ajoutez un 
 MSG_TOO_MANY_TASKS = "trop de tâches : le simulateur en autorise 4 en plus de app_main"
 MSG_SEGV = "le programme a planté (SIGSEGV, accès mémoire invalide : pointeur nul ou tableau dépassé ?)"
 MSG_CRASH = "le programme a planté (signal {sig})"
+MSG_KILLED = "le programme s'est arrêté brutalement"
 MSG_ESP_ERROR_CHECK = "ESP_ERROR_CHECK a arrêté le programme : {msg}"
 MSG_ABORT = "le programme s'est arrêté (abort) : {msg}"
 MSG_TIMEOUT = "le programme a dépassé le temps d'exécution autorisé"
 MSG_SCENARIO = "erreur interne du TP (scénario refusé par le simulateur) : {err}"
 MSG_NO_END = "le programme s'est arrêté avant la fin de la simulation (code {rc})"
 MSG_STDERR = "\nSortie d'erreur du programme (extrait) :\n{err}"
+MSG_INTERNAL = "erreur interne du contrôle ({cause})"
+HINT = " (relire : les « Pièges » de la leçon)"
 OK = "OK : le programme se comporte comme attendu dans le simulateur."
 
 
@@ -97,6 +102,7 @@ def read_source() -> str:
     try:
         st = os.fstat(fd)
         need(stat.S_ISREG(st.st_mode), MSG_NOT_REGULAR)
+        need(st.st_nlink == 1, MSG_HARD_LINK)
         need(st.st_size <= MAX_BYTES, MSG_TOO_BIG)
         data = b""
         while len(data) <= MAX_BYTES and (chunk := os.read(fd, MAX_BYTES + 1 - len(data))):
@@ -162,36 +168,90 @@ def blank(text: str) -> tuple[str, str]:
     return "".join(code), "".join(nc)
 
 
-_IO_WORDS = ("write|pwrite|writev|pwritev2?|sendmsg|sendto|sendfile|splice|vmsplice|tee|copy_file_range|mmap|"
-             "memfd_create|socket|ioctl|fcntl|lseek|openat|open64|creat|readv|preadv2?|pread|recvmsg|"
-             "dup[23]?|getenv|secure_getenv|environ")
-# (pattern, message, searched in): "code" has literals blanked, "nc" keeps them (comments blanked in both).
 # The scan targets accidents and casual trace forgery; the sandbox is what contains hostile code.
+#
+# Library names (NAME_RULES) are refused only where they can mean the library function, so a
+# learner's own `struct Writer { void write(int); }`, `w.write(1)`, `Writer::write` or a variable
+# named `tee` stay allowed. Never refused: a member access (`.name`, `->name`), a name qualified by
+# anything but std (`X::name`), and a member declaration directly in a struct/class body. Otherwise:
+#   "word"  : any use (type-like names: cout, fstream, ...);
+#   "value" : a call `name(`, a reference `&name` / `::name` / `std::name`, or the bare name passed as
+#             a value (`= name;`, `f(name)`, `return name;`): the names that can write to the trace fd
+#             or start a process, so a function pointer cannot sneak them in;
+#   "call"  : a call or a reference only (common words: `bool open`, `if (open)` are fine).
+NAME_RULES = [
+    (r"(?:v?f?w?printf|v?dprintf|f?putw?s|f?putw?c|putw?char|fwrite|perror|psig\w+)(?:_unlocked)?", MSG_OUTPUT, "value"),
+    (r"w?cout|w?cerr|w?clog|(?:f|fre)open(?:64)?|fdopen|tmpfile(?:64)?|filesystem|\w*fstream|\w*filebuf", MSG_OUTPUT, "word"),
+    (r"(?:write|pwrite|writev|pwritev2?|sendmsg|sendto|sendfile|splice|vmsplice|tee|copy_file_range|dup[23]?)(?:64)?",
+     MSG_OUTPUT, "value"),
+    (r"(?:read|open|openat|creat|close|send|recv|recvmsg|readv|preadv2?|pread|mmap|memfd_create|socket|ioctl|fcntl|"
+     r"lseek|getenv|secure_getenv)(?:64)?", MSG_OUTPUT, "call"),
+    (r"system|popen|fork|vfork|posix_spawnp?|syscall|fexecve|exec[lv][pe]{0,2}|dl(?:open|v?sym)", MSG_PROCESS, "value"),
+    (r"kill|clone3?|ptrace|prctl|unshare|setns", MSG_PROCESS, "call"),
+    (r"time|clock|sleep", MSG_TIME, "call"),
+]
+STD_THREAD = r"this_thread|jthread|thread|async"  # refused as std::name, or bare under `using namespace std`
+USING_STD = re.compile(r"\busing\s+(?:namespace\s+)?(?:::\s*)?std\b")
+# (pattern, message, searched in): "code" has literals blanked, "literals" keeps them, adjacent ones joined.
 RULES = [
-    (r"\b(?:jthread|this_thread|thread)\b", MSG_TIME, "code"),
-    (r"\bsleep_(?:for|until)\b|\b(?:usleep|nanosleep|clock_nanosleep)\b|\bsleep\s*\(", MSG_TIME, "code"),
-    (r"\basync\b|\bpthread_\w+|\b(?:wait_|try_lock_)(?:for|until)\b", MSG_TIME, "code"),
-    (r"\b(?:time|clock)\s*\(|\b(?:clock_gettime|gettimeofday|timespec_get|ftime)\b", MSG_TIME, "code"),
+    (rf"\bstd\s*::\s*(?:{STD_THREAD})\b", MSG_TIME, "code"),
+    (r"\bsleep_(?:for|until)\b|\b(?:usleep|nanosleep|clock_nanosleep)\b", MSG_TIME, "code"),
+    (r"\bpthread_\w+|\b(?:wait_|try_lock_)(?:for|until)\b", MSG_TIME, "code"),
+    (r"\b(?:clock_gettime|gettimeofday|timespec_get|ftime)\b", MSG_TIME, "code"),
     (r"\b(?:system|steady|high_resolution|utc|tai|gps|file)_clock\b", MSG_TIME, "code"),
-    (r"\b(?:v?f?w?printf|v?dprintf|f?putw?s|f?putw?c|putw?char|fwrite|perror|psig\w+)(?:_unlocked)?\b",
-     MSG_OUTPUT, "code"),
-    (r"\b(?:w?cout|w?cerr|w?clog)\b", MSG_OUTPUT, "code"),
-    (r"\b(?:f|fre)open(?:64)?\b|\b(?:fdopen|tmpfile(?:64)?|filesystem)\b|\w*(?:fstream|filebuf)\b", MSG_OUTPUT, "code"),
-    (rf"\b(?:{_IO_WORDS})(?:64)?\b", MSG_OUTPUT, "code"),
-    # Common words (a door can be "open"): only calls or references are refused.
-    (r"\b(?:read|open|close|send|recv)\s*\(|(?:&|::)\s*(?:read|open|close|send|recv)\b", MSG_OUTPUT, "code"),
     (r"/(?:proc|dev|sys)\b", MSG_OUTPUT, "literals"),
-    (r"\b(?:system|fork|vfork|kill)\s*\(|(?:&|::)\s*(?:system|fork|vfork|kill)\b", MSG_PROCESS, "code"),
-    (r"\b(?:popen|posix_spawnp?|syscall|clone3?|ptrace|prctl|unshare|setns|fexecve|exec[lv][pe]{0,2}|dl(?:open|v?sym))\b",
-     MSG_PROCESS, "code"),
     # Reserved identifiers (__builtin_*, __attribute__, __asm__, _Pragma, mangled names like _ZN3sim8trace_fdE).
     (r"\b(?!__(?:FILE__|LINE__|func__|FUNCTION__|PRETTY_FUNCTION__|VA_ARGS__|cplusplus)\b)_(?:_|[A-Z])\w*",
      MSG_LOWLEVEL, "code"),
-    (r"\b(?:asm|gnu|weakref|sim)\b", MSG_LOWLEVEL, "code"),
+    (r"\basm\b|\bgnu\s*::|\busing\s+gnu\b", MSG_LOWLEVEL, "code"),
+    # The simulator's internals, and aliases that would hide std:: or sim:: from the rules above.
+    (r"\bsim\s*::|\bnamespace\s+sim\b|\busing\s+namespace\s+(?:::\s*)?sim\b|\bnamespace\s+\w+\s*=\s*(?:::\s*)?(?:std|sim)\b",
+     MSG_LOWLEVEL, "code"),
     (r"#\s*(?:embed|include_next)\b|##", MSG_LOWLEVEL, "code"),
     # Outside literals, a backslash can only be a universal character name (printf).
     (r"\\", MSG_LOWLEVEL, "code"),
 ]
+
+
+def _bodies(code: str, keywords: str) -> list[tuple[int, int]]:
+    """(open, close) brace positions of each body introduced by one of `keywords` (struct|class|union, enum)."""
+    pairs: dict[int, int] = {}
+    stack: list[int] = []
+    for i, c in enumerate(code):
+        if c == "{":
+            stack.append(i)
+        elif c == "}" and stack:
+            pairs[stack.pop()] = i
+    return [(m.end() - 1, pairs[m.end() - 1]) for m in re.finditer(rf"\b(?:{keywords})\b[^;{{}}()]*\{{", code)
+            if m.end() - 1 in pairs]
+
+
+def _directly_in(code: str, pos: int, bodies: list[tuple[int, int]]) -> bool:
+    # Inside one of the bodies and not nested deeper (a member function's body, a lambda...).
+    return any(o < pos < c and code.count("{", o + 1, pos) == code.count("}", o + 1, pos) for o, c in bodies)
+
+
+def _library_use(code: str, names: str, form: str, classes: list[tuple[int, int]], enums: list[tuple[int, int]]):
+    for m in re.finditer(rf"\b(?:{names})\b", code):
+        raw = code[max(0, m.start() - 200):m.start()]
+        before = raw.rstrip()
+        if before.endswith((".", "->")) or _directly_in(code, m.start(), enums):
+            continue  # member access, or an enumerator: enum class Mode { read, write };
+        qualifier = re.search(r"(\w+|>)::\s*$", raw)
+        if qualifier and qualifier.group(1) != "std":
+            continue  # X::name: the learner's own member or namespace
+        after = code[m.end():m.end() + 40].lstrip()
+        call = after.startswith("(")
+        # Member declaration directly in a class body, after a type: struct Writer { void write(int); };
+        if call and before and (before[-1].isalnum() or before[-1] in "_*&>") and _directly_in(code, m.start(), classes):
+            continue
+        reference = before.endswith(("&", "::"))
+        value = after[:1] in (";", ",", ")") and (before.endswith(("=", "(", ",")) or re.search(r"\breturn$", before))
+        if form == "word" or call or reference or (form == "value" and value):
+            return m
+    return None
+
+
 INCLUDE = re.compile(r"^[ \t]*#[ \t]*include\b[ \t]*(.*)$", re.M)
 
 
@@ -214,6 +274,11 @@ def scan(source: str) -> None:
     for pattern, message, where in RULES:
         m = re.search(pattern, texts[where])
         need(m is None, m and message.format(line=line(m.start()), what=m.group(0).strip()))
+    classes, enums = _bodies(code, "struct|class|union"), _bodies(code, "enum")
+    rules = NAME_RULES + ([(STD_THREAD, MSG_TIME, "word")] if USING_STD.search(code) else [])
+    for names, message, form in rules:
+        m = _library_use(code, names, form, classes, enums)
+        need(m is None, m and message.format(line=line(m.start()), what=m.group(0)))
     # (3) point d'entrée ESP-IDF
     need(not re.search(r"\bmain\s*\(", code), MSG_DEFINES_MAIN)
     need(re.search(r"\bapp_main\b", code), MSG_NO_APP_MAIN)
@@ -235,6 +300,17 @@ def _excerpt(err: str) -> str:
     return MSG_STDERR.format(err="\n".join(err[-800:].splitlines()[-10:]))
 
 
+def _not_learner(message: str) -> CheckError:
+    e = CheckError(message)
+    e.hint = ""  # not the learner's code: no lesson to re-read
+    return e
+
+
+def _with_detail(e: CheckError, err: str) -> CheckError:
+    e.detail = _excerpt(err)  # printed after the hint
+    return e
+
+
 def run_program(source: str, check) -> tuple[Trace, str]:
     sim = build.build_sim()
     with tempfile.TemporaryDirectory(prefix="espcheck-") as d:
@@ -246,7 +322,7 @@ def run_program(source: str, check) -> tuple[Trace, str]:
                                         ["--max-ms", str(check.MAX_MS), "--scenario", "scenario.json"],
                                         cwd=work, ro=[sim], wall_s=WALL_S, max_out=MAX_OUT)
         except (sandbox.SandboxUnavailable, sandbox.UnsafePath) as e:
-            raise CheckError(f"{MSG_NO_SANDBOX} ({e})") from None
+            raise _not_learner(f"{MSG_NO_SANDBOX} ({e})") from None
     if r.phase == "compile":
         need(not r.timed_out, MSG_COMPILE_TIMEOUT)
         need("undefined reference to `app_main'" not in r.err, MSG_NO_APP_MAIN)
@@ -258,7 +334,7 @@ def run_program(source: str, check) -> tuple[Trace, str]:
 def interpret(r) -> Trace:
     """Trace from the private trace fd (stdout only); stderr is learner/diagnostic text shown on failure."""
     def fail(message: str):
-        raise CheckError(message + _excerpt(r.err))
+        raise _with_detail(CheckError(message), r.err)
 
     if r.out.endswith(sandbox.TRUNCATED):
         fail(MSG_FLOOD)
@@ -275,11 +351,13 @@ def interpret(r) -> Trace:
     if reason == "busy_loop":
         fail(MSG_BUSY_LOOP.format(task=end.get("task", "?")))
     if reason == "crash" or (not end and r.signal and not r.timed_out):
-        try:
-            name = signal.Signals(sig).name if reason == "crash" else r.signal
-        except (ValueError, TypeError):
-            name = str(sig)
-        fail(MSG_SEGV if name == "SIGSEGV" else MSG_CRASH.format(sig=name))
+        name = r.signal
+        if reason == "crash":
+            try:
+                name = signal.Signals(sig).name
+            except (ValueError, TypeError):
+                name = r.signal  # crash line without a usable signal: fall back to the exit status
+        fail(MSG_SEGV if name == "SIGSEGV" else MSG_CRASH.format(sig=name) if name else MSG_KILLED)
     if reason == "abort":
         errors = trace.logs(level="E")
         msg = errors[-1].get("msg", "") if errors else ""
@@ -287,7 +365,7 @@ def interpret(r) -> Trace:
     if r.timed_out:
         fail(MSG_TIMEOUT)
     if r.rc == 2 and "scénario" in r.err:
-        raise CheckError(MSG_SCENARIO.format(err=r.err.strip()[:300]))
+        raise _not_learner(MSG_SCENARIO.format(err=r.err.strip()[:300]))
     fail(MSG_NO_END.format(rc=r.rc))
 
 
@@ -297,17 +375,22 @@ def main(argv: list[str]) -> int:
     if len(argv) != 2 or not TP_ID.fullmatch(argv[1]) or not (CHECKS / f"{argv[1]}.py").is_file():
         print(f"Usage: {Path(argv[0]).name} <tp_id> (un module checks/<tp_id>.py doit exister)", file=sys.stderr)
         return 2
-    check = _load(f"esp_check_{argv[1]}", CHECKS / f"{argv[1]}.py")
     try:
+        check = _load(f"esp_check_{argv[1]}", CHECKS / f"{argv[1]}.py")
         source = read_source()
         scan(source)
         trace, err = run_program(source, check)
         try:
             check.verify(trace, source)
         except CheckError as e:
-            raise CheckError(str(e) + _excerpt(err)) from None
+            e.hint = ""  # verify messages carry their own (relire : ...)
+            raise _with_detail(e, err) from None
     except CheckError as e:
-        print(f"ECHEC : {e}")
+        print(f"ECHEC : {e}{getattr(e, 'hint', HINT)}{getattr(e, 'detail', '')}")
+        return 1
+    except Exception as e:  # never a traceback, never OK: a bug in the sim build, a check module or the sandbox
+        cause = (str(e).strip().splitlines() or [""])[0][:200]
+        print(f"ECHEC : {MSG_INTERNAL.format(cause=f'{type(e).__name__}: {cause}' if cause else type(e).__name__)}")
         return 1
     print(OK)
     return 0

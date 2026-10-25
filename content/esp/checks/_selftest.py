@@ -7,4 +7,4 @@ MAX_MS = 1000
 
 def verify(trace: Trace, source: str) -> None:
     before = [level for t, level in trace.gpio_levels(2) if t <= 500]
-    need(before and before[-1] == 1, "la LED en GPIO 2 doit être allumée (niveau 1) à 500 ms")
+    need(before and before[-1] == 1, "la LED en GPIO 2 doit être allumée (niveau 1) à 500 ms (relire : la section GPIO)")

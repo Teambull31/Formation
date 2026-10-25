@@ -212,6 +212,11 @@ OUTPUT = [
     'int fd = open64("x", 0); (void)fd;',
     'std::basic_filebuf<char> fb; fb.open("x", std::ios::out);',
     'const char *p = "/pro" "c/self/fd/3"; (void)p;',
+    "auto f = write; (void)f;",
+    "auto f = &std::printf; (void)f;",
+    "struct S { void f() { write(3, \"x\", 1); } }; S().f();",
+    "struct S { long x = write(3, \"x\", 1); }; S s; (void)s;",
+    "struct S { void write(int); void f() { ::write(3, \"x\", 1); } }; S().f();",
 ]
 
 
@@ -239,6 +244,9 @@ OTHER = [
     "[[gnu::weakref(\"write\")]] static int w(int, const void *, unsigned long);\n" + app(""),
     app('auto f = &::system; (void)f;'),
     "#define F \"/etc/passwd\"\n#include F\n" + app(""),
+    "using ::write;\n" + app(""),
+    "namespace s = std;\n" + app("s::thread t; (void)t;"),
+    "namespace n { using namespace sim; }\n" + app(""),
 ]
 
 
@@ -274,6 +282,13 @@ def test_oversized_source_refused(tmp_path):
     assert failed(code, out) and "trop gros" in out, out
 
 
+def test_hard_link_source_refused(tmp_path):
+    (tmp_path / "real.cpp").write_text(REFERENCE, encoding="utf-8")
+    os.link(tmp_path / "real.cpp", tmp_path / "main.cpp")
+    code, out = run(tmp_path)
+    assert failed(code, out) and "liens physiques" in out, out
+
+
 def test_fifo_source_refused(tmp_path):
     os.mkfifo(tmp_path / "main.cpp")
     code, out = run(tmp_path)
@@ -289,3 +304,136 @@ def test_missing_source_refused(tmp_path):
 def test_bad_tp_id_is_usage_error(tmp_path, tp):
     code, out = run(tmp_path, REFERENCE, tp=tp)
     assert code == 2 and "Usage" in out, out
+
+
+# ---- fix round 1: internal failures, malformed traces, hints, ordinary identifiers ----
+
+END_OK = '{"t_ms": 1000, "ev": "end", "reason": "deadline"}\n'
+
+
+@pytest.fixture
+def drv(tmp_path, monkeypatch):
+    """The driver loaded in-process, cwd = a TP folder holding the reference main.cpp."""
+    d = _load("esp_check_in_process", DRIVER)
+    (tmp_path / "main.cpp").write_text(REFERENCE, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    return d
+
+
+def fake_run(drv, monkeypatch, out: str, rc: int = 0, sig: str | None = None):
+    """Replace the sandboxed compile+run with a canned run-phase result (no bwrap needed)."""
+    result = drv.sandbox.Result(rc=rc, out=out, err="", timed_out=False, signal=sig, phase="run")
+    monkeypatch.setattr(drv.sandbox, "compile_and_run", lambda *a, **k: result)
+
+
+def check_module(drv, monkeypatch, tmp_path, name: str, text: str) -> None:
+    checks = tmp_path / "checks"
+    checks.mkdir(exist_ok=True)
+    (checks / f"{name}.py").write_text(text, encoding="utf-8")
+    monkeypatch.setattr(drv, "CHECKS", checks)
+
+
+def verdict(drv, capsys, tp: str = "_selftest") -> tuple[int, str]:
+    code = drv.main(["esp_check.py", tp])
+    return code, capsys.readouterr().out
+
+
+def internal(code: int, out: str) -> bool:
+    return code == 1 and out.startswith("ECHEC : erreur interne du contrôle (") and "OK" not in out \
+        and "Traceback" not in out
+
+
+def test_verify_raising_keyerror_is_internal_error(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "boom", "SCENARIO = {}\nMAX_MS = 1000\n"
+                 "def verify(trace, source):\n    raise KeyError('level')\n")
+    fake_run(drv, monkeypatch, END_OK)
+    code, out = verdict(drv, capsys, "boom")
+    assert internal(code, out) and "KeyError" in out, out
+
+
+def test_check_module_syntax_error_is_internal_error(drv, monkeypatch, tmp_path, capsys):
+    check_module(drv, monkeypatch, tmp_path, "broken", "SCENARIO = {\n")
+    code, out = verdict(drv, capsys, "broken")
+    assert internal(code, out) and "SyntaxError" in out, out
+
+
+def test_sim_build_failure_is_internal_error(drv, monkeypatch, capsys):
+    def broken():
+        raise RuntimeError("échec de compilation du simulateur :\ncore.cpp:1: error: boom")
+    monkeypatch.setattr(drv.build, "build_sim", broken)
+    code, out = verdict(drv, capsys)
+    assert internal(code, out) and "échec de compilation du simulateur" in out and "core.cpp" not in out, out
+
+
+def test_sandbox_oserror_is_internal_error(drv, monkeypatch, capsys):
+    def popen_fails(*a, **k):
+        raise OSError(24, "Too many open files")
+    monkeypatch.setattr(drv.sandbox, "compile_and_run", popen_fails)
+    code, out = verdict(drv, capsys)
+    assert internal(code, out) and "OSError" in out, out
+
+
+def test_forged_gpio_set_without_level_is_ignored(drv, monkeypatch, capsys):
+    fake_run(drv, monkeypatch, '{"t_ms": 0, "ev": "gpio_set", "pin": 2}\n' + END_OK)
+    code, out = verdict(drv, capsys)
+    assert failed(code, out) and "GPIO 2" in out and "interne" not in out, out
+
+
+def test_trace_drops_malformed_events():
+    t = _load("esp_trace_unit", ESP / "trace.py").Trace(
+        '{"t_ms": 0, "ev": "gpio_set", "pin": 2}\n{"t_ms": 1, "ev": "gpio_set", "pin": 2, "level": true}\n'
+        '{"t_ms": 2, "ev": "gpio_set", "pin": "2", "level": 1}\n{"t_ms": 3, "ev": "log", "level": "I"}\n'
+        '{"t_ms": 4, "ev": "end"}\n{"t_ms": 5, "ev": "gpio_set", "pin": 2, "level": 1}\n')
+    assert t.gpio_levels(2) == [(5, 1)] and t.logs() == [] and t.last_end() == {} and t.bad_lines == 5
+
+
+def test_many_malformed_lines_fail_clearly(drv, monkeypatch, capsys):
+    fake_run(drv, monkeypatch, '{"t_ms": 0, "ev": "gpio_set", "pin": 2}\n' * 4 + END_OK)
+    code, out = verdict(drv, capsys)
+    assert failed(code, out) and "illisible" in out, out
+
+
+def test_crash_without_signal_message(drv, monkeypatch, capsys):
+    fake_run(drv, monkeypatch, '{"t_ms": 5, "ev": "end", "reason": "crash"}\n', rc=1)
+    code, out = verdict(drv, capsys)
+    assert failed(code, out) and "brutalement" in out and "None" not in out, out
+
+
+def test_driver_messages_carry_a_hint(tmp_path):
+    code, out = run(tmp_path, HEAD + "void setup(void) {}\n")
+    assert failed(code, out) and "(relire : " in out, out
+
+
+def test_verify_messages_keep_their_own_hint(tmp_path, bwrap_ok):
+    code, out = run(tmp_path, LED_OFF)
+    assert failed(code, out) and "(relire : la section GPIO)" in out and "Pièges" not in out, out
+
+
+ORDINARY = HEAD + r'''
+struct Writer {
+    int written = 0;
+    void write(int v);
+    int read() const { return written; }
+};
+void Writer::write(int v) { written += v; }
+enum class Mode { read, write, open, close };
+
+extern "C" void app_main(void) {
+    int thread_count = 1, async_flag = 0, sim = 2, tee = 3, gnu = 4, thread = 5;
+    bool open = false;
+    Writer w;
+    w.write(1);
+    Writer *pw = &w;
+    pw->write(thread_count + async_flag + sim + tee + gnu + thread);
+    if (open || w.read() < 0 || Mode::write == Mode::read) return;
+    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+    vTaskDelay(pdMS_TO_TICKS(400));
+    gpio_set_level(GPIO_NUM_2, 1);
+    ESP_LOGI("led", "total %d", w.read());
+}
+'''
+
+
+def test_ordinary_identifiers_do_not_trigger_the_scan(tmp_path, bwrap_ok):
+    code, out = run(tmp_path, ORDINARY)
+    assert code == 0 and out.startswith("OK"), out

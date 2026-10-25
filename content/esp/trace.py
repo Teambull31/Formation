@@ -14,10 +14,26 @@ def need(condition: bool, message: str) -> None:
         raise CheckError(message)
 
 
+# Fields the accessors rely on, per event type; an event lacking one (or with the wrong type) is dropped.
+FIELDS = {
+    "gpio_set": {"pin": int, "level": int},
+    "gpio_config": {"pin": int, "mode": str},
+    "log": {"level": str, "tag": str, "msg": str},
+    "task_create": {"name": str},
+    "end": {"reason": str},
+}
+
+
+def _valid(e) -> bool:
+    if not (isinstance(e, dict) and type(e.get("ev")) is str and type(e.get("t_ms")) is int):
+        return False
+    return all(type(e.get(k)) is t for k, t in FIELDS.get(e["ev"], {}).items())  # `is`: True is not a level
+
+
 class Trace:
     def __init__(self, text: str):
         self._events: list[dict] = []
-        self.bad_lines = 0  # lines that are not trace events (should never happen: the trace fd is private)
+        self.bad_lines = 0  # lines that are not well-formed events (should never happen: the trace fd is private)
         for line in text.splitlines():
             if not line.strip():
                 continue
@@ -25,7 +41,7 @@ class Trace:
                 e = json.loads(line)
             except ValueError:
                 e = None
-            if isinstance(e, dict) and isinstance(e.get("ev"), str) and type(e.get("t_ms")) is int:
+            if _valid(e):
                 self._events.append(e)
             else:
                 self.bad_lines += 1
