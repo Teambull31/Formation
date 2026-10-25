@@ -46,6 +46,8 @@ static const char *TAG = "monprog";
 ESP_LOGI(TAG, "la valeur est %d", 42);
 ```
 
+`static const char *TAG = "monprog";` se place en haut du fichier : c'est une constante texte, visible seulement dans ce fichier (`static`), que l'on réutilise dans tous les `ESP_LOGx`. C'est l'habitude de tous les programmes ESP-IDF : copiez-la telle quelle en changeant le texte.
+
 Le premier argument est le **tag** : une courte étiquette qui dit d'où vient le message (ici `monprog`). Le deuxième est un **format** à la manière de `printf` : `%d` pour un entier, `%s` pour un texte, `%f` pour un nombre à virgule. Les arguments suivants remplissent ces emplacements.
 
 Il y a un niveau par gravité, avec une macro chacune :
@@ -130,9 +132,9 @@ Mini-référence :
 - `void vTaskDelay(const TickType_t xTicksToDelay)` : endort la tâche appelante pendant ce nombre de ticks. Ne renvoie rien, pas d'erreur possible.
 - `pdMS_TO_TICKS(ms)` : macro qui convertit des millisecondes en ticks. Attention, elle arrondit vers le bas : `pdMS_TO_TICKS(5)` vaut 0 pour un tick de 10 ms, donc aucune attente.
 
-Il y a une seconde raison de ne jamais boucler sans dormir : le **watchdog** (« chien de garde »). C'est un minuteur matériel qui surveille que chaque tâche rend la main de temps en temps. Si une tâche garde le processeur trop longtemps, le chien de garde conclut que le programme est bloqué et **redémarre la carte**. Une boucle qui contient un `vTaskDelay` n'a jamais ce problème. Le contrôle de ce TP signale d'ailleurs une tâche qui ne rend jamais la main.
+Il y a une seconde raison de ne jamais boucler sans dormir : le **watchdog** (« chien de garde »). C'est un minuteur matériel qui surveille que chaque tâche rend la main de temps en temps. Si une tâche garde le processeur trop longtemps, le chien de garde conclut que le programme est bloqué et **le signale** : par défaut, un avertissement et la pile d'appels apparaissent dans le journal et le programme continue ; la carte ne redémarre que si la configuration (`CONFIG_ESP_TASK_WDT_PANIC`) le demande. Pendant ce temps, les autres tâches (Wi-Fi, tâche d'inactivité IDLE) n'ont plus la main. Une boucle qui contient un `vTaskDelay` n'a jamais ce problème. Le contrôle de ce TP signale d'ailleurs une tâche qui ne rend jamais la main.
 
-!!Une boucle infinie sans vTaskDelay bloque les autres tâches et fait redémarrer la carte par le watchdog!!
+!!Une boucle infinie sans vTaskDelay prive les autres tâches du processeur et déclenche l'alerte du watchdog (avertissement dans le journal, redémarrage si la configuration le demande)!!
 
 ## La boucle infinie
 
@@ -181,4 +183,4 @@ Autres erreurs fréquentes :
 
 ## À retenir
 
-**À retenir :** le point d'entrée est `extern "C" void app_main(void)` et ne se termine jamais ; `ESP_LOGI(TAG, format, ...)` écrit un journal d'information ; une broche se configure une fois avec `gpio_config` (`pin_bit_mask = 1ULL << GPIO_NUM_x`, `mode = GPIO_MODE_OUTPUT`), dans `ESP_ERROR_CHECK` ; `gpio_set_level(broche, 0 ou 1)` éteint ou allume ; on attend avec `vTaskDelay(pdMS_TO_TICKS(ms))` et jamais avec une boucle vide, sous peine de bloquer les autres tâches et de déclencher le watchdog.
+**À retenir :** le point d'entrée est `extern "C" void app_main(void)` et ne se termine jamais ; `ESP_LOGI(TAG, format, ...)` écrit un journal d'information ; une broche se configure une fois avec `gpio_config` (`pin_bit_mask = 1ULL << GPIO_NUM_x`, `mode = GPIO_MODE_OUTPUT`), dans `ESP_ERROR_CHECK` ; `gpio_set_level(broche, 0 ou 1)` éteint ou allume ; on attend avec `vTaskDelay(pdMS_TO_TICKS(ms))` et jamais avec une boucle vide, sous peine de priver les autres tâches du processeur et de déclencher l'alerte du watchdog.

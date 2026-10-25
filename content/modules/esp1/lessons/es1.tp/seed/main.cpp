@@ -5,7 +5,8 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-// Le tag des journaux de ce programme (étape 3).
+// Le tag des journaux de ce programme (étape 3) : une constante texte, visible seulement dans
+// ce fichier (static), que l'on passe en premier argument de chaque ESP_LOGI.
 static const char *TAG = "blink";
 
 extern "C" void app_main(void) {
