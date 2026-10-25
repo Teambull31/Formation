@@ -437,3 +437,105 @@ extern "C" void app_main(void) {
 def test_ordinary_identifiers_do_not_trigger_the_scan(tmp_path, bwrap_ok):
     code, out = run(tmp_path, ORDINARY)
     assert code == 0 and out.startswith("OK"), out
+
+
+# ---- value-tier names in value positions, #define, and learner-declared names ----
+
+VALUE_USES = [
+    "#define W write\n" + app("W(3, \"x\", 1);", HEAD + "#include <unistd.h>\n"),
+    "#define P printf\n" + app('P("x");', HEAD + "#include <cstdio>\n"),
+    "#define S system\n" + app('S("ls");'),
+    "#define D(x) dup(x)\n" + app("D(1);", HEAD + "#include <unistd.h>\n"),
+    "using W = long (*)(int, const void *, unsigned long);\n" + app("W f = (W)write; (void)f;", HEAD + "#include <unistd.h>\n"),
+    "using W = long (*)(int, const void *, unsigned long);\n" + app("W f = reinterpret_cast<W>(write); (void)f;"),
+    app("auto fs = {write, dup}; (void)fs;"),
+    app("void *fs[] = {(void *)write}; (void)fs;"),
+    app("bool c = true; auto f = c ? write : dup; (void)f;"),
+    app("auto f = +write; (void)f;"),
+    app("auto f = *write; (void)f;"),
+    app("auto f = !write; (void)f;"),
+    app("auto f = (long)printf; (void)f;"),
+    app("auto f = true && write; (void)f;"),
+    app("auto f = true and write; (void)f;"),
+    app("auto f = false or system; (void)f;"),
+    app("auto f = not execl; (void)f;"),
+    "auto get() { return write; }\n" + app(""),
+    "struct S { auto f() { return *write; } };\n" + app(""),
+    "struct S { void *write(int); };\n" + app(""),  # `*` is not a type name: not a member declaration
+    "struct S { void write(int); };\n" + app("auto f = (long)write; (void)f;"),
+    "extern char write[];\n" + app("auto f = (long)write; (void)f;"),
+]
+
+
+@pytest.mark.parametrize("src", VALUE_USES, ids=range(len(VALUE_USES)))
+def test_value_tier_names_refused_in_value_positions(tmp_path, src):
+    code, out = run(tmp_path, src)
+    assert failed(code, out) and "interdit" in out, out
+
+
+def test_define_of_value_name_refused_even_without_use(tmp_path):
+    code, out = run(tmp_path, "#define W write\n" + app(""))
+    assert failed(code, out) and "interdit ligne 1 : write" in out, out
+
+
+LEARNER = HEAD + r'''
+class Porte {
+    bool open = false;
+    int write = 0;
+public:
+    Porte() : open(false), write(1) {}
+    void close() { write += 1; }
+    int ecrit() const { return write; }
+};
+struct Journal {
+    bool read;
+    Journal() : read{false} {}
+    void tee() { read = true; }
+    void go() { tee(); }
+};
+
+extern "C" void app_main(void) {
+    int sim = 1, tee = 2, gnu = 3, write = 4, dup = 5;
+    int total = sim + tee + gnu + write - dup;
+    Porte p;
+    Journal j;
+    j.go();
+    gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
+    vTaskDelay(pdMS_TO_TICKS(400));
+    gpio_set_level(GPIO_NUM_2, 1);
+    ESP_LOGI("led", "total %d %d", total, p.ecrit());
+}
+'''
+
+
+def test_learner_members_and_constructor_initialisers_pass(tmp_path, bwrap_ok):
+    code, out = run(tmp_path, LEARNER)
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_sibling_member_call_passes(tmp_path, bwrap_ok):
+    src = HEAD + ("struct Porte { bool ouverte = false; void open() { ouverte = true; }\n"
+                  "  void run() { open(); } };\n"
+                  'extern "C" void app_main(void) { Porte p; p.run(); gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);'
+                  " vTaskDelay(pdMS_TO_TICKS(400)); gpio_set_level(GPIO_NUM_2, 1); }\n")
+    code, out = run(tmp_path, src)
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_ternary_after_paren_is_not_a_constructor_initialiser(tmp_path):
+    src = "struct S { int write; };\n" + app("bool c = true; auto f = c ? (1) : write(3, \"x\", 1); (void)f;")
+    code, out = run(tmp_path, src, )
+    assert failed(code, out) and "interdit" in out, out
+
+
+def test_compile_error_has_only_the_relire_hint(tmp_path, bwrap_ok):
+    code, out = run(tmp_path, app("int x = ;"))
+    assert failed(code, out) and out.count("relire") == 1 and "relisez" not in out, out
+
+
+def test_internal_error_cause_has_no_absolute_path(drv, monkeypatch, capsys):
+    def boom(*a, **k):
+        raise OSError("cannot open /home/secret/dir/sim/libespsim.a")
+    monkeypatch.setattr(drv.build, "build_sim", boom)
+    code, out = verdict(drv, capsys)
+    assert internal(code, out) and "/home" not in out and "libespsim.a" in out, out

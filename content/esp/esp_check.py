@@ -53,7 +53,7 @@ MSG_DEFINES_MAIN = ("ne définissez pas main() : sous ESP-IDF, le point d'entré
 MSG_NO_APP_MAIN = "app_main introuvable : définissez extern \"C\" void app_main(void), le point d'entrée ESP-IDF"
 MSG_NO_EXTERN_C = ("app_main doit être déclarée en extern \"C\" : extern \"C\" void app_main(void) "
                    "(sinon le C++ change son nom et le système ne la trouve pas)")
-MSG_COMPILE = "main.cpp ne compile pas :\n{summary}\n(relisez la section du cours qui présente ces fonctions)"
+MSG_COMPILE = "main.cpp ne compile pas :\n{summary}"
 MSG_COMPILE_TIMEOUT = "la compilation de main.cpp a pris trop de temps"
 MSG_NO_SANDBOX = "le sandbox d'exécution (bwrap) est indisponible : le code n'est pas exécuté sans lui"
 MSG_FLOOD = (f"la trace dépasse {MAX_OUT} octets et a été tronquée : votre programme journalise trop "
@@ -231,8 +231,51 @@ def _directly_in(code: str, pos: int, bodies: list[tuple[int, int]]) -> bool:
     return any(o < pos < c and code.count("{", o + 1, pos) == code.count("}", o + 1, pos) for o, c in bodies)
 
 
+VALUE_KW = ("return", "and", "or", "not", "xor", "bitand", "bitor", "compl", "co_return", "throw", "sizeof", "case")
+VALUE_PREV = tuple("+-*&?:=,({<>!|^~/%[)")  # a bare name right after one of these is used as a value
+
+
+def _typed(before: str) -> bool:
+    """The text ends with a type name or identifier (not `*`, an operator or an operator keyword)."""
+    w = re.search(r"(\w+)$", before)
+    if w:
+        return w.group(1) not in VALUE_KW
+    return bool(re.search(r"\w\s*<[^;{}()]*>$", before))
+
+
+def _declared_in(code: str, name: str, o: int, c: int) -> bool:
+    """`name` is declared directly in the class body (o, c): `bool open;`, `void write(int);`."""
+    for m in re.finditer(rf"\b{name}\b", code[o + 1:c]):
+        pos = o + 1 + m.start()
+        if _directly_in(code, pos, [(o, c)]) and _typed(code[max(0, pos - 200):pos].rstrip()) \
+                and code[pos + len(name):pos + len(name) + 40].lstrip()[:1] in tuple(";=({[,"):
+            return True
+    return False
+
+
+def _declared_variable(code: str, name: str) -> bool:
+    """A variable of the learner's own: `int tee = 3;`, `bool open;`, `int a, tee;` (never an extern declaration)."""
+    kw = "|".join(VALUE_KW)
+    for m in re.finditer(rf"(?:\b(?!(?:{kw})\b)[A-Za-z_]\w*\s+|,\s*){name}\s*(?:=(?!=)|;|\[|\{{)", code):
+        stmt = code[max(0, m.start() - 200):m.start()]
+        if not re.search(r"\bextern\b", re.split(r"[;{}]", stmt)[-1]):
+            return True
+    return False
+
+
+# `Porte() : open(false) {}`, `Porte() : a(1), open(false) {}`: the statement so far is a function head and `:`/`,`.
+_HEAD = r"^\s*(?!case\b|default\b)(?:[\w:<>~]+\s+)*[\w:~<>]+\s*\([^;{}]*\)\s*(?:noexcept\s*)?:"
+CTOR_INIT = re.compile(_HEAD + r"(?:\s*[\w:<>]+\s*(?:\([^()]*\)|\{[^{}]*\})\s*,)*\s*$")
+
+
 def _library_use(code: str, names: str, form: str, classes: list[tuple[int, int]], enums: list[tuple[int, int]]):
-    for m in re.finditer(rf"\b(?:{names})\b", code):
+    word = re.compile(rf"\b(?:{names})\b")
+    if form == "value":  # a macro can hide the name from every rule below: refused whole on any #define line
+        for d in re.finditer(r"^[ \t]*#[ \t]*define\b[^\n]*", code, re.M):
+            m = word.search(code, d.start(), d.end())
+            if m:
+                return m
+    for m in word.finditer(code):
         raw = code[max(0, m.start() - 200):m.start()]
         before = raw.rstrip()
         if before.endswith((".", "->")) or _directly_in(code, m.start(), enums):
@@ -240,13 +283,24 @@ def _library_use(code: str, names: str, form: str, classes: list[tuple[int, int]
         qualifier = re.search(r"(\w+|>)::\s*$", raw)
         if qualifier and qualifier.group(1) != "std":
             continue  # X::name: the learner's own member or namespace
+        name = m.group(0)
         after = code[m.end():m.end() + 40].lstrip()
         call = after.startswith("(")
-        # Member declaration directly in a class body, after a type: struct Writer { void write(int); };
-        if call and before and (before[-1].isalnum() or before[-1] in "_*&>") and _directly_in(code, m.start(), classes):
-            continue
         reference = before.endswith(("&", "::"))
-        value = after[:1] in (";", ",", ")") and (before.endswith(("=", "(", ",")) or re.search(r"\breturn$", before))
+        # Member declaration directly in a class body, after a type: struct Writer { void write(int); };
+        if call and _typed(before) and _directly_in(code, m.start(), classes):
+            continue
+        if form != "word" and not reference:
+            # Sibling member call inside a member function of a class that declares it: open();
+            if call and any(o < m.start() < c and _declared_in(code, name, o, c) for o, c in classes):
+                continue
+            # Constructor initialiser of a member the learner declared: Porte() : open(false) {}
+            if after[:1] in ("(", "{") and before[-1:] in (":", ",") \
+                    and CTOR_INIT.match(re.split(r"[;{}]", before)[-1]) \
+                    and any(_declared_in(code, name, o, c) for o, c in classes):
+                continue
+        value = (before.endswith(VALUE_PREV) or re.search(rf"\b(?:{'|'.join(VALUE_KW)})$", before)) \
+            and not _declared_variable(code, name)
         if form == "word" or call or reference or (form == "value" and value):
             return m
     return None
@@ -287,9 +341,13 @@ def scan(source: str) -> None:
 
 # ---- (4) compilation, (5) exécution, (6) fin de trace ----
 
-def _summary(err: str) -> str:
+def _strip_paths(text: str) -> str:
     # Keep file names, drop directories: the learner sees main.cpp, not the sandbox or cache paths.
-    lines = [re.sub(r"(?:/[^\s:'\"`/]+)+/", "", l)[:300] for l in err.splitlines() if l.strip()]
+    return re.sub(r"(?:/[^\s:'\"`/]+)+/", "", text)
+
+
+def _summary(err: str) -> str:
+    lines = [_strip_paths(l)[:300] for l in err.splitlines() if l.strip()]
     return "\n".join(lines[:5])
 
 
@@ -389,7 +447,7 @@ def main(argv: list[str]) -> int:
         print(f"ECHEC : {e}{getattr(e, 'hint', HINT)}{getattr(e, 'detail', '')}")
         return 1
     except Exception as e:  # never a traceback, never OK: a bug in the sim build, a check module or the sandbox
-        cause = (str(e).strip().splitlines() or [""])[0][:200]
+        cause = _strip_paths((str(e).strip().splitlines() or [""])[0])[:200]
         print(f"ECHEC : {MSG_INTERNAL.format(cause=f'{type(e).__name__}: {cause}' if cause else type(e).__name__)}")
         return 1
     print(OK)
