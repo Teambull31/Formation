@@ -23,6 +23,8 @@ FIELDS = {
     "queue_create": {"queue": int, "length": int, "item_size": int},
     "queue_send": {"queue": int, "task": str, "ok": bool},
     "queue_receive": {"queue": int, "task": str, "ok": bool},
+    "adc_read": {"channel": int, "raw": int},  # successful adc_oneshot_read; raw is the value returned
+    "i2c_xfer": {"addr": int, "ok": bool},  # one transfer to a device; ok False = NACK/no device (ESP_ERR_TIMEOUT)
     "end": {"reason": str},
 }
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -44,5 +45,22 @@ void notify(const void *object);  // the first task waiting on object becomes ru
 
 // gpio.cpp: validates and loads the "gpio_in" scenario section. False with err set when malformed.
 bool gpio_load_scenario(const Json &scenario, std::string &err);
+// The level a pin drives (0 when it is not an output): what a relay sees, unlike gpio_get_level.
+int gpio_driven_level(int pin);
+
+// adc.cpp, i2c.cpp, plant.cpp: validate and load the "adc", "i2c" and "plant" scenario sections.
+bool adc_load_scenario(const Json &scenario, std::string &err);
+bool i2c_load_scenario(const Json &scenario, std::string &err);
+bool plant_load_scenario(const Json &scenario, std::string &err);
+
+// Half-open time window [from, to) in ms, as in the "nack" and "stuck" scenario lists (plant.cpp).
+struct Window { int64_t from_ms, to_ms; };
+// Parses an optional list of {"from_ms", "to_ms"} (null list: none). False with err set when malformed.
+bool parse_windows(const Json *list, const char *where, std::vector<Window> &out, std::string &err);
+
+// plant.cpp: the tank level is integrated lazily and exactly (int64) up to now_ms, at every sample
+// and before every pin change, so the relay level is constant between two integration points.
+void plant_sync();
+bool plant_sample(int channel, int64_t &raw);  // true when `channel` is the tank sensor; raw is 0..4095
 
 }  // namespace sim

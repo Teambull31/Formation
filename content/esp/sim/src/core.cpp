@@ -23,6 +23,8 @@ const char *esp_err_to_name(esp_err_t code) {
         case ESP_OK: return "ESP_OK";
         case ESP_FAIL: return "ESP_FAIL";
         case ESP_ERR_INVALID_ARG: return "ESP_ERR_INVALID_ARG";
+        case ESP_ERR_NOT_FOUND: return "ESP_ERR_NOT_FOUND";
+        case ESP_ERR_TIMEOUT: return "ESP_ERR_TIMEOUT";
         default: return "UNKNOWN ERROR";
     }
 }
@@ -94,7 +96,8 @@ bool load_scenario(const char *path, std::string &err) {
     sim::Json root;
     if (!sim::json_parse(text, root, err)) return false;
     if (root.type != sim::Json::Object) { err = "un objet JSON est attendu à la racine"; return false; }
-    return sim::gpio_load_scenario(root, err);
+    return sim::gpio_load_scenario(root, err) && sim::adc_load_scenario(root, err) &&
+           sim::i2c_load_scenario(root, err) && sim::plant_load_scenario(root, err);
 }
 
 }  // namespace

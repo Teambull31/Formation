@@ -198,6 +198,8 @@ Chaque tâche leçon livre, dans `content/modules/<module>/` : la leçon `lesson
 
 - [ ] Tests d'abord : `test_adc_follows_scenario_interpolated`, `test_i2c_nack_returns_timeout`, `test_plant_level_rises_when_relay_on`, `test_plant_stuck_sensor_holds_value`. Implémenter, ajouter les signatures vérifiées à `signatures.json`, lancer la suite, commit `feat(esp): ADC, I2C et modèle de bassin simulés`.
 
+Détails de réalisation (tâche 11) : événements `adc_read` (`channel`, `raw` : valeur renvoyée, lecture réussie seulement) et `i2c_xfer` (`addr`, `ok` : faux pour un NACK ou une adresse sans appareil, la fonction renvoie alors `ESP_ERR_TIMEOUT`), enregistrés dans `FIELDS` de `content/esp/trace.py`. Une lecture I2C renvoie les `bytes` du scénario complétés par des zéros. Le niveau du bassin est intégré à la demande en entiers (unité 1/6e7 %, débits en 1e-3 %/min arrondis) à chaque lecture ADC et avant chaque `gpio_set_level`, sans dérive ; la broche du relais est lue par son niveau piloté (`sim::gpio_driven_level`), pas par `gpio_get_level`. Une fenêtre `stuck` fige la valeur qu'avait l'ADC à `from_ms` ; la voie `adc_channel` du bassin prime sur les points `adc`.
+
 ### Task 12: es4 — lire un capteur analogique (ADC)
 
 **Files:** `content/modules/esp2/module.json` (es4, es5, es6) ; `lessons/es4.*` ; `checks/es4-tp.py`.

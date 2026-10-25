@@ -564,3 +564,220 @@ def test_no_stale_signature():
     assert not stale, f"entries without a declaration in sim/include: {stale}"
     all_names = {n for h in INCLUDE.rglob("*.h") for n in parse_header(h.read_text(encoding="utf-8"))}
     assert not set(SKIPPED_MACROS) - all_names, "stale SKIPPED_MACROS entries"
+
+
+# ---------------------------------------------------------------- ADC, I2C and the pool-tank plant
+
+ADC = HEADERS + '#include "driver/gpio.h"\n#include "esp_adc/adc_oneshot.h"\n'
+I2C = HEADERS + '#include "driver/i2c_master.h"\n'
+
+ADC_READER = ADC + """
+extern "C" void app_main(void) {
+    adc_oneshot_unit_handle_t adc;
+    adc_oneshot_unit_init_cfg_t ucfg = {};
+    ucfg.unit_id = ADC_UNIT_1;
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&ucfg, &adc));
+    adc_oneshot_chan_cfg_t ccfg = {};
+    ccfg.atten = ADC_ATTEN_DB_12;
+    ccfg.bitwidth = ADC_BITWIDTH_DEFAULT;
+    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc, ADC_CHANNEL_0, &ccfg));
+    gpio_config_t io = {};
+    io.pin_bit_mask = 1ULL << 5;
+    io.mode = GPIO_MODE_OUTPUT;
+    ESP_ERROR_CHECK(gpio_config(&io));
+    int at[] = {%s};  // read times (ms); a negative one first sets the relay (|t|) instead of reading
+    int prev = 0;
+    for (int t : at) {
+        int when = t == -1 ? 0 : t < 0 ? -t : t;
+        vTaskDelay(pdMS_TO_TICKS(when - prev));
+        prev = when;
+        if (t < 0) { ESP_ERROR_CHECK(gpio_set_level(GPIO_NUM_5, 1)); continue; }
+        int raw = -1;
+        esp_err_t err = adc_oneshot_read(adc, ADC_CHANNEL_0, &raw);
+        ESP_LOGI("adc", "%%d %%d", (int)err, raw);
+    }
+}
+"""
+RELAY_ON = "-1"  # entry of `at`: relay on right at 0 ms
+
+
+def adc_reads(trace):
+    return [int(e["msg"].split()[1]) for e in logs(trace) if e["tag"] == "adc"]
+
+
+def test_adc_follows_scenario_interpolated(lib, tmp_path):
+    trace = compile_and_run(ADC_READER % "0, 500, 1500, 2000, 3000", 5000, lib, tmp_path,
+                            '{"adc": [{"t_ms": 2000, "channel": 0, "raw": 4000}, {"t_ms": 1000, "channel": 0, "raw": 1000}, '
+                            '{"t_ms": 0, "channel": 0, "raw": 0}, {"t_ms": 0, "channel": 3, "raw": 9}]}')
+    # linear between points, clamped after the last one; the 12-bit range is 0..4095
+    assert adc_reads(trace) == [0, 500, 2500, 4000, 4000]
+    assert [(e["t_ms"], e["channel"], e["raw"]) for e in trace if e["ev"] == "adc_read"][:2] == [(0, 0, 0), (500, 0, 500)]
+
+
+def test_adc_clamps_before_first_point_and_without_points(lib, tmp_path):
+    trace = compile_and_run(ADC_READER % "0, 100", 1000, lib, tmp_path, '{"adc": [{"t_ms": 50, "channel": 0, "raw": 700}]}')
+    assert adc_reads(trace) == [700, 700]
+    assert adc_reads(compile_and_run(ADC_READER % "100", 1000, lib, tmp_path)) == [0]
+
+
+def test_adc_unconfigured_channel_and_bad_handles(lib, tmp_path):
+    trace = compile_and_run(ADC + """
+extern "C" void app_main(void) {
+    adc_oneshot_unit_handle_t adc;
+    adc_oneshot_unit_init_cfg_t ucfg = {};
+    ucfg.unit_id = ADC_UNIT_1;
+    ESP_ERROR_CHECK(adc_oneshot_new_unit(&ucfg, &adc));
+    int raw = 7;
+    adc_oneshot_chan_cfg_t ccfg = {};
+    ccfg.atten = ADC_ATTEN_DB_12;
+    ccfg.bitwidth = ADC_BITWIDTH_12;
+    ESP_LOGI("r", "%d", (int)adc_oneshot_read(adc, ADC_CHANNEL_4, &raw));            // never configured
+    ESP_LOGI("r", "%d", (int)adc_oneshot_read(nullptr, ADC_CHANNEL_4, &raw));        // no handle
+    ESP_LOGI("r", "%d", (int)adc_oneshot_config_channel(adc, ADC_CHANNEL_4, nullptr));
+    ESP_LOGI("r", "%d", (int)adc_oneshot_config_channel(adc, ADC_CHANNEL_4, &ccfg));
+    ESP_LOGI("r", "%d", (int)adc_oneshot_read(adc, ADC_CHANNEL_4, nullptr));         // no out_raw
+    ESP_LOGI("r", "%d", (int)adc_oneshot_read(adc, ADC_CHANNEL_4, &raw));            // now fine
+    ESP_LOGI("r", "%d", (int)adc_oneshot_new_unit(&ucfg, &adc));                     // unit already claimed
+    ESP_LOGI("r", "%d", (int)adc_oneshot_del_unit(adc));
+    ESP_LOGI("r", "%d", (int)adc_oneshot_read(adc, ADC_CHANNEL_4, &raw));            // deleted handle
+    ESP_LOGI("r", "%d", (int)adc_oneshot_del_unit(adc));
+}
+""", 1000, lib, tmp_path)
+    inv, nf = 0x102, 0x105
+    assert [e["msg"] for e in logs(trace)] == [str(c) for c in (inv, inv, inv, 0, inv, 0, nf, 0, inv, inv)]
+    assert len([e for e in trace if e["ev"] == "adc_read"]) == 1  # only the successful read is traced
+
+
+I2C_PROBE = I2C + """
+extern "C" void app_main(void) {
+    i2c_master_bus_config_t bcfg = {};
+    bcfg.i2c_port = I2C_NUM_0;
+    bcfg.sda_io_num = GPIO_NUM_21;
+    bcfg.scl_io_num = GPIO_NUM_22;
+    bcfg.clk_source = I2C_CLK_SRC_DEFAULT;
+    bcfg.glitch_ignore_cnt = 7;
+    i2c_master_bus_handle_t bus;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bcfg, &bus));
+    i2c_device_config_t dcfg = {};
+    dcfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dcfg.device_address = %s;
+    dcfg.scl_speed_hz = 100000;
+    i2c_master_dev_handle_t dev;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &dcfg, &dev));
+    int at[] = {0, 1500, 2000};
+    int prev = 0;
+    for (int t : at) {
+        vTaskDelay(pdMS_TO_TICKS(t - prev));
+        prev = t;
+        uint8_t w = 0xE0, r[3] = {1, 1, 1};
+        esp_err_t err = i2c_master_transmit_receive(dev, &w, 1, r, 3, 100);
+        ESP_LOGI("i2c", "%%d %%d %%d %%d", (int)err, r[0], r[1], r[2]);
+    }
+}
+"""
+I2C_SCENARIO = '{"i2c": {"0x44": {"bytes": [18, 52], "nack": [{"from_ms": 1000, "to_ms": 2000}]}}}'
+TIMEOUT = "263"  # ESP_ERR_TIMEOUT = 0x107
+
+
+def test_i2c_nack_returns_timeout(lib, tmp_path):
+    trace = compile_and_run(I2C_PROBE % "0x44", 5000, lib, tmp_path, I2C_SCENARIO)
+    # scenario bytes first, zero padded; NACK window [1000, 2000) fails and leaves the buffer alone
+    assert [e["msg"] for e in logs(trace)] == ["0 18 52 0", f"{TIMEOUT} 1 1 1", "0 18 52 0"]
+    assert [(e["t_ms"], e["addr"], e["ok"]) for e in trace if e["ev"] == "i2c_xfer"] == [
+        (0, 0x44, True), (1500, 0x44, False), (2000, 0x44, True)]
+
+
+def test_i2c_unknown_address_returns_timeout(lib, tmp_path):
+    trace = compile_and_run(I2C_PROBE % "0x45", 5000, lib, tmp_path, I2C_SCENARIO)
+    assert [e["msg"] for e in logs(trace)] == [f"{TIMEOUT} 1 1 1"] * 3
+    assert {(e["addr"], e["ok"]) for e in trace if e["ev"] == "i2c_xfer"} == {(0x45, False)}
+
+
+def test_i2c_split_transfers_and_bad_handles(lib, tmp_path):
+    trace = compile_and_run(I2C + """
+extern "C" void app_main(void) {
+    i2c_master_bus_config_t bcfg = {};
+    bcfg.i2c_port = -1;
+    bcfg.sda_io_num = GPIO_NUM_21;
+    bcfg.scl_io_num = GPIO_NUM_22;
+    bcfg.clk_source = I2C_CLK_SRC_DEFAULT;
+    i2c_master_bus_handle_t bus;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&bcfg, &bus));
+    i2c_device_config_t dcfg = {};
+    dcfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dcfg.device_address = 0x44;
+    dcfg.scl_speed_hz = 100000;
+    i2c_master_dev_handle_t dev;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus, &dcfg, &dev));
+    uint8_t w[2] = {1, 2}, r[2] = {0, 0};
+    ESP_LOGI("r", "%d", (int)i2c_master_transmit(dev, w, 2, -1));
+    ESP_LOGI("r", "%d", (int)i2c_master_receive(dev, r, 2, 100));
+    ESP_LOGI("r", "%d %d", r[0], r[1]);
+    ESP_LOGI("r", "%d", (int)i2c_master_transmit(nullptr, w, 2, 100));
+    ESP_LOGI("r", "%d", (int)i2c_master_receive(dev, nullptr, 2, 100));
+    ESP_LOGI("r", "%d", (int)i2c_master_bus_add_device(nullptr, &dcfg, &dev));
+    ESP_LOGI("r", "%d", (int)i2c_master_bus_rm_device(dev));
+    ESP_LOGI("r", "%d", (int)i2c_master_transmit(dev, w, 2, 100));
+    ESP_LOGI("r", "%d", (int)i2c_del_master_bus(bus));
+    ESP_LOGI("r", "%d", (int)i2c_del_master_bus(bus));
+}
+""", 1000, lib, tmp_path, I2C_SCENARIO)
+    assert [e["msg"] for e in logs(trace)] == ["0", "0", "18 52", "258", "258", "258", "0", "258", "0", "258"]
+
+
+def test_scenario_without_adc_i2c_plant_is_unchanged(lib, tmp_path):
+    trace = compile_and_run(ADC_READER % "100", 1000, lib, tmp_path, '{"gpio_in": []}')
+    assert adc_reads(trace) == [0]
+
+
+@pytest.mark.parametrize("scenario", [
+    '{"adc": 3}', '{"adc": [{"t_ms": 0, "channel": 0}]}', '{"adc": [{"t_ms": 0, "channel": 0, "raw": 4096}]}',
+    '{"i2c": []}', '{"i2c": {"zz": {"bytes": []}}}', '{"i2c": {"0x44": {"bytes": [256]}}}',
+    '{"i2c": {"0x44": {"bytes": [1], "nack": [{"from_ms": 5}]}}}',
+    '{"plant": {"tank": {"level_pct0": 120}}}', '{"plant": []}',
+])
+def test_malformed_adc_i2c_plant_scenario_fails_cleanly(lib, tmp_path, scenario):
+    prog = compile_src(lib, ADC_READER % "100", tmp_path)
+    (tmp_path / "s.json").write_text(scenario, encoding="utf-8")
+    r = subprocess.run([str(prog), "--scenario", str(tmp_path / "s.json")], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and r.stdout == "" and r.stderr
+
+
+def tank(level0=50, fill=60, loss=30, extra=""):
+    return ('{"plant": {"tank": {"level_pct0": %s, "fill_pct_per_min": %s, "loss_pct_per_min": %s, "relay_pin": 5, '
+            '"adc_channel": 0, "raw_at_0": 0, "raw_at_100": 4000%s}}}' % (level0, fill, loss, extra))
+
+
+# 60 %/min = 1 %/s; raw_at_100 = 4000, so 40 raw per %
+
+def test_plant_level_rises_when_relay_on(lib, tmp_path):
+    trace = compile_and_run(ADC_READER % f"{RELAY_ON}, 10000, 20000", 30000, lib, tmp_path, tank())
+    assert adc_reads(trace) == [2400, 2400 + 400]
+
+
+def test_plant_loses_level_when_relay_off(lib, tmp_path):
+    # 30 %/min: 50 % -> 45 % after 10 s; then relay on 5 s (+5): 50 %
+    trace = compile_and_run(ADC_READER % "0, 10000, -10000, 15000", 30000, lib, tmp_path, tank())
+    assert adc_reads(trace) == [2000, 1800, 2000]
+
+
+def test_plant_level_clamped(lib, tmp_path):
+    trace = compile_and_run(ADC_READER % f"{RELAY_ON}, 10000, 20000", 30000, lib, tmp_path, tank(level0=95))
+    assert adc_reads(trace) == [4000, 4000]
+    trace = compile_and_run(ADC_READER % "10000, 20000", 30000, lib, tmp_path, tank(level0=5, loss=60))
+    assert adc_reads(trace) == [0, 0]
+
+
+def test_plant_stuck_sensor_holds_value(lib, tmp_path):
+    stuck = ', "stuck": [{"from_ms": 5000, "to_ms": 15000}]'
+    trace = compile_and_run(ADC_READER % f"{RELAY_ON}, 4000, 5000, 12000, 15000", 30000, lib, tmp_path,
+                            tank(level0=0, extra=stuck))
+    # from 0 % at 1 %/s: 4 % -> 160, frozen at the 5 % reached when the window opens (200), live again at 15 s (15 % = 600)
+    assert adc_reads(trace) == [160, 200, 200, 600]
+
+
+def test_plant_integration_is_exact_and_drift_free(lib, tmp_path):
+    # 6 %/min = 0.1 %/s: 1 s -> 0.1 % (raw 4), 10 min -> 60 % (raw 2400), whatever the read pattern
+    reads = ", ".join(str(t) for t in range(1000, 11000, 1000)) + ", 600000"
+    trace = compile_and_run(ADC_READER % f"{RELAY_ON}, {reads}", 700000, lib, tmp_path, tank(level0=0, fill=6, loss=0))
+    assert adc_reads(trace)[0] == 4 and adc_reads(trace)[-1] == 2400
