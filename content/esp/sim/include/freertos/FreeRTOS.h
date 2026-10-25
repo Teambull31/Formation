@@ -17,6 +17,9 @@ typedef unsigned int UBaseType_t;
 #define pdTRUE ((BaseType_t)1)
 #define pdPASS (pdTRUE)
 #define pdFAIL (pdFALSE)
+#define errQUEUE_EMPTY ( ( BaseType_t ) 0 )
+#define errQUEUE_FULL ( ( BaseType_t ) 0 )
+#define errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY ( -1 )
 
 #define portMAX_DELAY ( TickType_t ) 0xffffffffUL
 #define portTICK_PERIOD_MS ( ( TickType_t ) 1000 / configTICK_RATE_HZ )

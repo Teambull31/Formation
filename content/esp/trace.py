@@ -19,7 +19,10 @@ FIELDS = {
     "gpio_set": {"pin": int, "level": int},
     "gpio_config": {"pin": int, "mode": str},
     "log": {"level": str, "tag": str, "msg": str},
-    "task_create": {"name": str},
+    "task_create": {"name": str},  # plus "stack" (bytes) and "priority" for tasks made by xTaskCreate
+    "queue_create": {"queue": int, "length": int, "item_size": int},
+    "queue_send": {"queue": int, "task": str, "ok": bool},
+    "queue_receive": {"queue": int, "task": str, "ok": bool},
     "end": {"reason": str},
 }
 

@@ -325,6 +325,146 @@ def test_missing_scenario_file_fails_cleanly(lib, tmp_path):
     assert r.returncode == 2 and "scénario" in r.stderr
 
 
+# --- FreeRTOS queues -----------------------------------------------------------------------------------
+
+QUEUE = HEADERS + '#include "freertos/queue.h"\n'
+
+
+def test_queue_blocks_until_item(lib, tmp_path):
+    trace = compile_and_run(QUEUE + """
+static QueueHandle_t q;
+static void consumer(void *) {
+    int v = 0;
+    BaseType_t ok = xQueueReceive(q, &v, pdMS_TO_TICKS(1000));
+    ESP_LOGI("rx", "%d %d", (int)ok, v);
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    q = xQueueCreate(4, sizeof(int));
+    xTaskCreate(consumer, "rx", 2048, NULL, 5, NULL);
+    vTaskDelay(pdMS_TO_TICKS(300));
+    int v = 42;
+    xQueueSend(q, &v, 0);
+}
+""", 2000, lib, tmp_path)
+    assert levels(trace) == [(300, "1 42")]
+    assert trace[-1] == {"t_ms": 2000, "ev": "end", "reason": "deadline"}
+
+
+def test_queue_receive_timeout_returns_pdFALSE(lib, tmp_path):
+    trace = compile_and_run(QUEUE + """
+extern "C" void app_main(void) {
+    QueueHandle_t q = xQueueCreate(2, sizeof(int));
+    int v = 7;
+    ESP_LOGI("rx", "%d", (int)xQueueReceive(q, &v, 0));
+    ESP_LOGI("rx", "%d", (int)xQueueReceive(q, &v, pdMS_TO_TICKS(250)));
+    ESP_LOGI("rx", "%d %d", v, (int)(xQueueReceive(q, &v, 0) == pdFALSE));
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(0, "0"), (250, "0"), (250, "7 1")]
+
+
+def test_queue_full_send_times_out(lib, tmp_path):
+    trace = compile_and_run(QUEUE + """
+extern "C" void app_main(void) {
+    QueueHandle_t q = xQueueCreate(1, sizeof(int));
+    int a = 1, b = 2;
+    ESP_LOGI("tx", "%d", (int)xQueueSend(q, &a, 0));
+    ESP_LOGI("tx", "%d", (int)(xQueueSendToBack(q, &b, pdMS_TO_TICKS(100)) == errQUEUE_FULL));
+    ESP_LOGI("tx", "%u", (unsigned)uxQueueMessagesWaiting(q));
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(0, "1"), (100, "1"), (100, "1")]
+
+
+def test_queue_is_fifo_and_full_sender_waits_for_space(lib, tmp_path):
+    trace = compile_and_run(QUEUE + """
+static QueueHandle_t q;
+static void producer(void *) {
+    for (int i = 1; i <= 4; i++) {
+        xQueueSend(q, &i, portMAX_DELAY);  // the 4th waits for room, freed by the first receive
+        ESP_LOGI("tx", "%d", i);
+    }
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    q = xQueueCreate(3, sizeof(int));
+    xTaskCreate(producer, "tx", 2048, NULL, 5, NULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    int v;
+    for (int n = 0; n < 4; n++) {
+        xQueueReceive(q, &v, 0);
+        ESP_LOGI("rx", "%d", v);
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    vQueueDelete(q);
+}
+""", 1000, lib, tmp_path)
+    assert [(e["t_ms"], e["tag"], e["msg"]) for e in logs(trace)] == [
+        (0, "tx", "1"), (0, "tx", "2"), (0, "tx", "3"),
+        (100, "rx", "1"), (100, "tx", "4"), (110, "rx", "2"), (120, "rx", "3"), (130, "rx", "4")]
+    assert trace[-1]["reason"] == "deadline"
+
+
+def test_queue_max_delay_receiver_woken_by_sender_task(lib, tmp_path):
+    trace = compile_and_run(QUEUE + """
+static QueueHandle_t q;
+static void led(void *) {
+    int v;
+    for (;;) {
+        if (xQueueReceive(q, &v, portMAX_DELAY) == pdTRUE) ESP_LOGI("rx", "%d", v);
+    }
+}
+static void button(void *) {
+    for (int i = 1;; i++) {
+        vTaskDelay(pdMS_TO_TICKS(100));
+        xQueueSend(q, &i, 0);
+    }
+}
+extern "C" void app_main(void) {
+    q = xQueueCreate(4, sizeof(int));
+    xTaskCreate(led, "led", 4096, NULL, 5, NULL);
+    xTaskCreate(button, "bouton", 3072, NULL, 4, NULL);
+}
+""", 350, lib, tmp_path)
+    assert levels(trace) == [(100, "1"), (200, "2"), (300, "3")]
+    assert [e for e in trace if e["ev"] == "task_create"] == [
+        {"t_ms": 0, "ev": "task_create", "name": "main"},
+        {"t_ms": 0, "ev": "task_create", "name": "led", "stack": 4096, "priority": 5},
+        {"t_ms": 0, "ev": "task_create", "name": "bouton", "stack": 3072, "priority": 4},
+    ]
+    queue_events = [e for e in trace if e["ev"].startswith("queue")]
+    assert queue_events[0] == {"t_ms": 0, "ev": "queue_create", "queue": 1, "length": 4, "item_size": 4}
+    assert queue_events[1:3] == [
+        {"t_ms": 100, "ev": "queue_send", "queue": 1, "task": "bouton", "ok": True},
+        {"t_ms": 100, "ev": "queue_receive", "queue": 1, "task": "led", "ok": True},
+    ]
+    assert trace[-1] == {"t_ms": 350, "ev": "end", "reason": "deadline"}
+
+
+def test_queue_zero_timeout_spin_is_busy(lib, tmp_path):
+    prog = compile_src(lib, QUEUE + """
+static QueueHandle_t q;
+static void producer(void *) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+    int v = 1;
+    xQueueSend(q, &v, 0);
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    q = xQueueCreate(1, sizeof(int));
+    xTaskCreate(producer, "tx", 2048, NULL, 5, NULL);
+    int x;
+    while (!xQueueReceive(q, &x, 0)) {}
+}
+""", tmp_path)
+    start = time.monotonic()
+    trace = run(prog, 10000)
+    assert time.monotonic() - start < 5
+    assert trace[-1] == {"t_ms": 0, "ev": "end", "reason": "busy_loop", "task": "main"}
+    assert not [e for e in trace if e["ev"] == "queue_receive"]  # failed zero-wait polls are not traced
+
+
 # --- Fidelity of the exposed API to the real ESP-IDF -------------------------------------------------
 # Learners copy their code to a real ESP-IDF project, so every declaration of sim/include must match
 # the official API. signatures.json holds one entry per function, type or macro, with the official

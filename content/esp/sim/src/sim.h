@@ -2,6 +2,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 #include "freertos/FreeRTOS.h"
@@ -29,12 +30,17 @@ private:
 
 // sched.cpp: baton-passing scheduler over real threads, with a virtual clock.
 [[noreturn]] void start(TaskFunction_t main_task, int64_t max_ms);
-TaskHandle_t create(TaskFunction_t fn, const char *name, void *arg);
+TaskHandle_t create(TaskFunction_t fn, const char *name, void *arg, uint32_t stack, UBaseType_t priority);
 void delay(TickType_t ticks);
 void remove(TaskHandle_t task);  // nullptr: the calling task; never returns then
 TickType_t ticks();
 int64_t now_ms();                // lock-free, safe from a signal handler
 [[noreturn]] void end(const char *reason);
+const std::string &current_name();
+// Waits on a kernel object (queue.cpp): blocks the calling task until ready() is true or `ticks`
+// elapse; ready() runs with the scheduler lock held. With ticks == 0 it never gives the baton away.
+bool wait_for(const void *object, TickType_t ticks, const std::function<bool()> &ready);
+void notify(const void *object);  // the first task waiting on object becomes runnable at the current tick
 
 // gpio.cpp: validates and loads the "gpio_in" scenario section. False with err set when malformed.
 bool gpio_load_scenario(const Json &scenario, std::string &err);

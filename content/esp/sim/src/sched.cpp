@@ -22,6 +22,7 @@ struct tskTaskControlBlock {
     uint64_t wake = 0;
     uint64_t seq = 0;
     bool alive = true;
+    const void *waiting_on = nullptr;  // kernel object this task is blocked on, if any
     std::condition_variable cv;
 };
 
@@ -87,7 +88,9 @@ void entry(tskTaskControlBlock *self) {
     end("abort");
 }
 
-tskTaskControlBlock *create_locked(TaskFunction_t fn, const char *name, void *arg) {
+// stack < 0: the main task, whose stack comes from sdkconfig, not from xTaskCreate.
+tskTaskControlBlock *create_locked(TaskFunction_t fn, const char *name, void *arg, int64_t stack = -1,
+                                   UBaseType_t priority = 0) {
     auto t = std::make_unique<tskTaskControlBlock>();
     t->name = name ? name : "";
     t->fn = fn;
@@ -96,7 +99,11 @@ tskTaskControlBlock *create_locked(TaskFunction_t fn, const char *name, void *ar
     t->seq = next_seq++;
     tskTaskControlBlock *raw = t.get();
     tasks.push_back(std::move(t));
-    Event(to_ms(now), "task_create").str("name", raw->name);
+    {
+        Event e(to_ms(now), "task_create");
+        e.str("name", raw->name);
+        if (stack >= 0) e.num("stack", stack).num("priority", priority);
+    }
     std::thread(entry, raw).detach();
     return raw;
 }
@@ -117,9 +124,38 @@ void start(TaskFunction_t main_task, int64_t limit_ms) {
     }
 }
 
-TaskHandle_t create(TaskFunction_t fn, const char *name, void *arg) {
+TaskHandle_t create(TaskFunction_t fn, const char *name, void *arg, uint32_t stack, UBaseType_t priority) {
     std::lock_guard<std::mutex> lk(m);
-    return create_locked(fn, name, arg);
+    return create_locked(fn, name, arg, stack, priority);
+}
+
+const std::string &current_name() { return current->name; }
+
+bool wait_for(const void *object, TickType_t ticks, const std::function<bool()> &ready) {
+    std::unique_lock<std::mutex> lk(m);
+    tskTaskControlBlock *self = current;
+    const uint64_t deadline = now + ticks;
+    while (!ready()) {  // woken but beaten to the item (or the room): wait again until the deadline
+        if (now >= deadline) return false;
+        self->wake = deadline;
+        self->seq = next_seq++;
+        self->waiting_on = object;
+        switch_from(lk, self);
+        self->waiting_on = nullptr;
+    }
+    return true;
+}
+
+void notify(const void *object) {
+    std::lock_guard<std::mutex> lk(m);
+    tskTaskControlBlock *first = nullptr;
+    for (auto &t : tasks) {
+        if (t->alive && t->waiting_on == object && (!first || t->seq < first->seq)) first = t.get();
+    }
+    if (!first) return;
+    first->waiting_on = nullptr;
+    first->wake = now;
+    first->seq = next_seq++;
 }
 
 void delay(TickType_t ticks) {

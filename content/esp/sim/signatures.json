@@ -271,5 +271,103 @@
     "decl": "TickType_t xTaskGetTickCount(void);",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
     "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "errQUEUE_EMPTY",
+    "decl": "#define errQUEUE_EMPTY ( ( BaseType_t ) 0 )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "errQUEUE_FULL",
+    "decl": "#define errQUEUE_FULL ( ( BaseType_t ) 0 )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/FreeRTOS.h",
+    "name": "errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY",
+    "decl": "#define errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY ( -1 )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "QueueHandle_t",
+    "decl": "typedef struct QueueDefinition * QueueHandle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "queueSEND_TO_BACK",
+    "decl": "#define queueSEND_TO_BACK ( ( BaseType_t ) 0 )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "queueQUEUE_TYPE_BASE",
+    "decl": "#define queueQUEUE_TYPE_BASE ( ( uint8_t ) 0U )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "xQueueCreate",
+    "decl": "#define xQueueCreate( uxQueueLength, uxItemSize ) xQueueGenericCreate( ( uxQueueLength ), ( uxItemSize ), ( queueQUEUE_TYPE_BASE ) )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "xQueueSendToBack",
+    "decl": "#define xQueueSendToBack( xQueue, pvItemToQueue, xTicksToWait ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), ( xTicksToWait ), queueSEND_TO_BACK )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "xQueueSend",
+    "decl": "#define xQueueSend( xQueue, pvItemToQueue, xTicksToWait ) xQueueGenericSend( ( xQueue ), ( pvItemToQueue ), ( xTicksToWait ), queueSEND_TO_BACK )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "xQueueGenericCreate",
+    "decl": "QueueHandle_t xQueueGenericCreate( const UBaseType_t uxQueueLength, const UBaseType_t uxItemSize, const uint8_t ucQueueType );",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "xQueueGenericSend",
+    "decl": "BaseType_t xQueueGenericSend(QueueHandle_t xQueue, const void *const pvItemToQueue, TickType_t xTicksToWait, const BaseType_t xCopyPosition);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "xQueueReceive",
+    "decl": "BaseType_t xQueueReceive(QueueHandle_t xQueue, void *const pvBuffer, TickType_t xTicksToWait);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "uxQueueMessagesWaiting",
+    "decl": "UBaseType_t uxQueueMessagesWaiting(const QueueHandle_t xQueue);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/queue.h",
+    "name": "vQueueDelete",
+    "decl": "void vQueueDelete(QueueHandle_t xQueue);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
   }
 ]

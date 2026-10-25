@@ -56,9 +56,10 @@ void _esp_error_check_failed(esp_err_t rc, const char *file, int line, const cha
 
 int64_t esp_timer_get_time(void) { return sim::now_ms() * 1000; }
 
-BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char *const pcName, const configSTACK_DEPTH_TYPE,
-                       void *const pvParameters, UBaseType_t, TaskHandle_t *const pxCreatedTask) {
-    TaskHandle_t handle = sim::create(pxTaskCode, pcName, pvParameters);
+// usStackDepth is in bytes on ESP-IDF (words on vanilla FreeRTOS); the sim only traces it, it never overflows.
+BaseType_t xTaskCreate(TaskFunction_t pxTaskCode, const char *const pcName, const configSTACK_DEPTH_TYPE usStackDepth,
+                       void *const pvParameters, UBaseType_t uxPriority, TaskHandle_t *const pxCreatedTask) {
+    TaskHandle_t handle = sim::create(pxTaskCode, pcName, pvParameters, usStackDepth, uxPriority);
     if (pxCreatedTask) *pxCreatedTask = handle;
     return pdPASS;
 }
