@@ -600,3 +600,62 @@ def test_es1_check_sections_exist_in_lesson():
     titles = set(re.findall(r"^## (.+)$", lesson, re.M))
     cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es1-tp.py").read_text(encoding="utf-8")))
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es2 (bouton et anti-rebond) : solution livrée + variantes fautives ----
+
+ES2 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp1" / "lessons" / "es2.tp"
+
+
+def _es2_reference() -> str:
+    text = (ES2 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es2_mutant(old: str, new: str) -> str:
+    ref = _es2_reference()
+    assert old in ref, old
+    return ref.replace(old, new)
+
+
+def _es2_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es2-tp")
+
+
+def test_es2_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es2_run(tmp_path, _es2_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es2_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es2_run(tmp_path, (ES2 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "GPIO 2 jamais configurée en sortie" in out and "relire" in out, out
+
+
+ES2_MUTANTS = {
+    "no_debounce": ("STABLE_MS = 30", "STABLE_MS = 0", "plus d'un changement pour l'appui n°1"),
+    "poll_500ms": ("POLL_MS = 10", "POLL_MS = 500", "l'appui n°1 (de 1130 à 1250 ms) n'a provoqué aucun changement"),
+    "reacts_to_release": ("if (stable == 0) {", "if (stable == 0 || stable == 1) {", "plus d'un changement pour l'appui n°1"),
+    "no_pullup": ("    btn.pull_up_en = GPIO_PULLUP_ENABLE;\n", "", "sans pull-up"),
+    "debounce_2s_pause": ("gpio_set_level(GPIO_NUM_2, led_level);", "gpio_set_level(GPIO_NUM_2, led_level); vTaskDelay(pdMS_TO_TICKS(2000));",
+                          "l'appui n°2 (de 1530 à 1650 ms) n'a provoqué aucun changement"),
+    "stable_2000ms": ("STABLE_MS = 30", "STABLE_MS = 2000", "l'appui n°1 (de 1130 à 1250 ms) n'a provoqué aucun changement"),
+    "led_never_configured": ("    ESP_ERROR_CHECK(gpio_config(&led));\n", "", "GPIO 2 jamais configurée en sortie"),
+    "button_wrong_pin": ("GPIO_NUM_4", "GPIO_NUM_5", "GPIO 4 jamais configurée en entrée"),
+    "button_as_output": ("btn.mode = GPIO_MODE_INPUT;", "btn.mode = GPIO_MODE_OUTPUT;", "GPIO 4 jamais configurée en entrée"),
+}
+
+
+@pytest.mark.parametrize("old,new,expected", ES2_MUTANTS.values(), ids=ES2_MUTANTS.keys())
+def test_es2_tp_mutant(tmp_path, bwrap_ok, old, new, expected):
+    code, out = _es2_run(tmp_path, _es2_mutant(old, new))
+    assert failed(code, out) and expected in out and "relire" in out, out
+
+
+def test_es2_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES2.parent / "es2.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es2-tp.py").read_text(encoding="utf-8")))
+    assert cited and cited <= titles, cited - titles

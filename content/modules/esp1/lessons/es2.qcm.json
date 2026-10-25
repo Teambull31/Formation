@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es2-q1",
+  "text": "Un bouton est branché sur une broche avec le pull-up interne activé. Quel niveau lit gpio_get_level quand on appuie ?",
+  "options": [
+   "1, car le courant passe dans le bouton enfoncé",
+   "Un niveau au hasard, qui dépend des parasites ambiants",
+   "0, la broche est reliée à la masse",
+   "Toujours 1, car le pull-up impose le niveau"
+  ],
+  "answer": 2,
+  "explain": "Au repos, la résistance de pull-up tire la broche vers 3,3 V : lecture 1. Appuyer relie la broche à la masse, et ce contact l'emporte sur la résistance : lecture 0. C'est la logique inversée, appui = 0.",
+  "remedial_lesson_id": "es2"
+ },
+ {
+  "id": "es2-q2",
+  "text": "Pourquoi active-t-on le pull-up sur une entrée de bouton ?",
+  "options": [
+   "Pour qu'elle ne flotte pas quand le bouton est relâché",
+   "Pour que le bouton puisse allumer la LED directement",
+   "Pour que gpio_get_level réponde plus vite à l'appui",
+   "Pour protéger la broche contre les coups de tension"
+  ],
+  "answer": 0,
+  "explain": "Sans résistance de rappel, une broche non reliée flotte et capte des parasites : sa lecture est imprévisible. Le pull-up impose un 1 franc au repos. Il ne protège pas la broche et n'accélère rien.",
+  "remedial_lesson_id": "es2"
+ },
+ {
+  "id": "es2-q3",
+  "text": "Qu'appelle-t-on les rebonds d'un bouton ?",
+  "options": [
+   "Le bouton qui revient en position haute quand on le relâche",
+   "Des allers-retours rapides du niveau lu pour un seul appui",
+   "Le temps pendant lequel la LED reste allumée après un appui",
+   "Une erreur du programme qui lit deux fois la même broche"
+  ],
+  "answer": 1,
+  "explain": "Au contact, les lames métalliques rebondissent : le niveau lu fait plusieurs allers-retours en quelques millisecondes avant de se stabiliser. Sans filtre, un programme les prend pour plusieurs appuis.",
+  "remedial_lesson_id": "es2"
+ },
+ {
+  "id": "es2-q4",
+  "text": "On sonde un bouton toutes les 500 ms et un appui dure 80 ms. Que se passe-t-il ?",
+  "options": [
+   "Chaque appui est vu exactement une fois, sans exception",
+   "Les appuis sont vus deux fois pour compenser le retard",
+   "La lecture est plus précise car elle dure plus longtemps",
+   "La plupart des appuis tombent entre deux lectures"
+  ],
+  "answer": 3,
+  "explain": "La broche n'est lue qu'une fois par période. Si la période est plus longue que l'appui, la lecture tombe presque toujours hors de l'appui. Il faut une période plus courte que le plus court appui, ici 10 ms.",
+  "remedial_lesson_id": "es2"
+ },
+ {
+  "id": "es2-q5",
+  "text": "Comment fonctionne un anti-rebond par durée de stabilité ?",
+  "options": [
+   "On n'accepte un niveau que s'il dure assez longtemps",
+   "On ignore toutes les lectures pendant deux secondes après chaque appui",
+   "On lit le bouton une seule fois au démarrage du programme",
+   "On inverse la LED à chaque lecture de 0 pour compenser"
+  ],
+  "answer": 0,
+  "explain": "Un compteur est remis à zéro à chaque changement de niveau lu ; le niveau n'est accepté que lorsque le compteur atteint la durée exigée. Les rebonds changent trop vite pour y arriver, un vrai appui oui.",
+  "remedial_lesson_id": "es2"
+ }
+]

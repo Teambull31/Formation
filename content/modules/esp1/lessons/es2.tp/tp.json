@@ -1,0 +1,17 @@
+{
+  "id": "es2-tp",
+  "title": "TP 2 : le bouton inverse la LED",
+  "instructions_md": "**main.cpp** est un squelette : le bouton branché sur le **GPIO 4** doit inverser la LED du **GPIO 2**, **une seule fois par appui**, malgré les rebonds du contact. Suivez les étapes dans l'ordre, chacune est marquée `TODO étape N` dans le fichier :\n\n1. **Configurer la LED** en sortie (`GPIO_MODE_OUTPUT`) sur le GPIO 2, comme au TP 1.\n2. **Configurer le bouton** : `gpio_config_t btn = {}`, `pin_bit_mask = 1ULL << GPIO_NUM_4`, `mode = GPIO_MODE_INPUT` et `pull_up_en = GPIO_PULLUP_ENABLE`. Appui = niveau 0.\n3. **Sonder toutes les 10 ms** : avant la boucle, `led_level = 0`, `stable = 1`, `candidate = 1`, `since_ms = 0` ; dans `for (;;)`, lire `raw = gpio_get_level(GPIO_NUM_4)` et finir par `vTaskDelay(pdMS_TO_TICKS(POLL_MS))`.\n4. **Mesurer la stabilité** : si `raw` diffère de `candidate`, `candidate = raw` et `since_ms = 0` ; sinon `since_ms += POLL_MS`.\n5. **Accepter et agir** : si `candidate != stable` et `since_ms >= STABLE_MS`, `stable = candidate` ; si `stable == 0` (front descendant, l'appui), inverser `led_level`, `gpio_set_level(GPIO_NUM_2, led_level)` puis `ESP_LOGI(TAG, ...)`.\n\nLe contrôle compile votre code contre un faux ESP-IDF et simule **5 secondes** avec **3 appuis** de 80 ms, chacun précédé de rebonds (0,1,0,1,0) : la LED doit changer **exactement 3 fois**, chaque changement dans les **60 ms** après le premier front stable de son appui, et le pull-up doit être activé sur le GPIO 4. Ses messages disent ce qu'il a observé et quelle section de la leçon relire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Relisez les sections de la leçon dans l'ordre des étapes : entrée et pull-up, rebonds, sondage, stabilité, front. Le message du contrôle nomme celle à relire.",
+    "Dans la boucle : `int raw = gpio_get_level(GPIO_NUM_4); if (raw != candidate) { candidate = raw; since_ms = 0; } else { since_ms += POLL_MS; }` puis, un `if (candidate != stable && since_ms >= STABLE_MS) { stable = candidate; ... }`, et `vTaskDelay(pdMS_TO_TICKS(POLL_MS));` en dernière ligne.",
+    "Dans le dernier `if`, après `stable = candidate;` : `if (stable == 0) { led_level = !led_level; gpio_set_level(GPIO_NUM_2, led_level); ESP_LOGI(TAG, \"appui, LED %s\", led_level ? \"allumée\" : \"éteinte\"); }`. Configuration du bouton : `gpio_config_t btn = {}; btn.pin_bit_mask = 1ULL << GPIO_NUM_4; btn.mode = GPIO_MODE_INPUT; btn.pull_up_en = GPIO_PULLUP_ENABLE; ESP_ERROR_CHECK(gpio_config(&btn));`."
+  ],
+  "local_only": true,
+  "timeout_s": 60,
+  "workspace": "es2",
+  "seed": [
+    "seed/main.cpp"
+  ]
+}
