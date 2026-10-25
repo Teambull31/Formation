@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es5-q1",
+  "text": "Dans le TP, que donne la lecture des deux octets 0x02 puis 0xA8 (le premier octet est le poids fort) ?",
+  "options": [
+   "68,0 °C, car 680 dixièmes font 68,0 °C",
+   "28,0 °C, car 680 moins 400 fait 280",
+   "16,8 °C, car on ne lit que le deuxième octet",
+   "-23,2 °C, car on retranche 400 au seul 168"
+  ],
+  "answer": 1,
+  "explain": "Les deux octets forment le nombre (2 × 256) + 168 = 680. Le capteur ajoute 40,0 °C pour ne jamais envoyer de nombre négatif : on retranche donc 400 dixièmes, 680 - 400 = 280 dixièmes, soit 28,0 °C. Oublier le décalage donne 68,0 °C ; ignorer l'octet de poids fort donne un résultat sans rapport.",
+  "remedial_lesson_id": "es5"
+ },
+ {
+  "id": "es5-q2",
+  "text": "Que doit faire le programme du TP quand i2c_master_receive renvoie une erreur ?",
+  "options": [
+   "Éteindre le relais par précaution, puis tout recommencer",
+   "Appeler ESP_ERROR_CHECK pour arrêter le programme",
+   "Allumer le relais, puis journaliser chaque échec",
+   "Garder le relais tel quel, journaliser une fois"
+  ],
+  "answer": 3,
+  "explain": "Une lecture ratée ne dit rien de la température : la décision la plus raisonnable est de garder le dernier état connu du relais et de le dire une fois dans le journal, puis de réessayer au tour suivant. Couper ou allumer le relais reviendrait à deviner, et ESP_ERROR_CHECK arrêterait tout le programme pour une panne passagère.",
+  "remedial_lesson_id": "es5"
+ },
+ {
+  "id": "es5-q3",
+  "text": "À quoi sert ESP_ERROR_CHECK, et où le place-t-on ?",
+  "options": [
+   "À arrêter le programme si le démarrage échoue",
+   "À réessayer l'appel jusqu'à ce qu'il réussisse",
+   "À journaliser l'erreur sans rien arrêter du tout",
+   "À masquer les erreurs de lecture dans la boucle"
+  ],
+  "answer": 0,
+  "explain": "ESP_ERROR_CHECK affiche l'erreur puis arrête le programme quand le code n'est pas ESP_OK : c'est le bon réflexe pour une erreur de démarrage (configuration de la broche, création du bus), où continuer n'a aucun sens. Il ne réessaie rien, il ne masque rien, et dans la boucle de mesure il transformerait chaque panne passagère en arrêt.",
+  "remedial_lesson_id": "es5"
+ },
+ {
+  "id": "es5-q4",
+  "text": "Le capteur donne exactement 28,0 °C. Que fait le relais, avec la règle du TP « allumé au-dessus de 28,0 °C » ?",
+  "options": [
+   "Il s'allume, car 28,0 °C atteint le seuil",
+   "Il clignote, car la mesure est trop proche",
+   "Il reste éteint, car 28,0 n'est pas au-dessus",
+   "Il garde l'état d'avant, car la mesure est douteuse"
+  ],
+  "answer": 2,
+  "explain": "« Au-dessus de 28,0 °C » veut dire strictement supérieur : 28,0 n'est pas supérieur à 28,0, le relais reste donc éteint (il ne s'allumerait qu'à 28,1 °C et plus). Utiliser >= au lieu de > allumerait le relais une mesure trop tôt. Une mesure valide n'est jamais « douteuse » : seule une lecture ratée garde l'état précédent.",
+  "remedial_lesson_id": "es5"
+ },
+ {
+  "id": "es5-q5",
+  "text": "Le capteur reste muet 12 s, avec une mesure toutes les 5 s. Combien de journaux d'erreur le TP accepte-t-il ?",
+  "options": [
+   "Un par lecture ratée, donc au moins deux",
+   "Un seul pour la panne, pas un par lecture",
+   "Aucun, puisque la panne n'est que passagère",
+   "Un toutes les secondes, jusqu'au retour du capteur"
+  ],
+  "answer": 1,
+  "explain": "Il faut signaler la panne (donc au moins un journal), mais un seul par panne : écrire une ligne à chaque lecture ratée noierait le journal et cacherait les autres messages. On retient avec une variable qu'une panne est en cours, et on la réarme quand une lecture réussit. Ne rien écrire du tout laisserait la panne invisible.",
+  "remedial_lesson_id": "es5"
+ }
+]

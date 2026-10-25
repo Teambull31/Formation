@@ -818,3 +818,88 @@ def test_es4_check_sections_exist_in_lesson():
     titles = set(re.findall(r"^## (.+)$", lesson, re.M))
     cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es4-tp.py").read_text(encoding="utf-8")))
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es5 (relais et capteur I2C avec gestion d'erreur) : solution livrée + variantes fautives ----
+
+ES5 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp2" / "lessons" / "es5.tp"
+
+
+def _es5_reference() -> str:
+    text = (ES5 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es5_mutant(*edits: tuple[str, str]) -> str:
+    src = _es5_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es5_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es5-tp")
+
+
+def test_es5_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es5_run(tmp_path, _es5_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es5_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es5_run(tmp_path, (ES5 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "aucun transfert I2C" in out and "relire" in out, out
+
+
+# nom -> (remplacements (ancien, nouveau), fragment de message attendu)
+ES5_MUTANTS = {
+    "error_check_on_read": ([("esp_err_t err = lire_temperature(&dixiemes);", "esp_err_t err = lire_temperature(&dixiemes);\n        ESP_ERROR_CHECK(err);")],
+                            "ESP_ERROR_CHECK a arrêté le programme"),
+    "relay_off_on_error": ([("en_panne = true;", "en_panne = true;\n            gpio_set_level(RELAIS_GPIO, 0);")],
+                           "pendant la panne du capteur"),
+    "relay_on_on_error": ([("en_panne = true;", "en_panne = true;\n            gpio_set_level(RELAIS_GPIO, 1);")],
+                          "pendant la panne du capteur"),
+    "threshold_25": ([("SEUIL_DIXIEMES = 280;", "SEUIL_DIXIEMES = 250;")], "seuil trop bas"),
+    "threshold_28_5": ([("SEUIL_DIXIEMES = 280;", "SEUIL_DIXIEMES = 285;")], "seuil trop haut"),
+    "tie_greater_or_equal": ([("dixiemes > SEUIL_DIXIEMES", "dixiemes >= SEUIL_DIXIEMES")], "pile à 28,0"),
+    "bytes_swapped": ([("(octets[0] << 8) | octets[1]", "(octets[1] << 8) | octets[0]")], "conversion fausse"),
+    "no_offset": ([("brut - 400", "brut")], "conversion fausse"),
+    "log_spam": ([("} else if (!en_panne) {", "} else {")], "journaux d'erreur pendant la même panne"),
+    "no_error_log": ([('ESP_LOGE(TAG, "lecture du capteur échouée : %s", esp_err_to_name(err));',
+                       'ESP_LOGI(TAG, "lecture échouée");')], "aucun journal d'erreur"),
+    "flag_never_reset": ([("                en_panne = false;\n", "")], "aucun journal d'erreur"),
+    "wrong_address": ([("ADRESSE_CAPTEUR = 0x44;", "ADRESSE_CAPTEUR = 0x45;")], "adresse 0x45"),
+    "relay_inverted": ([("relais_allume ? 1 : 0", "relais_allume ? 0 : 1")], "niveau 1 = relais allumé"),
+    "relay_not_configured": ([("    ESP_ERROR_CHECK(gpio_config(&relais_cfg));\n", "")], "pas configurée en sortie"),
+    "period_10s": ([("PERIODE_MS = 5000;", "PERIODE_MS = 10000;")], "espacées de 10000 ms"),
+}
+
+# Variantes légitimes qui doivent passer.
+ES5_VARIANTS = {
+    "float_compare": [("dixiemes > SEUIL_DIXIEMES", "dixiemes / 10.0f > 28.0f")],
+    "warning_level": [("ESP_LOGE(TAG, \"lecture", "ESP_LOGW(TAG, \"lecture")],
+    "transmit_receive": [("i2c_master_receive(capteur, octets, sizeof octets, TIMEOUT_I2C_MS)",
+                          "i2c_master_transmit_receive(capteur, octets, 1, octets, sizeof octets, TIMEOUT_I2C_MS)")],
+}
+
+
+@pytest.mark.parametrize("edits", ES5_VARIANTS.values(), ids=ES5_VARIANTS.keys())
+def test_es5_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es5_run(tmp_path, _es5_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+@pytest.mark.parametrize("edits,expected", ES5_MUTANTS.values(), ids=ES5_MUTANTS.keys())
+def test_es5_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es5_run(tmp_path, _es5_mutant(*edits))
+    assert failed(code, out) and expected in out and "relire" in out, out
+
+
+def test_es5_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES5.parent / "es5.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es5-tp.py").read_text(encoding="utf-8")))
+    assert cited and cited <= titles, cited - titles
