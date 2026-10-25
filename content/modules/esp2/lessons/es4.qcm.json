@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es4-q1",
+  "text": "Quelle est la plage des valeurs brutes d'un ADC réglé sur 12 bits ?",
+  "options": [
+   "De 0 à 1023, soit 1024 valeurs possibles",
+   "De 0 à 255, soit les valeurs d'un octet",
+   "De 0 à 4095, soit 4096 valeurs possibles",
+   "De 0 à 3300, soit une valeur par millivolt"
+  ],
+  "answer": 2,
+  "explain": "Avec 12 bits, on écrit 2^12 = 4096 valeurs différentes, de 0 à 4095. 1023 correspond à 10 bits et 255 à 8 bits. Le 3300 est une tension en millivolts, pas une valeur brute : la valeur brute est proportionnelle à la tension, avec 4095 pour le haut de la plage.",
+  "remedial_lesson_id": "es4"
+ },
+ {
+  "id": "es4-q2",
+  "text": "Avec l'étalonnage du TP (0 % à 0,5 V, 100 % à 3,0 V), quel niveau donne une tension de 1,75 V ?",
+  "options": [
+   "50 %, car 1,75 V est le milieu de la plage",
+   "53 %, car il suffit de diviser 1,75 V par 3,3 V",
+   "58 %, car il suffit de diviser 1,75 V par 3,0 V",
+   "25 %, car 1,75 V est le quart de la plage de 0,5 V à 3,0 V"
+  ],
+  "answer": 0,
+  "explain": "On retire d'abord le décalage de 0,5 V, puis on divise par l'étendue de 2,5 V : (1750 - 500) × 100 / 2500 = 50 %. Diviser par 3,3 V ou par 3,0 V oublie que 0 % commence à 0,5 V et non à 0 V.",
+  "remedial_lesson_id": "es4"
+ },
+ {
+  "id": "es4-q3",
+  "text": "Pourquoi le TP moyenne-t-il 8 lectures de l'ADC avant de calculer le niveau ?",
+  "options": [
+   "Pour que l'ADC passe de 12 à 16 bits de résolution",
+   "Pour que la conversion en millivolts soit plus exacte",
+   "Pour que la lecture dure plus longtemps et consomme moins",
+   "Pour que les écarts dus au bruit se compensent entre eux"
+  ],
+  "answer": 3,
+  "explain": "Le bruit rend chaque lecture tantôt trop haute, tantôt trop basse ; en moyennant plusieurs lectures, ces écarts se compensent en grande partie. La résolution reste de 12 bits, et la conversion en millivolts ne dépend pas du nombre de lectures.",
+  "remedial_lesson_id": "es4"
+ },
+ {
+  "id": "es4-q4",
+  "text": "Quelle est la toute première étape de l'API oneshot pour lire un canal ?",
+  "options": [
+   "Libérer l'unité avec adc_oneshot_del_unit",
+   "Créer l'unité avec adc_oneshot_new_unit",
+   "Configurer le canal avec adc_oneshot_config_channel",
+   "Lire une valeur avec adc_oneshot_read"
+  ],
+  "answer": 1,
+  "explain": "L'unité se crée d'abord : adc_oneshot_new_unit fournit la poignée dont les autres fonctions ont besoin. On configure ensuite le canal (atténuation, largeur), puis on lit autant de fois que nécessaire ; la libération de l'unité vient en dernier.",
+  "remedial_lesson_id": "es4"
+ },
+ {
+  "id": "es4-q5",
+  "text": "Avec l'étalonnage du TP, que doit afficher le programme pour une tension de 0,3 V ?",
+  "options": [
+   "-8 %, car c'est le résultat du calcul",
+   "9 %, car 0,3 V sur 3,3 V donne 9 %",
+   "0 %, car on borne le résultat à 0",
+   "10 %, car 0,3 V sur 3,0 V donne 10 %"
+  ],
+  "answer": 2,
+  "explain": "(300 - 500) × 100 / 2500 = -8 : le capteur est sous son seuil de 0,5 V. Le niveau d'un capteur ne peut pas être négatif, donc on borne le résultat à 0 % (et de même à 100 % au-dessus de 3,0 V). Afficher -8 % ou un pourcentage d'une autre plage serait faux.",
+  "remedial_lesson_id": "es4"
+ }
+]

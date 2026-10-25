@@ -1,0 +1,17 @@
+{
+  "id": "es4-tp",
+  "title": "TP 4 : lire le niveau avec l'ADC",
+  "instructions_md": "Un capteur de niveau est branché sur l'**ADC1, canal 6 (GPIO 34)**. **main.cpp** contient déjà les constantes (`CANAL`, `ECHANTILLONS`, `ATTENTE_MS`, `PERIODE_MS`), la poignée `adc` et la boucle d'`app_main` avec son attente. Il reste à lire le capteur, à le convertir et à journaliser `level=NN%` **chaque seconde**. Suivez les étapes dans l'ordre, chacune est marquée `TODO étape N` dans le fichier :\n\n1. **Créer l'unité** dans `app_main` : un `adc_oneshot_unit_init_cfg_t unit_cfg = {};` avec `unit_cfg.unit_id = ADC_UNIT_1;`, puis `ESP_ERROR_CHECK(adc_oneshot_new_unit(&unit_cfg, &adc));`.\n2. **Configurer le canal** : un `adc_oneshot_chan_cfg_t chan_cfg = {};` avec `atten = ADC_ATTEN_DB_12` et `bitwidth = ADC_BITWIDTH_12`, puis `ESP_ERROR_CHECK(adc_oneshot_config_channel(adc, CANAL, &chan_cfg));`.\n3. **Écrire `lire_moyenne`** : une boucle de `ECHANTILLONS` tours ; à chaque tour `adc_oneshot_read(adc, CANAL, &raw)`, on additionne `raw` si le retour vaut `ESP_OK` (sinon un `ESP_LOGW`), puis `vTaskDelay(pdMS_TO_TICKS(ATTENTE_MS))`. Renvoyer la somme divisée par le nombre de lectures réussies, ou `-1` s'il n'y en a aucune.\n4. **Écrire `raw_vers_pourcent`** : brut vers millivolts (`raw * 3300 / 4095`), puis millivolts vers pourcentage selon l'étalonnage **0 % = 500 mV, 100 % = 3000 mV** (`(mv - 500) * 100 / 2500`), borné entre 0 et 100, arrondi à l'entier le plus proche.\n5. **Journaliser** dans la boucle d'`app_main` : appeler `lire_moyenne()` ; si elle renvoie `-1`, un `ESP_LOGE` ; sinon `ESP_LOGI(TAG, \"level=%d%%\", pct)` avec le tag `niveau` (déjà dans `TAG`).\n\nLe contrôle compile votre code contre un faux ESP-IDF et simule **20 secondes** d'une tension qui monte lentement de 0,35 V à 3,15 V avec du **bruit**. Il vérifie : au moins une lecture réussie du **canal 6** ; des journaux `level=NN%` de tag `niveau`, espacés de **1000 ms** à 50 ms près ; **au moins 8 lectures** `adc_oneshot_read` entre deux journaux ; et, à chaque journal, un niveau à **± 2 points** de la vraie valeur. Ses messages disent ce qu'il a observé (par exemple une division par 4095 sans étalonnage, ou une échelle de 3,3 V) et quelle section de la leçon relire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Relisez les sections de la leçon dans l'ordre des étapes : les quatre étapes de l'API oneshot, l'étalonnage, puis le bruit et la moyenne. Le message du contrôle nomme celle à relire.",
+    "On crée l'unité avant de configurer le canal, et on configure le canal avant de lire. Pour la moyenne, on additionne les 8 lectures puis on divise par leur nombre. Pour le niveau, on retire 500 mV, on divise par 2500 mV, on multiplie par 100, puis on borne entre 0 et 100.",
+    "Dans `lire_moyenne` : `int somme = 0; int lues = 0; for (int i = 0; i < ECHANTILLONS; i++) { int raw = 0; esp_err_t err = adc_oneshot_read(adc, CANAL, &raw); if (err == ESP_OK) { somme += raw; lues++; } else { ESP_LOGW(TAG, \"lecture refusée : %s\", esp_err_to_name(err)); } vTaskDelay(pdMS_TO_TICKS(ATTENTE_MS)); } return lues > 0 ? somme / lues : -1;`. Dans `raw_vers_pourcent` : `float mv = raw * 3300.0f / 4095.0f; float pct = (mv - 500.0f) * 100.0f / 2500.0f; if (pct < 0.0f) pct = 0.0f; if (pct > 100.0f) pct = 100.0f; return (int)(pct + 0.5f);`."
+  ],
+  "local_only": true,
+  "timeout_s": 60,
+  "workspace": "es4",
+  "seed": [
+    "seed/main.cpp"
+  ]
+}

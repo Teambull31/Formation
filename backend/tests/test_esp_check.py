@@ -739,3 +739,67 @@ def test_es3_check_sections_exist_in_lesson():
     titles = set(re.findall(r"^## (.+)$", lesson, re.M))
     cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es3-tp.py").read_text(encoding="utf-8")))
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es4 (lire un capteur analogique, ADC) : solution livrée + variantes fautives ----
+
+ES4 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp2" / "lessons" / "es4.tp"
+
+
+def _es4_reference() -> str:
+    text = (ES4 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es4_mutant(*edits: tuple[str, str]) -> str:
+    src = _es4_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es4_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es4-tp")
+
+
+def test_es4_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es4_run(tmp_path, _es4_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es4_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es4_run(tmp_path, (ES4 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "aucune lecture réussie du canal 6" in out and "relire" in out, out
+
+
+# nom -> (remplacements (ancien, nouveau), fragment de message attendu)
+ES4_MUTANTS = {
+    "no_calibration": ([("float pct = (mv - 500.0f) * 100.0f / 2500.0f;", "float pct = raw * 100.0f / 4095.0f;")],
+                       "division par 4095"),
+    "no_averaging": ([("somme += raw;", "somme = raw;"), ("return lues > 0 ? somme / lues : -1;", "return lues > 0 ? somme : -1;")],
+                     "moyenne de 8 échantillons"),
+    "single_read": ([("ECHANTILLONS = 8;", "ECHANTILLONS = 1;")], "seulement 1 lecture"),
+    "channel_not_configured": ([("    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc, CANAL, &chan_cfg));\n", "")],
+                               "aucune lecture réussie du canal 6"),
+    "scale_3v3": ([("* 100.0f / 2500.0f;", "* 100.0f / 2800.0f;")], "échelle de 3,3 V"),
+    "no_log": ([('ESP_LOGI(TAG, "level=%d%%", pct);', "(void)pct;")], "aucun journal level=NN%"),
+    "log_every_2s": ([("PERIODE_MS = 1000;", "PERIODE_MS = 2000;")], "journaux espacés de 2000 ms"),
+    "wrong_channel": ([("ADC_CHANNEL_6", "ADC_CHANNEL_3")], "lectures sur le canal 3 au lieu du canal 6"),
+    "bad_format": ([('"level=%d%%"', '"niveau %d%%"')], "aucun journal level=NN%"),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES4_MUTANTS.values(), ids=ES4_MUTANTS.keys())
+def test_es4_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es4_run(tmp_path, _es4_mutant(*edits))
+    assert failed(code, out) and expected in out and "relire" in out, out
+
+
+def test_es4_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES4.parent / "es4.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    cited = set(re.findall(r"relire : « ([^»]+) »", (ESP / "checks" / "es4-tp.py").read_text(encoding="utf-8")))
+    assert cited and cited <= titles, cited - titles
