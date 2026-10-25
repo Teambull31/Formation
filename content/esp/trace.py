@@ -16,7 +16,7 @@ def need(condition: bool, message: str) -> None:
 
 # Fields the accessors rely on, per event type; an event lacking one (or with the wrong type) is dropped.
 FIELDS = {
-    "gpio_set": {"pin": int, "level": int},
+    "gpio_set": {"pin": int, "level": int},  # plus "task": name of the task that called gpio_set_level
     "gpio_config": {"pin": int, "mode": str},
     "log": {"level": str, "tag": str, "msg": str},
     "task_create": {"name": str},  # plus "stack" (bytes) and "priority" for tasks made by xTaskCreate

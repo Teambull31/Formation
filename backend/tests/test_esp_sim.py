@@ -252,8 +252,8 @@ extern "C" void app_main(void) {
 """, 1000, lib, tmp_path)
     assert [e for e in trace if e["ev"].startswith("gpio")] == [
         {"t_ms": 0, "ev": "gpio_config", "pin": 2, "mode": "output", "pull_up": False},
-        {"t_ms": 0, "ev": "gpio_set", "pin": 2, "level": 1},
-        {"t_ms": 250, "ev": "gpio_set", "pin": 2, "level": 0},
+        {"t_ms": 0, "ev": "gpio_set", "pin": 2, "level": 1, "task": "main"},
+        {"t_ms": 250, "ev": "gpio_set", "pin": 2, "level": 0, "task": "main"},
     ]
 
 

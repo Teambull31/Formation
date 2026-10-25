@@ -73,7 +73,7 @@ Entrées que la spec laisse sous silence et qui peuvent casser le logiciel, par 
 
 **Interfaces:**
 - Consumes: Task 1.
-- Produces: `gpio_config_t`, `gpio_config`, `gpio_set_direction`, `gpio_set_pull_mode`, `gpio_set_level`, `gpio_get_level`, `GPIO_MODE_INPUT/OUTPUT`, `GPIO_PULLUP_ENABLE`…, `gpio_num_t`. Événements : `gpio_config` (`pin`, `mode`, `pull_up`), `gpio_set` (`pin`, `level`). Scénario JSON : `{"gpio_in": [{"t_ms": int, "pin": int, "level": 0|1}]}` ; une broche d'entrée sans pull-up configuré et sans entrée scénario lit `0` (flottante simulée de façon déterministe) ; avec pull-up, elle lit `1` jusqu'à la première entrée scénario.
+- Produces: `gpio_config_t`, `gpio_config`, `gpio_set_direction`, `gpio_set_pull_mode`, `gpio_set_level`, `gpio_get_level`, `GPIO_MODE_INPUT/OUTPUT`, `GPIO_PULLUP_ENABLE`…, `gpio_num_t`. Événements : `gpio_config` (`pin`, `mode`, `pull_up`), `gpio_set` (`pin`, `level`, et `task` : nom de la tâche appelante, ajouté à la tâche 9 ; la tâche 9 ajoute aussi `stack` et `priority` à `task_create` et les événements `queue_create`, `queue_send`, `queue_receive`). Scénario JSON : `{"gpio_in": [{"t_ms": int, "pin": int, "level": 0|1}]}` ; une broche d'entrée sans pull-up configuré et sans entrée scénario lit `0` (flottante simulée de façon déterministe) ; avec pull-up, elle lit `1` jusqu'à la première entrée scénario.
 
 - [ ] **Step 1: Write the failing tests** : `test_gpio_output_traced` (deux `gpio_set_level` produisent deux événements `gpio_set` aux bons `t_ms`), `test_gpio_input_follows_scenario` (lecture à `t_ms=1000` et `1005` selon `gpio_in`), `test_floating_input_reads_zero_without_pullup`, `test_pullup_input_reads_one_by_default`.
 - [ ] **Step 2: Run** ; expected: FAIL.

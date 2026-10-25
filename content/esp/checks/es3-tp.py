@@ -53,10 +53,19 @@ def verify(trace: Trace, source: str) -> None:
 
     changes: list[int] = []
     previous = 0
-    for t, level in trace.gpio_levels(LED):
-        if level != previous:
-            changes.append(t)
-        previous = level
+    senders = {e["task"] for e in sent}
+    for e in trace.events("gpio_set", pin=LED):
+        if e["level"] == previous:
+            continue
+        previous = e["level"]
+        changes.append(e["t_ms"])
+        task = e.get("task", "?")
+        need(task not in senders, f"la LED est changée par la tâche « {task} », qui envoie dans la file (à {e['t_ms']} ms) : "
+             "c'est la tâche qui reçoit les événements qui doit commander la LED, pas celle qui les envoie "
+             "(relire : « Producteur et consommateur »)")
+        need(any(r["task"] == task and r["t_ms"] <= e["t_ms"] for r in received),
+             f"la LED est changée à {e['t_ms']} ms par la tâche « {task} », qui n'a encore reçu aucun événement de la file : "
+             "la LED ne doit changer qu'après un xQueueReceive réussi (relire : « Producteur et consommateur »)")
     before = [t for t in changes if t < PRESS_STARTS[0]]
     need(not before, f"la LED a changé à {before[0] if before else 0} ms, avant tout appui : elle ne doit changer "
          "qu'à la réception d'un événement (relire : « Producteur et consommateur »)")

@@ -29,10 +29,10 @@
   "id": "es3-q3",
   "text": "Pourquoi la tâche de la LED attend-elle avec xQueueReceive(..., portMAX_DELAY) plutôt qu'en relisant une variable globale en boucle ?",
   "options": [
-   "Bloquée, elle ne consomme pas de processeur jusqu'au message",
-   "Parce qu'une variable globale ne peut pas contenir un entier",
-   "Parce que portMAX_DELAY rend la LED plus lumineuse sur la carte",
-   "Parce que FreeRTOS interdit toute boucle infinie dans une tâche créée"
+   "Parce que, bloquée, elle dort sans consommer de processeur",
+   "Parce que portMAX_DELAY la fait passer avant toutes les autres tâches",
+   "Parce que la file filtre elle-même les rebonds du bouton",
+   "Parce que xQueueReceive lit le bouton plus vite que gpio_get_level"
   ],
   "answer": 0,
   "explain": "Une tâche bloquée sur une file dort sans consommer de processeur et se réveille dès qu'un élément arrive. Relire une variable en boucle est une attente active, et un deuxième appui arrivé avant la relecture serait perdu ; la file garde les événements dans l'ordre.",

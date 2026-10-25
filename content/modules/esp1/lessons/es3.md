@@ -42,7 +42,7 @@ Les six paramètres, dans l'ordre :
 | Paramètre | Rôle | Dans le TP |
 | --- | --- | --- |
 | `pxTaskCode` | la fonction de la tâche, `void f(void *arg)` | `tache_led` |
-| `pcName` | un nom lisible, pour le débogage (16 caractères au plus par défaut) | `"led"` |
+| `pcName` | un nom lisible, pour le débogage ; par défaut 15 caractères visibles au plus (`configMAX_TASK_NAME_LEN` vaut 16, en comptant le zéro final), un nom plus long est tronqué | `"led"` |
 | `usStackDepth` | la taille de la pile, **en octets** sous ESP-IDF | `4096` |
 | `pvParameters` | un pointeur passé tel quel à la fonction (son `arg`) | `NULL` |
 | `uxPriority` | la priorité : plus le nombre est grand, plus la tâche est prioritaire | `5` |

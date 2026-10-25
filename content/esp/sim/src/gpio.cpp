@@ -104,7 +104,8 @@ esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull) {
 esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level) {
     if (!valid(gpio_num) || input_only(gpio_num)) return ESP_ERR_INVALID_ARG;
     pins[gpio_num].out = level ? 1 : 0;
-    sim::Event(sim::now_ms(), "gpio_set").num("pin", gpio_num).num("level", pins[gpio_num].out);
+    sim::Event(sim::now_ms(), "gpio_set").num("pin", gpio_num).num("level", pins[gpio_num].out)
+        .str("task", sim::current_name());
     return ESP_OK;
 }
 

@@ -714,6 +714,15 @@ ES3_MUTANTS = {
                              "tache_bouton(NULL);\n    if (false) {")],
                            "xQueueSend est appelé depuis app_main"),
     "no_debounce": ([("STABLE_MS = 30", "STABLE_MS = 0")], "changements de la LED pour l'appui n°1"),
+    # Le bouton inverse lui-même la LED (comme au TP 2) et envoie aussi ; la tâche LED reçoit sans rien faire.
+    "led_toggled_by_sender": ([
+        ("    int numero = 0;      // numéro de l'appui, envoyé dans la file\n",
+         "    int numero = 0;      // numéro de l'appui, envoyé dans la file\n    int led_level = 0;\n"),
+        ("                numero++;\n",
+         "                numero++;\n                led_level = !led_level;\n                gpio_set_level(GPIO_NUM_2, led_level);\n"),
+        ("            led_level = !led_level;\n            gpio_set_level(GPIO_NUM_2, led_level);\n            ESP_LOGI",
+         "            ESP_LOGI"),
+    ], "la LED est changée par la tâche « bouton », qui envoie dans la file"),
 }
 
 
