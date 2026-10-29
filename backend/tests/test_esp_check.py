@@ -1439,3 +1439,198 @@ def test_es7_check_sections_exist_in_lesson():
     constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
     cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es8 (MQTT : télémétrie, statut avec testament, commandes bornées par la limite de sécurité) ----
+
+ES8 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp3" / "lessons" / "es8.tp"
+
+
+def _es8_reference() -> str:
+    text = (ES8 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es8_mutant(*edits: tuple[str, str]) -> str:
+    src = _es8_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es8_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es8-tp")
+
+
+def test_es8_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es8_run(tmp_path, _es8_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es8_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es8_run(tmp_path, (ES8 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "aucun événement MQTT" in out and "relire" in out, out
+
+
+JSON_FMT = '"{\\"level\\": %.1f, \\"relay\\": %s}"'
+PUBLISH_ONLINE = '        esp_mqtt_client_publish(ev->client, TOPIC_STATUT, "online", 0, 1, 1);\n'
+SUBSCRIBE = "        esp_mqtt_client_subscribe_single(ev->client, TOPIC_COMMANDE, 1);\n"
+LWT_LINES = ('    cfg.session.last_will.topic = TOPIC_STATUT;\n    cfg.session.last_will.msg = "offline";\n'
+             "    cfg.session.last_will.qos = 1;\n    cfg.session.last_will.retain = true;\n")
+START = "    ESP_ERROR_CHECK(esp_mqtt_client_start(client));\n"
+REFUSE_LOG = 'ESP_LOGW(TAG, "command refused: level=%d%%", (int)niveau);'
+SET_RELAY = "    regler_relais(voulu);\n}"
+NOT_A_COMMAND = "        return;  // pas une commande : on ignore"
+TELE_LOOP = "        publier_telemetrie();\n        vTaskDelay(pdMS_TO_TICKS(PERIODE_MS));"
+
+# nom -> (remplacements (ancien, nouveau), fragments de message attendus)
+ES8_MUTANTS = {
+    # télémétrie
+    "wrong_telemetry_topic": ([('"home/devices/pool-ctl/telemetry"', '"home/devices/pool/telemetry"')],
+                              ["scénario a", "aucun message sur le topic", "home/devices/pool/telemetry"]),
+    "json_keys_not_quoted": ([(JSON_FMT, '"{level: %.1f, relay: %s}"')], ["scénario a", "n'est pas un JSON valide", "level: 72.5"]),
+    "json_trailing_comma": ([(JSON_FMT, '"{\\"level\\": %.1f, \\"relay\\": %s,}"')], ["scénario a", "n'est pas un JSON valide"]),
+    "json_relay_as_string": ([(JSON_FMT, '"{\\"level\\": %.1f, \\"relay\\": \\"%s\\"}"')],
+                             ["scénario a", "« relay » doit être true ou false sans guillemets"]),
+    "json_relay_as_number": ([('relais_actif ? "true" : "false"', 'relais_actif ? "1" : "0"')],
+                             ["scénario a", "« relay » doit être true ou false"]),
+    "json_relay_capitalised": ([('relais_actif ? "true" : "false"', 'relais_actif ? "True" : "False"')],
+                               ["scénario a", "n'est pas un JSON valide"]),
+    "json_extra_key": ([(JSON_FMT, '"{\\"level\\": %.1f, \\"relay\\": %s, \\"v\\": 1}"')],
+                       ["scénario a", "exactement les clés « level » et « relay »"]),
+    "json_nan_level": ([("niveau, relais_actif ?", "0.0 / 0.0, relais_actif ?")], ["scénario a", "n'est pas un JSON valide", "nan"]),
+    "level_hard_coded": ([("lire_niveau(), relais);", "72.5, relais);")], ["scénario b", "niveau publié 72,5 %", "85,3 %"]),
+    "level_in_raw_counts": ([("lire_niveau(), relais);", "lire_niveau() * 40.95, relais);")], ["scénario a", "niveau publié 2968"]),
+    "relay_hard_coded_false": ([("lire_niveau(), relais);", "lire_niveau(), false);")],
+                              ["scénario a", "annonce relay=false alors que le relais est allumé"]),
+    "period_1s": ([("PERIODE_MS = 10000;", "PERIODE_MS = 1000;")], ["scénario a", "seulement 1 s entre deux messages", "10 s"]),
+    "period_15s": ([("PERIODE_MS = 10000;", "PERIODE_MS = 15000;")], ["scénario a", "premier message de télémétrie", "toutes les 10 s"]),
+    "period_5s": ([("PERIODE_MS = 10000;", "PERIODE_MS = 5000;")], ["scénario a", "seulement 5 s entre deux messages"]),
+    "telemetry_stops_after_a_while": ([(TELE_LOOP, TELE_LOOP + "\n        if (xTaskGetTickCount() > pdMS_TO_TICKS(15000)) { vTaskDelay(portMAX_DELAY); }")],
+                                      ["scénario a", "plus aucun message de télémétrie"]),
+    # statut et testament
+    "status_not_retained": ([(PUBLISH_ONLINE, PUBLISH_ONLINE.replace("0, 1, 1)", "0, 1, 0)"))],
+                            ["scénario a", "sans le drapeau retain", "Le statut et le testament"]),
+    "status_wrong_payload": ([('"online", 0, 1, 1', '"ONLINE", 0, 1, 1')], ["scénario a", "« ONLINE » au lieu de « online »"]),
+    "status_wrong_topic": ([(PUBLISH_ONLINE, PUBLISH_ONLINE.replace("TOPIC_STATUT", '"home/devices/pool-ctl/state"'))],
+                           ["scénario a", "aucun statut publié"]),
+    "status_never_published": ([(PUBLISH_ONLINE, "")], ["scénario a", "aucun statut publié", "MQTT_EVENT_CONNECTED"]),
+    "status_published_once_at_start": ([(PUBLISH_ONLINE, ""),
+                                        (START, START + '    esp_mqtt_client_publish(client, TOPIC_STATUT, "online", 0, 1, 1);\n')],
+                                       ["scénario c", "aucun statut publié", "reconnexions comprises"]),
+    "no_last_will": ([(LWT_LINES, "")], ["scénario a", "n'a aucun testament"]),
+    "last_will_not_retained": ([("last_will.retain = true;", "last_will.retain = false;")],
+                               ["scénario a", "le testament n'est pas retenu"]),
+    "last_will_wrong_message": ([('last_will.msg = "offline";', 'last_will.msg = "Offline";')],
+                                ["scénario a", "« Offline » au lieu de « offline »"]),
+    "last_will_wrong_topic": ([("last_will.topic = TOPIC_STATUT;", 'last_will.topic = "home/devices/pool-ctl/lwt";')],
+                              ["scénario a", "le testament est publié sur"]),
+    # abonnement et commandes
+    "no_subscription": ([(SUBSCRIBE, "")], ["scénario a", "aucun abonnement à", "session est propre"]),
+    "subscribe_wrong_topic": ([(SUBSCRIBE, SUBSCRIBE.replace("TOPIC_COMMANDE", '"home/devices/pool-ctl/cmd"'))],
+                              ["scénario a", "aucun abonnement"]),
+    "subscribe_before_connected": ([(SUBSCRIBE, ""), (START, START + "    esp_mqtt_client_subscribe_single(client, TOPIC_COMMANDE, 1);\n")],
+                                   ["scénario a", "aucun abonnement"]),
+    "subscribe_only_once": ([(SUBSCRIBE, "        if (!abonne) { abonne = true; esp_mqtt_client_subscribe_single(ev->client, TOPIC_COMMANDE, 1); }\n"),
+                             ("static esp_mqtt_client_handle_t client;", "static esp_mqtt_client_handle_t client;\nstatic bool abonne = false;")],
+                            ["scénario c", "aucun abonnement", "après la connexion de"]),
+    "topic_compared_with_strcmp": ([("strncmp(ev->topic, TOPIC_COMMANDE, ev->topic_len) == 0", "strcmp(ev->topic, TOPIC_COMMANDE) == 0")],
+                                   ["scénario a", "devait allumer le relais", "topic_len"]),
+    "space_after_colon_not_skipped": ([("while (*p == ' ' || *p == ':') {", "while (*p == ':') {")],
+                                      ["scénario a", "devait allumer le relais", "avec ou sans espace"]),
+    "exact_text_expected": ([('strstr(msg, "\\"relay\\"")', 'strstr(msg, "\\"relay\\": ")')],
+                            ["scénario a", "devait éteindre le relais"]),
+    "garbage_switches_relay_off": ([(NOT_A_COMMAND, "        regler_relais(false);\n        return;")],
+                                   ["scénario a", "le relais passe à 0 à 50 s sans commande valide"]),
+    "relay_changes_late": ([(SET_RELAY, "    vTaskDelay(pdMS_TO_TICKS(2000));\n" + SET_RELAY)],
+                           ["scénario a", "n'a changé le relais qu'à 32 s", "dans la seconde"]),
+    "off_command_ignored": ([(SET_RELAY, "    if (voulu) {\n        regler_relais(true);\n    }\n}")],
+                            ["scénario a", "devait éteindre le relais"]),
+    # limite de sécurité
+    "command_executed_above_limit": ([("if (niveau > LIMITE_PCT) {", "if (false) {")],
+                                     ["scénario b", "le relais est allumé à 30 s", "85 %", "limite de sécurité"]),
+    "limit_too_low": ([("LIMITE_PCT = 80.0;", "LIMITE_PCT = 70.0;")], ["scénario a", "devait allumer le relais"]),
+    "limit_too_high": ([("LIMITE_PCT = 80.0;", "LIMITE_PCT = 90.0;")], ["scénario b", "le relais est allumé"]),
+    "refusal_not_logged": ([(REFUSE_LOG, 'ESP_LOGI(TAG, "ignorée");')], ["scénario b", "n'est pas journalisé comme demandé"]),
+    "refusal_wrong_format": ([(REFUSE_LOG, 'ESP_LOGW(TAG, "commande refusée : niveau=%d%%", (int)niveau);')],
+                             ["scénario b", "n'est pas journalisé comme demandé", "command refused: level=85%", "refusée"]),
+    "refusal_wrong_level": ([(REFUSE_LOG, 'ESP_LOGW(TAG, "command refused: level=%d%%", (int)LIMITE_PCT);')],
+                            ["scénario b", "n'est pas journalisé comme demandé"]),
+    "refusal_with_error_level": ([('ESP_LOGW(TAG, "command refused', 'ESP_LOGE(TAG, "command refused')],
+                                 ["scénario b", "n'est pas journalisé comme demandé", "niveau E"]),
+    "refusal_wrong_tag": ([('ESP_LOGW(TAG, "command refused', 'ESP_LOGW("relais", "command refused')],
+                          ["scénario b", "n'est pas journalisé comme demandé"]),
+    "refusal_logged_twice": ([(REFUSE_LOG, REFUSE_LOG + "\n            " + REFUSE_LOG)], ["scénario b", "2 lignes de refus"]),
+    "refusal_logged_for_accepted_command": ([(SET_RELAY, '    ESP_LOGW(TAG, "command refused: level=%d%%", 0);\n' + SET_RELAY)],
+                                            ["scénario a", "journalisée comme refusée"]),
+    # reconnexion et redémarrage
+    "auto_reconnect_disabled": ([(LWT_LINES, LWT_LINES + "    cfg.network.disable_auto_reconnect = true;\n")],
+                                ["scénario c", "une seule connexion", "reconnexion"]),
+    "restart_on_disconnect": ([("    case MQTT_EVENT_DATA:", "    case MQTT_EVENT_DISCONNECTED:\n        esp_restart();\n        break;\n    case MQTT_EVENT_DATA:"),
+                               ('#include "mqtt_client.h"', '#include "mqtt_client.h"\n#include "esp_system.h"')],
+                              ["scénario c", "la carte a redémarré"]),
+    "no_broker_address": ([("cfg.broker.address.uri = URI_COURTIER;\n", "")], ["ESP_ERROR_CHECK a arrêté le programme", "esp_mqtt_client_start"]),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES8_MUTANTS.values(), ids=ES8_MUTANTS.keys())
+def test_es8_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es8_run(tmp_path, _es8_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+# Variante valide, écrite autrement : télémétrie publiée par une tâche dédiée, JSON bâti avec std::string, abonnement par
+# un filtre à joker, statut en QoS 0, testament avec msg_len, niveau en entier, refus qui éteint aussi le relais.
+ES8_TASK_VARIANT_EDITS = [
+    ("    for (;;) {\n        publier_telemetrie();\n        vTaskDelay(pdMS_TO_TICKS(PERIODE_MS));\n    }\n}\n",
+     '    xTaskCreate(tache_telemetrie, "telemetrie", 4096, NULL, 5, NULL);\n}\n'),
+    ("#include <string.h>", "#include <string.h>\n#include <string>"),
+    ("    return snprintf(buf, taille, " + JSON_FMT + ", niveau, relais_actif ? \"true\" : \"false\");",
+     '    char nombre[16];\n    snprintf(nombre, sizeof(nombre), "%.1f", niveau);\n'
+     '    std::string s = std::string("{\\"level\\": ") + nombre + ", \\"relay\\": " + (relais_actif ? "true" : "false") + "}";\n'
+     '    return snprintf(buf, taille, "%s", s.c_str());'),
+    ("static void demarrer_mqtt(void) {", "static void tache_telemetrie(void *) {\n    for (;;) {\n        publier_telemetrie();\n"
+                                          "        vTaskDelay(pdMS_TO_TICKS(PERIODE_MS));\n    }\n}\n\nstatic void demarrer_mqtt(void) {"),
+    ("esp_mqtt_client_subscribe_single(ev->client, TOPIC_COMMANDE, 1);", 'esp_mqtt_client_subscribe_single(ev->client, "home/devices/+/command", 0);'),
+    ('"online", 0, 1, 1', '"online", 0, 0, 1'),
+    ("last_will.qos = 1;", "last_will.qos = 1;\n    cfg.session.last_will.msg_len = 7;"),
+]
+
+
+def test_es8_tp_task_variant_passes(tmp_path, bwrap_ok):
+    code, out = _es8_run(tmp_path, _es8_mutant(*ES8_TASK_VARIANT_EDITS))
+    assert code == 0 and out.startswith("OK"), out
+
+
+ES8_VARIANTS = {
+    "level_with_no_decimal": [(JSON_FMT, '"{\\"level\\": %.0f, \\"relay\\": %s}"')],
+    "telemetry_in_qos_1": [("esp_mqtt_client_publish(client, TOPIC_TELEMETRIE, json, 0, 0, 0)", "esp_mqtt_client_publish(client, TOPIC_TELEMETRIE, json, 0, 1, 0)")],
+    "subscription_in_qos_0": [("TOPIC_COMMANDE, 1);\n        break;", "TOPIC_COMMANDE, 0);\n        break;")],
+    "default_client_id": [('    cfg.credentials.client_id = "pool-ctl";\n', "")],
+    "refusal_also_switches_the_relay_off": [(REFUSE_LOG + "\n            return;", REFUSE_LOG + "\n            regler_relais(false);\n            return;")],
+    "received_message_logged_with_its_length": [(NOT_A_COMMAND, '        ESP_LOGI(TAG, "reçu : %.*s", len, data);\n' + NOT_A_COMMAND)],
+    "level_compared_as_an_integer": [("if (niveau > LIMITE_PCT) {", "if ((int)niveau > (int)LIMITE_PCT) {")],
+    "telemetry_not_sent_message_dropped": [('ESP_LOGI(TAG, "télémétrie non envoyée : client déconnecté");', "")],
+    "event_loop_all_cases_listed": [("    default:\n        break;\n    }\n}\n\n// Configure",
+                                    '    case MQTT_EVENT_DISCONNECTED:\n        ESP_LOGW(TAG, "déconnecté du courtier");\n        break;\n'
+                                    '    case MQTT_EVENT_ERROR:\n        ESP_LOGW(TAG, "erreur de connexion");\n        break;\n    default:\n        break;\n    }\n}\n\n// Configure'),],
+    "wake_up_with_a_short_period_task_delay": [("vTaskDelay(pdMS_TO_TICKS(PERIODE_MS));", "vTaskDelay(pdMS_TO_TICKS(PERIODE_MS - 20));")],
+}
+
+
+@pytest.mark.parametrize("edits", ES8_VARIANTS.values(), ids=ES8_VARIANTS.keys())
+def test_es8_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es8_run(tmp_path, _es8_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es8_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES8.parent / "es8.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es8-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles

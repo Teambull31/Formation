@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es8-q1",
+  "text": "Pourquoi s'abonne-t-on à .../command dans la réaction à MQTT_EVENT_CONNECTED, à chaque connexion ?",
+  "options": [
+   "Parce qu'un abonnement ne peut se faire qu'une fois par programme",
+   "Parce que le gestionnaire MQTT n'a pas le droit de publier",
+   "Parce que le courtier oublie les abonnements à chaque connexion",
+   "Parce que le QoS d'abonnement expire au bout de dix secondes"
+  ],
+  "answer": 2,
+  "explain": "La session est propre par défaut : à chaque connexion, le courtier oublie tout ce qu'il savait du client, abonnements compris. Un programme qui s'abonne une seule fois devient donc sourd aux commandes après la première coupure, sans aucune erreur. L'abonnement n'est pas limité à une fois, le gestionnaire peut publier (l'exemple officiel le fait), et le QoS d'un abonnement n'expire pas.",
+  "remedial_lesson_id": "es8"
+ },
+ {
+  "id": "es8-q2",
+  "text": "Dans un événement MQTT_EVENT_DATA, comment vérifier que le sujet reçu est celui de la commande ?",
+  "options": [
+   "Comparer topic_len à la longueur attendue, puis faire un strncmp",
+   "Appeler strcmp sur le champ topic, comme pour une chaîne C ordinaire",
+   "Comparer directement le pointeur topic au pointeur du sujet attendu",
+   "Afficher topic avec %s puis relire le texte obtenu dans le journal"
+  ],
+  "answer": 0,
+  "explain": "Les champs topic et data sont des morceaux du tampon de réception, sans NUL final : seules topic_len et data_len disent leur taille. strcmp lirait la charge utile à la suite du sujet et ne trouverait jamais l'égalité. Comparer des pointeurs compare des adresses, pas des textes, et %s lit lui aussi au-delà de la fin ; l'exemple officiel affiche avec %.*s.",
+  "remedial_lesson_id": "es8"
+ },
+ {
+  "id": "es8-q3",
+  "text": "Pourquoi le statut online et le testament offline portent-ils tous les deux le drapeau retain ?",
+  "options": [
+   "Pour que le courtier les envoie en QoS 2 à tous les abonnés",
+   "Pour que la carte n'ait pas à republier online à la reconnexion",
+   "Pour que le testament soit envoyé avant la fin du keep-alive",
+   "Pour qu'un abonné tardif voie toujours le dernier état connu"
+  ],
+  "answer": 3,
+  "explain": "Un message retenu est gardé par le courtier et donné à chaque nouvel abonné : le sujet status contient donc toujours le dernier état connu, online publié par la carte ou offline publié par le courtier à sa place. Sans retain, un abonné tardif ne voit rien, ou voit un online périmé. Le drapeau ne change ni le QoS, ni le délai de keep-alive, et la carte republie quand même online à chaque connexion.",
+  "remedial_lesson_id": "es8"
+ },
+ {
+  "id": "es8-q4",
+  "text": "Que garantit le QoS 1 d'un message publié ?",
+  "options": [
+   "Qu'il arrive au plus une fois, sans accusé de réception",
+   "Qu'il arrive au moins une fois, avec un doublon possible",
+   "Qu'il arrive exactement une fois, au prix de quatre messages",
+   "Qu'il reste mémorisé pour les abonnés qui arrivent plus tard"
+  ],
+  "answer": 1,
+  "explain": "QoS 1 : le courtier accuse réception et l'expéditeur réessaie sans accusé, donc le message arrive au moins une fois, mais peut arriver en double. Au plus une fois, c'est le QoS 0 ; exactement une fois, c'est le QoS 2. Garder le message pour les abonnés tardifs, c'est le rôle du drapeau retain, indépendant du QoS.",
+  "remedial_lesson_id": "es8"
+ },
+ {
+  "id": "es8-q5",
+  "text": "Le niveau lu est de 85 % quand la commande {\"relay\": true} arrive. Que doit faire le programme ?",
+  "options": [
+   "Allumer le relais, puis publier une alerte sur le statut",
+   "Ignorer la commande sans rien écrire dans le journal",
+   "Refuser, journaliser le refus, laisser le relais éteint",
+   "Éteindre le relais par précaution et publier offline"
+  ],
+  "answer": 2,
+  "explain": "Au-dessus de la limite de sécurité de 80 %, allumer la pompe ferait déborder la piscine : la commande est refusée, le relais ne change pas, et un ESP_LOGW au format command refused: level=85% explique pourquoi. Ignorer en silence laisserait l'utilisateur sans réponse, allumer puis alerter est trop tard, et publier offline mentirait : la carte est en ligne.",
+  "remedial_lesson_id": "es8"
+ }
+]
