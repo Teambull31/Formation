@@ -139,6 +139,8 @@ std::string unhex(const std::string &s) {
 
 namespace sim {
 
+bool nvs_ready() { return initialised; }
+
 void nvs_save(std::ostream &o) {
     for (auto &ns : committed) {
         o << "nvs.ns " << hex(ns.first) << "\n";

@@ -1171,6 +1171,36 @@ def test_wifi_waits_for_up_from_and_down_windows(lib, tmp_path):
     assert [t for t, ev in w if ev == "got_ip"][-1] >= 12000
 
 
+def test_esp_wifi_init_requires_nvs(lib, tmp_path):
+    # WIFI_INIT_CONFIG_DEFAULT() enables the Wi-Fi NVS (CONFIG_ESP_WIFI_NVS_ENABLED, default y): the driver
+    # keeps its configuration there, so the simulator makes esp_wifi_init fail while NVS is not initialised
+    trace = sim_run("""
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    R(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(nvs_flash_init());
+    R(esp_wifi_init(&cfg));
+    cfg.nvs_enable = 0;
+    R(esp_wifi_init(&cfg));  // already initialised: the NVS-less path is not reached
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == ["ESP_ERR_NVS_NOT_INITIALIZED", "ESP_OK", "ESP_ERR_INVALID_STATE"]
+
+
+def test_esp_wifi_init_without_wifi_nvs_needs_no_nvs(lib, tmp_path):
+    trace = sim_run("""
+extern "C" void app_main(void) {
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    cfg.nvs_enable = 0;
+    ESP_LOGI("r", "%s", esp_err_to_name(esp_wifi_init(&cfg)));
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == ["ESP_OK"]
+
+
 def test_wifi_and_event_errors_out_of_order(lib, tmp_path):
     trace = sim_run("""
 #define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
@@ -1185,6 +1215,7 @@ extern "C" void app_main(void) {
     R(esp_wifi_connect());
     R(esp_wifi_set_mode(WIFI_MODE_STA));
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     R(esp_wifi_connect());     // not started
     wifi_config_t wc = {};

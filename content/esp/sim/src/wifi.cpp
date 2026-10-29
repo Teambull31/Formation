@@ -17,11 +17,12 @@
 // power save, no WIFI_EVENT_STA_BEACON_TIMEOUT; esp_wifi_set_config stores nothing but the SSID (an empty
 // SSID makes esp_wifi_connect fail with ESP_ERR_WIFI_SSID, as documented) and checks the password length (a
 // non-empty password shorter than 8 characters is ESP_ERR_WIFI_PASSWORD); no IP_EVENT_STA_LOST_IP; the
-// config is not kept in NVS; a second esp_netif_create_default_wifi_sta aborts (the docs forbid it); posts
+// config is not kept in NVS (but esp_wifi_init needs NVS initialised while nvs_enable is set: ESP_ERR_NVS_NOT_INITIALIZED); a second esp_netif_create_default_wifi_sta aborts (the docs forbid it); posts
 // are dropped silently when the default event loop does not exist. A link loss also drops MQTT sessions.
 #include <cstring>
 
 #include "esp_wifi.h"
+#include "nvs.h"
 #include "sim.h"
 
 ESP_EVENT_DEFINE_BASE(WIFI_EVENT);
@@ -181,6 +182,9 @@ esp_netif_t *esp_netif_create_default_wifi_sta(void) {
 esp_err_t esp_wifi_init(const wifi_init_config_t *config) {
     if (!config || config->magic != WIFI_INIT_CONFIG_MAGIC) return ESP_ERR_INVALID_ARG;
     if (inited) return ESP_ERR_INVALID_STATE;
+    // The driver keeps its configuration in NVS when config->nvs_enable is set (the default of WIFI_INIT_CONFIG_DEFAULT()):
+    // the sim makes the missing nvs_flash_init an error here, as the official examples' "Initialize NVS" step implies.
+    if (config->nvs_enable && !sim::nvs_ready()) return ESP_ERR_NVS_NOT_INITIALIZED;
     inited = true;
     mode = WIFI_MODE_STA;  // documented default
     return ESP_OK;
