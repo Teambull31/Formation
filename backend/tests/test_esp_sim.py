@@ -478,6 +478,119 @@ extern "C" void app_main(void) {
     assert not [e for e in trace if e["ev"] == "queue_receive"]  # failed zero-wait polls are not traced
 
 
+# --- FreeRTOS event groups ------------------------------------------------------------------------------
+
+EVG = HEADERS + '#include "freertos/event_groups.h"\n'
+
+
+def test_event_group_wait_blocks_until_set_and_clears_on_exit(lib, tmp_path):
+    trace = compile_and_run(EVG + """
+static EventGroupHandle_t g;
+static void waiter(void *) {
+    EventBits_t b = xEventGroupWaitBits(g, 0x3, pdTRUE, pdFALSE, portMAX_DELAY);  // any of 2 bits, clear on exit
+    ESP_LOGI("w", "%x %x", (unsigned)b, (unsigned)xEventGroupWaitBits(g, 0x7, pdFALSE, pdFALSE, 0));
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    g = xEventGroupCreate();
+    xTaskCreate(waiter, "w", 2048, NULL, 5, NULL);
+    vTaskDelay(pdMS_TO_TICKS(300));
+    EventBits_t r = xEventGroupSetBits(g, 0x5);  // bit 0 wakes the waiter; bit 2 is not waited for
+    ESP_LOGI("m", "%x", (unsigned)r);
+}
+""", 1000, lib, tmp_path)
+    # the clear is applied by the set: its return value has bit 0 gone; the waiter was released with the bits it saw (0x5)
+    assert levels(trace) == [(300, "4"), (300, "5 4")]
+
+
+def test_event_group_timeout_returns_current_bits_without_clearing(lib, tmp_path):
+    trace = compile_and_run(EVG + """
+extern "C" void app_main(void) {
+    EventGroupHandle_t g = xEventGroupCreate();
+    xEventGroupSetBits(g, 0x1);
+    EventBits_t b = xEventGroupWaitBits(g, 0x3, pdTRUE, pdTRUE, pdMS_TO_TICKS(250));  // needs both: times out
+    ESP_LOGI("t", "%x", (unsigned)b);
+    b = xEventGroupWaitBits(g, 0x1, pdTRUE, pdTRUE, 0);  // already set: no wait, cleared on exit
+    ESP_LOGI("t", "%x %x", (unsigned)b, (unsigned)xEventGroupWaitBits(g, 0x1, pdFALSE, pdFALSE, 0));
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(250, "1"), (250, "1 0")]
+
+
+def test_event_group_wait_for_all_bits_needs_every_bit(lib, tmp_path):
+    trace = compile_and_run(EVG + """
+static EventGroupHandle_t g;
+static void setter(void *) {
+    vTaskDelay(pdMS_TO_TICKS(100));
+    xEventGroupSetBits(g, 0x1);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    xEventGroupSetBits(g, 0x2);
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    g = xEventGroupCreate();
+    xTaskCreate(setter, "s", 2048, NULL, 5, NULL);
+    EventBits_t b = xEventGroupWaitBits(g, 0x3, pdFALSE, pdTRUE, portMAX_DELAY);
+    ESP_LOGI("all", "%x", (unsigned)b);
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(200, "3")]
+
+
+def test_event_group_clear_bits_returns_value_before_clearing(lib, tmp_path):
+    trace = compile_and_run(EVG + """
+extern "C" void app_main(void) {
+    EventGroupHandle_t g = xEventGroupCreate();
+    xEventGroupSetBits(g, 0x6);
+    EventBits_t before = xEventGroupClearBits(g, 0x2);
+    ESP_LOGI("c", "%x %x", (unsigned)before, (unsigned)xEventGroupClearBits(g, 0));
+    vEventGroupDelete(g);
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(0, "6 4")]
+
+
+def test_event_group_one_set_releases_every_waiter_even_with_clear_on_exit(lib, tmp_path):
+    # FreeRTOS applies the clear after unblocking all the tasks the set satisfies: both waiters see the bit.
+    trace = compile_and_run(EVG + """
+static EventGroupHandle_t g;
+static void waiter(void *arg) {
+    EventBits_t b = xEventGroupWaitBits(g, 0x1, pdTRUE, pdFALSE, portMAX_DELAY);
+    ESP_LOGI("w", "%s %x", (const char *)arg, (unsigned)b);
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    g = xEventGroupCreate();
+    xTaskCreate(waiter, "a", 2048, (void *)"a", 5, NULL);
+    xTaskCreate(waiter, "b", 2048, (void *)"b", 5, NULL);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    xEventGroupSetBits(g, 0x1);
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_LOGI("m", "%x", (unsigned)xEventGroupWaitBits(g, 0x1, pdFALSE, pdFALSE, 0));
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(100, "a 1"), (100, "b 1"), (200, "0")]
+
+
+def test_event_group_set_from_event_handler_wakes_main(lib, tmp_path):
+    # the Wi-Fi station pattern: the handler (task sys_evt) sets a bit, app_main waits for it
+    trace = compile_and_run(EVG + """
+#include "esp_event.h"
+ESP_EVENT_DEFINE_BASE(DEMO_EVENT);
+static EventGroupHandle_t g;
+static void handler(void *, esp_event_base_t, int32_t id, void *) { xEventGroupSetBits(g, 1 << id); }
+extern "C" void app_main(void) {
+    g = xEventGroupCreate();
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    ESP_ERROR_CHECK(esp_event_handler_register(DEMO_EVENT, ESP_EVENT_ANY_ID, handler, NULL));
+    ESP_ERROR_CHECK(esp_event_post(DEMO_EVENT, 3, NULL, 0, 0));
+    EventBits_t b = xEventGroupWaitBits(g, 1 << 3, pdTRUE, pdFALSE, pdMS_TO_TICKS(500));
+    ESP_LOGI("m", "%x", (unsigned)b);
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(0, "8")]
+
+
 # --- Fidelity of the exposed API to the real ESP-IDF -------------------------------------------------
 # Learners copy their code to a real ESP-IDF project, so every declaration of sim/include must match
 # the official API. signatures.json holds one entry per function, type or macro, with the official

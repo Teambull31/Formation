@@ -1657,5 +1657,54 @@
     "decl": "esp_err_t nvs_flash_erase(void);",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
     "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "EventGroupHandle_t",
+    "decl": "typedef struct EventGroupDef_t * EventGroupHandle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "EventBits_t",
+    "decl": "typedef TickType_t EventBits_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "xEventGroupCreate",
+    "decl": "EventGroupHandle_t xEventGroupCreate( void );",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "xEventGroupWaitBits",
+    "decl": "EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToWaitFor, const BaseType_t xClearOnExit, const BaseType_t xWaitForAllBits, TickType_t xTicksToWait );",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "xEventGroupSetBits",
+    "decl": "EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToSet );",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "xEventGroupClearBits",
+    "decl": "EventBits_t xEventGroupClearBits( EventGroupHandle_t xEventGroup, const EventBits_t uxBitsToClear );",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
+    "name": "vEventGroupDelete",
+    "decl": "void vEventGroupDelete( EventGroupHandle_t xEventGroup );",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
   }
 ]
