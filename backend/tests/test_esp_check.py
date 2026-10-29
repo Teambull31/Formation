@@ -1123,3 +1123,85 @@ def test_es6_check_sections_exist_in_lesson():
     constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
     cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
     assert cited and cited <= titles, cited - titles
+
+
+# ---- restarts and the thread budget under the sandbox (Task 15, fix round 1) ----
+
+SYS_HEAD = HEAD + ('#include "esp_system.h"\n#include "esp_event.h"\n#include "esp_netif.h"\n#include "esp_wifi.h"\n'
+                   '#include "nvs_flash.h"\n#include "nvs.h"\n#include "mqtt_client.h"\n#include <string.h>\n')
+
+
+def sandboxed(drv, src: str, scenario: dict, max_ms: int):
+    """(trace, None) when the run is accepted, (None, learner message) when the driver refuses it."""
+    try:
+        return drv._run_once(src, scenario, max_ms, 30, "", drv.MAX_OUT)[0], None
+    except drv.CheckError as e:
+        return None, str(e)
+
+
+def test_scripted_reboot_keeps_committed_nvs_in_the_sandbox(drv, bwrap_ok):
+    src = SYS_HEAD + r'''
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    nvs_handle_t h;
+    ESP_ERROR_CHECK(nvs_open("cfg", NVS_READWRITE, &h));
+    uint32_t boots = 0;
+    nvs_get_u32(h, "boots", &boots);
+    ESP_LOGI("boot", "boots=%u", (unsigned)boots);
+    ESP_ERROR_CHECK(nvs_set_u32(h, "boots", boots + 1));
+    ESP_ERROR_CHECK(nvs_commit(h));
+    for (;;) vTaskDelay(pdMS_TO_TICKS(100));
+}
+'''
+    trace, message = sandboxed(drv, src, {"reboots_at_ms": [1000, 2000]}, 3000)
+    assert message is None, message
+    assert [e["msg"] for e in trace.logs("boot")] == ["boots=0", "boots=1", "boots=2"]
+    assert [e["reason"] for e in trace.events("reboot")] == ["scripted", "scripted"]
+
+
+def test_restart_at_boot_is_a_boot_loop_not_a_busy_loop(drv, bwrap_ok):
+    trace, message = sandboxed(drv, app("esp_restart();", SYS_HEAD), {}, 1000)
+    assert trace is None
+    assert "redémarre en boucle" in message and "esp_restart" in message, message
+    assert "ajoutez un vTaskDelay" not in message and "ne rend jamais la main" not in message, message
+
+
+def test_fast_restart_loop_is_reported_as_restarts_not_adc_flood(drv, bwrap_ok):
+    trace, message = sandboxed(drv, app("vTaskDelay(1);\nesp_restart();", SYS_HEAD), {}, 60000)
+    assert trace is None
+    assert "redémarre" in message and "esp_restart" in message, message
+    assert "lectures ADC" not in message, message
+
+
+def test_wifi_mqtt_and_four_tasks_fit_the_thread_budget(drv, bwrap_ok):
+    src = SYS_HEAD + r'''
+static void worker(void *) { for (;;) vTaskDelay(pdMS_TO_TICKS(100)); }
+static void on_event(void *, esp_event_base_t, int32_t, void *) {}
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &on_event, NULL));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    esp_mqtt_client_config_t mc = {};
+    mc.broker.address.uri = "mqtt://broker.local";
+    esp_mqtt_client_handle_t c = esp_mqtt_client_init(&mc);
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(c, MQTT_EVENT_ANY, on_event, NULL));
+    ESP_ERROR_CHECK(esp_mqtt_client_start(c));
+    for (int i = 0; i < 4; i++) xTaskCreate(worker, "worker", 2048, nullptr, 1, nullptr);
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    ESP_LOGI("end", "all alive");
+}
+'''
+    trace, message = sandboxed(drv, src, {"reboots_at_ms": [500]}, 3000)
+    assert message is None, message
+    assert [e["msg"] for e in trace.logs("end")] == ["all alive"]
+
+
+def test_too_many_tasks_message_is_exact(drv):
+    msg = drv.MSG_TOO_MANY_TASKS
+    assert "4" in msg and "Wi-Fi" in msg and "MQTT" in msg

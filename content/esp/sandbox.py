@@ -20,12 +20,12 @@ Limits are applied by /usr/bin/prlimit INSIDE the sandbox, not by preexec_fn: RL
 counted per user, so set before bwrap it would count every host process of the backend user
 (and makes bwrap's own namespace creation fail); set inside, it counts only sandbox processes.
 Memory worst case per call: max_procs processes x mem_mb of address space each (threads share
-their process's address space) + tmp_mb of tmpfs, e.g. 8 x 256 MB + 64 MB for a run.
+their process's address space) + tmp_mb of tmpfs, e.g. 12 x 256 MB + 64 MB for a run.
 
 compile_and_run() is what lesson checks use: one sandbox, g++ under the compile limits (worst
 case COMPILE_MAX_PROCS x GXX_MEM_MB = 16 x 512 MB of address space, all of it g++'s own
 processes, + COMPILE_TMP_MB of tmpfs), then the learner binary under a nested prlimit with the
-run limits (prlimit can only lower them): RUN_MAX_PROCS x RUN_MEM_MB = 8 x 256 MB + the same
+run limits (prlimit can only lower them): RUN_MAX_PROCS x RUN_MEM_MB = 12 x 256 MB + the same
 tmpfs. The program's own exit status and signal are reported, with phase="run".
 
 Result.signal is a hint only: bwrap reports a death by signal N as exit status 128+N, so a
@@ -49,11 +49,13 @@ FSIZE_MB = 64  # largest single file (on top of the tmpfs cap): a simulator bina
 NOFILE = 256
 TRUNCATED = "\n[... sortie tronquée ...]\n"
 ENV = {"PATH": "/usr/bin:/bin", "HOME": "/tmp", "TMPDIR": "/tmp", "LANG": "C.UTF-8"}
-# Run limits for a simulator program (NPROC counts threads too). Measured with g++ 16: with 8, a
-# program can create 5 FreeRTOS tasks (init + main + app_main thread + 5), 6 fail. Address space:
-# each thread reserves a stack and a malloc arena, so 5 tasks fail at 64 MB and pass at 128 MB;
-# 256 MB is a 2x margin. /tmp only receives small scratch files at run time.
-RUN_MAX_PROCS = 8
+# Run limits for a simulator program (NPROC counts threads too). Measured with g++ 16: the process
+# needs init + main + app_main thread = 3 threads, plus the simulator's own hidden threads (timeline,
+# and with Wi-Fi/events "sys_evt", and one "mqtt_task" per MQTT client), plus one per FreeRTOS task.
+# Wi-Fi + 1 MQTT client + 4 tasks needs 10 and fails at 9; with 2 MQTT clients 11; 12 leaves one spare.
+# Address space (the simulator uses a single malloc arena): the same program with 2 clients fails
+# at 144 MB and passes at 160 MB; 256 MB is a 1.6x margin. /tmp only receives small scratch files.
+RUN_MAX_PROCS = 12
 RUN_TMP_MB = 64
 RUN_MEM_MB = 256
 RUN_CPU_S = 5  # virtual time makes a scenario take milliseconds; seconds of CPU mean a busy loop

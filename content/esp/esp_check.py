@@ -32,6 +32,7 @@ MAX_OUT = 1_000_000  # trace bytes kept by default; a 60 s TP logging every 10 m
 MIN_RUN_S = 1.0  # a run is not started with less wall time than this
 MAX_OUT_LIMIT = 16_000_000  # ceiling for a check module's MAX_OUT (memory of the parent process)
 MAX_BAD_LINES = 3
+BOOT_LOOP_REBOOTS = 20  # restarts in a trace that was cut short: a boot loop, whatever else the cut says
 WALL_S = 40  # compile + run, under the TP timeout (60 s)
 GXX_FLAGS = ["-std=c++17", "-O1", "-pthread", "-w", "-fmax-errors=5", "-fno-diagnostics-show-caret",
              "-fdiagnostics-color=never"]
@@ -69,7 +70,12 @@ MSG_BAD_TRACE = "la trace du simulateur est illisible ({n} lignes inattendues)"
 MSG_BUSY_LOOP = ("votre tâche « {task} » ne rend jamais la main : ajoutez un vTaskDelay(pdMS_TO_TICKS(...)) "
                  "dans sa boucle, ou faites-la attendre avec un délai non nul (xQueueReceive(..., portMAX_DELAY)), "
                  "pour laisser tourner les autres tâches")
-MSG_TOO_MANY_TASKS = "trop de tâches : le simulateur en autorise 4 en plus de app_main"
+MSG_TOO_MANY_TASKS = ("trop de tâches : le simulateur en autorise 4 en plus de app_main (xTaskCreate). Le Wi-Fi, la boucle "
+                      "d'événements et chaque client MQTT ajoutent leurs propres threads (3 avec le Wi-Fi et un client MQTT) "
+                      "et comptent dans la limite : réduisez le nombre de tâches ou de clients MQTT")
+MSG_BOOT_LOOP = ("votre programme redémarre en boucle ({n} redémarrages{when}) : esp_restart(), un watchdog ou un "
+                 "ESP_ERROR_CHECK qui échoue puis redémarre, dès le démarrage ; cherchez l'erreur qui déclenche le "
+                 "redémarrage plutôt que de redémarrer aussitôt, et laissez passer du temps (vTaskDelay) avant un esp_restart()")
 MSG_SEGV = "le programme a planté (SIGSEGV, accès mémoire invalide : pointeur nul ou tableau dépassé ?)"
 MSG_CRASH = "le programme a planté (signal {sig})"
 MSG_KILLED = "le programme s'est arrêté brutalement"
@@ -421,14 +427,24 @@ def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: st
         raise
 
 
+def boot_loop_message(trace: Trace) -> str:
+    times = {e["t_ms"] for e in trace.events("reboot")}
+    return MSG_BOOT_LOOP.format(n=len(trace.events("reboot")), when=" sans que le temps avance" if len(times) == 1 else "")
+
+
 def interpret(r, cap: int = MAX_OUT) -> Trace:
     """Trace from the private trace fd (stdout only); stderr is learner/diagnostic text shown on failure."""
     def fail(message: str):
         raise _with_detail(CheckError(message), r.err)
 
+    trace = Trace(r.out)
+    reboots = len(trace.events("reboot"))
+    # A restart loop floods the trace (and then the CPU budget) long before it fills the cap with anything else.
+    if reboots >= BOOT_LOOP_REBOOTS and (r.out.endswith(sandbox.TRUNCATED) or r.signal or r.timed_out or
+                                         trace.last_end().get("reason") == "boot_loop"):
+        fail(boot_loop_message(trace))
     if r.out.endswith(sandbox.TRUNCATED):
         fail(MSG_FLOOD.format(cap=cap))
-    trace = Trace(r.out)
     if trace.bad_lines > MAX_BAD_LINES:
         fail(MSG_BAD_TRACE.format(n=trace.bad_lines))
     end = trace.last_end()
@@ -438,6 +454,8 @@ def interpret(r, cap: int = MAX_OUT) -> Trace:
         fail(MSG_TOO_MANY_TASKS)
     if reason == "deadline":
         return trace
+    if reason == "boot_loop":
+        fail(boot_loop_message(trace))
     if reason == "busy_loop":
         fail(MSG_BUSY_LOOP.format(task=end.get("task", "?")))
     if reason == "crash" or (not end and r.signal and not r.timed_out):

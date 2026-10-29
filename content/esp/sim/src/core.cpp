@@ -1,5 +1,6 @@
 // ESP-IDF API shims (esp_err, esp_log, esp_timer, FreeRTOS tasks) and the harness `main`.
 #include <signal.h>
+#include <malloc.h>
 #include <unistd.h>
 
 #include <cstdarg>
@@ -145,6 +146,8 @@ bool load_scenario(const char *path, std::string &err) {
 }  // namespace
 
 int main(int argc, char **argv) {
+    // One malloc arena: each thread would reserve its own 64 MB of address space (RLIMIT_AS in the sandbox).
+    mallopt(M_ARENA_MAX, 1);
     sim::boot_args(argc, argv);
     int64_t max_ms = 60000;
     const char *scenario_path = nullptr;

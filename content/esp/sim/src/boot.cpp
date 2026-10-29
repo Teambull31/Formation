@@ -12,7 +12,8 @@
 //
 // Simplifications: a restart takes no virtual time; stdio buffers of the learner's program are lost (the
 // chip loses its RAM too); esp_register_shutdown_handler is not provided, so nothing runs before a restart;
-// more than 50 restarts in a row without the clock moving end the run with "busy_loop" (a boot loop).
+// more than 50 restarts in a row without the clock moving, or more than 300 restarts in one run, end the run
+// with "boot_loop" (a program that restarts at once, or at every tick: the check says so to the learner).
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -28,6 +29,7 @@
 namespace {
 
 constexpr int kMaxStreak = 50;
+constexpr int kMaxReboots = 300;  // restarts in one run, however far apart (a restart every tick)
 
 int saved_argc = 0;
 char **saved_argv = nullptr;
@@ -36,6 +38,7 @@ std::vector<int64_t> scripted;  // sorted
 size_t next_scripted = 0;
 int reason = ESP_RST_POWERON;
 int streak = 0;  // consecutive restarts without the run clock moving
+int reboots = 0;  // restarts so far in this run
 
 }  // namespace
 
@@ -88,6 +91,7 @@ int64_t boot_restore() {
         else if (key == "boot.reason") in >> reason;
         else if (key == "boot.next") in >> next_scripted;
         else if (key == "boot.streak") in >> streak;
+        else if (key == "boot.count") in >> reboots;
         else if (key == "plant") plant_restore(in);
         else if (key == "wifi") wifi_restore(in);
         else if (key.compare(0, 4, "nvs.") == 0) nvs_restore(key, in);
@@ -107,10 +111,10 @@ void reboot(const char *why) {
     int next_reason = std::strcmp(why, "sw") == 0 ? ESP_RST_SW : std::strcmp(why, "task_wdt") == 0 ? ESP_RST_TASK_WDT : ESP_RST_POWERON;
     if (std::strcmp(why, "scripted") == 0) ++next_scripted;
     int next_streak = now == boot_ms() ? streak + 1 : 0;
-    if (next_streak > kMaxStreak) end("busy_loop");
+    if (next_streak > kMaxStreak || reboots + 1 > kMaxReboots) end("boot_loop");
     plant_sync();  // integrate the tank with the relay level of this boot before the pins reset
     std::ostringstream out;
-    out << "boot.ms " << now << "\nboot.reason " << next_reason << "\nboot.next " << next_scripted << "\nboot.streak " << next_streak << "\n";
+    out << "boot.ms " << now << "\nboot.reason " << next_reason << "\nboot.next " << next_scripted << "\nboot.streak " << next_streak << "\nboot.count " << reboots + 1 << "\n";
     plant_save(out);
     wifi_save(out);
     nvs_save(out);

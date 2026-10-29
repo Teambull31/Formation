@@ -1470,3 +1470,15 @@ extern "C" void app_main(void) {
     trace = sim_run(src, 450, lib, tmp_path)
     counts = msgs(trace, "fd")
     assert len(counts) >= 4 and len(set(counts)) == 1, counts
+
+
+def test_restart_at_boot_ends_with_boot_loop(lib, tmp_path):
+    trace = sim_run('extern "C" void app_main(void) { esp_restart(); }\n', 1000, lib, tmp_path)
+    assert trace[-1] == {"t_ms": 0, "ev": "end", "reason": "boot_loop"}
+    assert len([e for e in trace if e["ev"] == "reboot"]) == 51
+
+
+def test_restart_every_tick_ends_with_boot_loop(lib, tmp_path):
+    trace = sim_run('extern "C" void app_main(void) { vTaskDelay(1); esp_restart(); }\n', 60000, lib, tmp_path)
+    assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "boot_loop"
+    assert len([e for e in trace if e["ev"] == "reboot"]) == 301  # the 301st is traced, then refused
