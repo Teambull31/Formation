@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es7-q1",
+  "text": "Pourquoi initialise-t-on la NVS avant d'appeler esp_wifi_init ?",
+  "options": [
+   "Pour que les journaux du Wi-Fi apparaissent dans le terminal",
+   "Pour obtenir une adresse IP plus vite qu'avec le DHCP seul",
+   "Parce que le pilote Wi-Fi y enregistre sa configuration",
+   "Parce que la NVS remplace la boucle d'événements par défaut"
+  ],
+  "answer": 2,
+  "explain": "Le pilote Wi-Fi range sa configuration dans la NVS (le stockage qui survit à l'extinction), et les exemples officiels l'initialisent donc d'abord, avec le motif nvs_flash_init puis, seulement pour ESP_ERR_NVS_NO_FREE_PAGES ou ESP_ERR_NVS_NEW_VERSION_FOUND, nvs_flash_erase. La NVS n'affiche rien, n'accélère pas le DHCP et ne remplace pas la boucle d'événements, qui reste à créer.",
+  "remedial_lesson_id": "es7"
+ },
+ {
+  "id": "es7-q2",
+  "text": "Dans quelle tâche s'exécute un gestionnaire d'événements Wi-Fi ?",
+  "options": [
+   "Dans app_main, juste après l'appel à esp_wifi_start",
+   "Dans une tâche que vous créez avec xTaskCreate",
+   "Dans une interruption matérielle, sans pile ni tâche",
+   "Dans la tâche sys_evt de la boucle d'événements"
+  ],
+  "answer": 3,
+  "explain": "La boucle d'événements par défaut a sa propre tâche, sys_evt : elle met les événements en file d'attente et appelle les gestionnaires un par un. Un gestionnaire qui bloque empêche donc le traitement de tous les événements suivants. Il ne s'exécute ni dans app_main, ni dans une tâche que vous avez créée, ni dans une interruption.",
+  "remedial_lesson_id": "es7"
+ },
+ {
+  "id": "es7-q3",
+  "text": "Un échec de connexion arrive et il faut attendre 4 s avant de réessayer. Que fait le gestionnaire ?",
+  "options": [
+   "Il lève un bit du groupe d'événements et une autre tâche attend",
+   "Il appelle vTaskDelay de 4 s puis esp_wifi_connect dans le gestionnaire",
+   "Il rappelle esp_wifi_connect tout de suite, l'attente étant inutile",
+   "Il redémarre la carte avec esp_restart pour repartir de zéro"
+  ],
+  "answer": 0,
+  "explain": "Le gestionnaire ne bloque jamais : il note l'événement en levant un bit (xEventGroupSetBits) et laisse une tâche faire l'attente avec vTaskDelay, puis rappeler esp_wifi_connect. Dormir dans le gestionnaire bloquerait la tâche sys_evt, rappeler tout de suite martèle la box, et redémarrer relance les dix tentatives sans fin.",
+  "remedial_lesson_id": "es7"
+ },
+ {
+  "id": "es7-q4",
+  "text": "Trois échecs de suite viennent d'arriver. Quelle attente le TP demande-t-il avant la 4e tentative ?",
+  "options": [
+   "Toujours 1 seconde, comme après le premier échec",
+   "4 secondes, le double de l'attente précédente",
+   "8 secondes, le plafond de l'attente du TP",
+   "2 secondes, le double de la première attente"
+  ],
+  "answer": 1,
+  "explain": "L'attente double à chaque échec : 1 s après le premier, 2 s après le deuxième, 4 s après le troisième, puis 8 s au plus (plafond). Après trois échecs, c'est donc 4 s. Une attente toujours égale à 1 s martèle la box, et 8 s n'arrive qu'à partir du quatrième échec.",
+  "remedial_lesson_id": "es7"
+ },
+ {
+  "id": "es7-q5",
+  "text": "Que fait le contrôle d'un programme qui écrit le mot de passe entre guillemets dans le code ?",
+  "options": [
+   "Il masque le mot de passe dans la trace",
+   "Il l'envoie au simulateur pour le vérifier sur la box",
+   "Il refuse le programme avant même de l'exécuter",
+   "Il l'accepte seulement s'il fait plus de 8 caractères"
+  ],
+  "answer": 2,
+  "explain": "L'analyse statique lit main.cpp avant l'exécution et refuse toute instruction qui parle d'un mot de passe et contient un texte entre guillemets, ainsi que le mot de passe d'exemple écrit dans le code. Le mot de passe se lit dans CONFIG_ESP_WIFI_PASSWORD. Le simulateur ne vérifie aucun mot de passe, et la longueur ne change rien à la règle.",
+  "remedial_lesson_id": "es7"
+ }
+]

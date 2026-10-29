@@ -611,6 +611,8 @@ SKIPPED_MACROS = {
     "ESP_LOGI": "same as ESP_LOGE",
     "ESP_LOGD": "same as ESP_LOGE",
     "ESP_LOGV": "same as ESP_LOGE",
+    "CONFIG_ESP_WIFI_SSID": "project Kconfig symbol of the official station example (sample value in the sim)",
+    "CONFIG_ESP_WIFI_PASSWORD": "project Kconfig symbol of the official station example (sample value in the sim)",
     "ESP_ERROR_CHECK": "real body also depends on NDEBUG and Kconfig options",
     # Not only macros: declarations the sim deliberately shortens (see the comment at the top of the header).
     "WIFI_INIT_CONFIG_DEFAULT": "real initialiser fills ~25 driver-tuning fields and Kconfig-dependent values",

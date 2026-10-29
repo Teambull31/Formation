@@ -1205,3 +1205,226 @@ extern "C" void app_main(void) {
 def test_too_many_tasks_message_is_exact(drv):
     msg = drv.MSG_TOO_MANY_TASKS
     assert "4" in msg and "Wi-Fi" in msg and "MQTT" in msg
+
+
+# ---- TP es7 (Wi-Fi : NVS, événements, reconnexion à attente croissante) : solution livrée + variantes ----
+
+ES7 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp3" / "lessons" / "es7.tp"
+
+
+def _es7_reference() -> str:
+    text = (ES7 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es7_mutant(*edits: tuple[str, str]) -> str:
+    src = _es7_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es7_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es7-tp")
+
+
+def test_es7_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es7_run(tmp_path, _es7_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es7_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es7_run(tmp_path, (ES7 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "motif d'initialisation de la NVS est incomplet" in out and "relire" in out, out
+
+
+NVS_CALL = "    init_nvs();\n"
+REGISTER_WIFI = ("    ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &gestionnaire, NULL, "
+                 "&inst_wifi));\n")
+REGISTER_IP = ("    ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &gestionnaire, NULL, "
+               "&inst_ip));\n")
+TAG_LINE = 'static const char *TAG = "wifi";'
+PASSWORD_COPY = "CONFIG_ESP_WIFI_PASSWORD, sizeof(conf.sta.password) - 1"
+IP_LOG = '        ESP_LOGI(TAG, "adresse IP : " IPSTR, IP2STR(&ev->ip_info.ip));\n'
+ABANDON_RETURN = "                return;\n"
+START_CONNECT = "        esp_wifi_connect();\n    } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED)"
+
+# nom -> (remplacements (ancien, nouveau), fragments de message attendus)
+ES7_MUTANTS = {
+    # NVS
+    "nvs_not_initialised": ([(NVS_CALL, "")], ["ESP_ERROR_CHECK a arrêté le programme", "NVS_NOT_INITIALIZED"]),
+    "nvs_pattern_incomplete": ([("ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND", "ret != ESP_OK")],
+                               ["motif d'initialisation de la NVS est incomplet", "La NVS d'abord"]),
+    # attentes
+    "tight_loop_reconnect_in_handler": ([("        xEventGroupSetBits(groupe, BIT_PERDU);", "        esp_wifi_connect();")],
+                                        ["scénario a", "attente de 0 s", "il en faut 1 s", "attente croissante"]),
+    "wait_one_tick": ([("vTaskDelay(pdMS_TO_TICKS(ms));", "vTaskDelay(1);")],
+                      ["scénario a", "attente de 0,01 s", "il en faut 1 s"]),
+    "wait_in_ticks_not_ms": ([("vTaskDelay(pdMS_TO_TICKS(ms));", "vTaskDelay(ms);")],
+                             ["scénario a", "attente de 10 s", "il en faut 1 s"]),
+    "constant_wait_1s": ([("        ms *= 2;", "        ms += 0;")], ["scénario a", "attente de 1 s", "il en faut 2 s"]),
+    "no_cap_on_wait": ([("i < n && ms < ATTENTE_MAX_MS", "i < n"), ("return ms > ATTENTE_MAX_MS ? ATTENTE_MAX_MS : ms;", "return ms;")],
+                       ["scénario b", "seulement", "tentative(s)"]),
+    "cap_at_4s": ([("ATTENTE_MAX_MS = 8000;", "ATTENTE_MAX_MS = 4000;")],
+                  ["scénario b", "attente de 4 s", "échec n°4", "il en faut 8 s"]),
+    "linear_wait": ([("        ms *= 2;", "        ms += 1000;")], ["scénario a", "attente de 3 s", "il en faut 4 s"]),
+    # nombre d'essais
+    "no_attempt_limit": ([("if (echecs >= MAX_TENTATIVES) {", "if (false) {")],
+                         ["scénario b", "tentatives en 120 s au lieu de 10", "abandonner"]),
+    "limit_9": ([("MAX_TENTATIVES = 10;", "MAX_TENTATIVES = 9;")], ["scénario b", "seulement 9 tentative(s)"]),
+    "limit_11": ([("MAX_TENTATIVES = 10;", "MAX_TENTATIVES = 11;")], ["scénario b", "11 tentatives en 120 s au lieu de 10"]),
+    "give_up_after_first_failure": ([("MAX_TENTATIVES = 10;", "MAX_TENTATIVES = 1;")],
+                                    ["scénario a", "jamais connecté", "1 échec(s)", "plus aucune tentative"]),
+    "one_more_connect_after_giving_up": ([(ABANDON_RETURN, "                esp_wifi_connect();\n" + ABANDON_RETURN)],
+                                         ["scénario b", "11 tentatives", "ne plus jamais rappeler"]),
+    "restart_on_giving_up": ([(ABANDON_RETURN, "                esp_restart();\n"),
+                              ('#include "nvs_flash.h"', '#include "nvs_flash.h"\n#include "esp_system.h"')],
+                             ["scénario b", "la carte a redémarré", "abandonner proprement"]),
+    # gestionnaires et pile réseau
+    "handlers_not_registered": ([(REGISTER_WIFI, ""), (REGISTER_IP, "")],
+                                ["scénario a", "STA_START", "aucune tentative de connexion", "AVANT esp_wifi_start"]),
+    "ip_handler_not_registered": ([(REGISTER_IP, "")], ["scénario a", "n'est pas journalisée", "adresse IP : 192.168.1.42"]),
+    "sta_start_does_not_connect": ([(START_CONNECT, "        ESP_LOGI(TAG, \"démarré\");\n    } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED)")],
+                                   ["scénario a", "aucune tentative de connexion"]),
+    "no_default_sta_netif": ([("    esp_netif_create_default_wifi_sta();\n", "")], ["scénario a", "l'adresse IP n'est jamais arrivée"]),
+    # mot de passe et adresse en dur (analyse statique)
+    "password_literal": ([(PASSWORD_COPY, '"abcdefgh12", sizeof(conf.sta.password) - 1')],
+                         ["mot de passe en dur", "CONFIG_ESP_WIFI_PASSWORD", "Le mot de passe ne s'écrit jamais"]),
+    "password_in_named_constant": ([(TAG_LINE, TAG_LINE + '\nstatic const char *MDP = "unsecret123";'),
+                                    (PASSWORD_COPY, "MDP, sizeof(conf.sta.password) - 1")],
+                                   ["mot de passe en dur", "MDP"]),
+    "password_in_define": ([(TAG_LINE, TAG_LINE + '\n#define WIFI_PWD "unsecret123"')], ["mot de passe en dur", "#define"]),
+    "sample_password_written": ([(TAG_LINE, TAG_LINE + '\nstatic const char *X = "exemple-motdepasse";')],
+                                ["mot de passe d'exemple est écrit dans main.cpp"]),
+    "password_not_read_from_config": ([("    strncpy((char *)conf.sta.password, CONFIG_ESP_WIFI_PASSWORD, sizeof(conf.sta.password) - 1);\n", "")],
+                                      ["doit être lu avec CONFIG_ESP_WIFI_PASSWORD"]),
+    "ip_literal": ([(IP_LOG, '        ESP_LOGI(TAG, "adresse IP : 192.168.1.42");\n')], ["192.168.1.42 est écrite en dur", "Journaliser l'adresse"]),
+    # journaux
+    "ip_wrong_format": ([('"adresse IP : " IPSTR', '"ip obtenue " IPSTR')], ["scénario a", "n'est pas journalisée", "ip obtenue 192.168.1.42"]),
+    "ip_logged_twice": ([(IP_LOG, IP_LOG + IP_LOG)], ["scénario a", "2 lignes", "au lieu d'une"]),
+    "error_log_on_every_failure": ([('ESP_LOGW(TAG, "échec', 'ESP_LOGE(TAG, "échec')],
+                                   ["scénario a", "ESP_LOGE de tag « wifi »", "alors que la connexion réussit"]),
+    "no_error_log_on_giving_up": ([('ESP_LOGE(TAG, "abandon', 'ESP_LOGW(TAG, "abandon')], ["scénario b", "aucune ligne d'erreur"]),
+    "wrong_tag_on_giving_up": ([('ESP_LOGE(TAG, "abandon', 'ESP_LOGE("reseau", "abandon')], ["scénario b", "aucune ligne d'erreur"]),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES7_MUTANTS.values(), ids=ES7_MUTANTS.keys())
+def test_es7_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es7_run(tmp_path, _es7_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+# Variante valide écrite autrement : le compteur et la décision sont dans le gestionnaire, une tâche dédiée attend et rappelle.
+ES7_TASK_VARIANT = r'''
+#include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "esp_log.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+#include "esp_wifi.h"
+#include "nvs_flash.h"
+#include "sdkconfig.h"
+
+static const char *TAG = "wifi";
+static const EventBits_t BIT_RECONNEXION = 1 << 0;
+static EventGroupHandle_t groupe;
+static int tentatives = 0;      // tentatives de connexion lancées
+static int prochaine_attente_ms = 0;
+
+static void tache_reconnexion(void *) {
+    for (;;) {
+        xEventGroupWaitBits(groupe, BIT_RECONNEXION, pdTRUE, pdFALSE, portMAX_DELAY);
+        vTaskDelay(pdMS_TO_TICKS(prochaine_attente_ms));
+        tentatives++;
+        esp_wifi_connect();
+    }
+}
+
+static void gestionnaire(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    if (base == WIFI_EVENT && id == WIFI_EVENT_STA_START) {
+        tentatives = 1;
+        esp_wifi_connect();
+    } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (tentatives >= 10) {
+            ESP_LOGE(TAG, "on abandonne après %d tentatives", tentatives);
+        } else {
+            prochaine_attente_ms = 1000 << (tentatives - 1);
+            if (prochaine_attente_ms > 8000) prochaine_attente_ms = 8000;
+            ESP_LOGI(TAG, "tentative %d échouée, on attend %d ms", tentatives, prochaine_attente_ms);
+            xEventGroupSetBits(groupe, BIT_RECONNEXION);
+        }
+    } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t *ev = (ip_event_got_ip_t *)data;
+        ESP_LOGI(TAG, "adresse IP : " IPSTR, IP2STR(&ev->ip_info.ip));
+        tentatives = 0;
+    }
+}
+
+extern "C" void app_main(void) {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+    groupe = xEventGroupCreate();
+    xTaskCreate(tache_reconnexion, "reconnexion", 3072, NULL, 5, NULL);
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_create_default_wifi_sta();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &gestionnaire, NULL));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &gestionnaire, NULL));
+    wifi_config_t conf = {};
+    memcpy(conf.sta.ssid, CONFIG_ESP_WIFI_SSID, strlen(CONFIG_ESP_WIFI_SSID));
+    memcpy(conf.sta.password, CONFIG_ESP_WIFI_PASSWORD, strlen(CONFIG_ESP_WIFI_PASSWORD));
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &conf));
+    ESP_ERROR_CHECK(esp_wifi_start());
+}
+'''
+
+ES7_VARIANTS = {
+    "wait_polling_in_100ms_steps": [("vTaskDelay(pdMS_TO_TICKS(ms));",
+                                     "for (int t = 0; t < ms; t += 100) {\n                vTaskDelay(pdMS_TO_TICKS(100));\n            }")],
+    "wait_a_little_longer": [("vTaskDelay(pdMS_TO_TICKS(ms));", "vTaskDelay(pdMS_TO_TICKS(ms + 300));")],
+    "wait_a_little_shorter": [("vTaskDelay(pdMS_TO_TICKS(ms));", "vTaskDelay(pdMS_TO_TICKS(ms - 30));")],
+    "retry_logged_at_info_level": [('ESP_LOGW(TAG, "échec', 'ESP_LOGI(TAG, "échec')],
+    "plain_handler_registration": [
+        (REGISTER_WIFI, "    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &gestionnaire, NULL));\n"),
+        (REGISTER_IP, "    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &gestionnaire, NULL));\n")],
+    "password_through_a_macro_alias": [(TAG_LINE, TAG_LINE + "\n#define MON_SECRET CONFIG_ESP_WIFI_PASSWORD"),
+                                       (PASSWORD_COPY, "MON_SECRET, sizeof(conf.sta.password) - 1")],
+    "password_with_memcpy": [("    strncpy((char *)conf.sta.password, CONFIG_ESP_WIFI_PASSWORD, sizeof(conf.sta.password) - 1);",
+                              "    memcpy(conf.sta.password, CONFIG_ESP_WIFI_PASSWORD, strlen(CONFIG_ESP_WIFI_PASSWORD));")],
+    "extra_info_log_when_giving_up": [(ABANDON_RETURN, '                ESP_LOGI(TAG, "plus de tentative");\n' + ABANDON_RETURN)],
+    "comment_inside_the_nvs_pattern": [("        ESP_ERROR_CHECK(nvs_flash_erase());",
+                                        "        // NVS pleine ou trop récente : on l'efface\n        ESP_ERROR_CHECK(nvs_flash_erase());")],
+}
+
+
+@pytest.mark.parametrize("edits", ES7_VARIANTS.values(), ids=ES7_VARIANTS.keys())
+def test_es7_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es7_run(tmp_path, _es7_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es7_tp_task_and_handler_state_variant_passes(tmp_path, bwrap_ok):
+    code, out = _es7_run(tmp_path, ES7_TASK_VARIANT)
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es7_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES7.parent / "es7.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es7-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles
