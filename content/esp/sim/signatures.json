@@ -1436,6 +1436,13 @@
   },
   {
     "header": "nvs.h",
+    "name": "ESP_ERR_NVS_NEW_VERSION_FOUND",
+    "decl": "#define ESP_ERR_NVS_NEW_VERSION_FOUND (ESP_ERR_NVS_BASE + 0x10)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "nvs.h",
     "name": "NVS_DEFAULT_PART_NAME",
     "decl": "#define NVS_DEFAULT_PART_NAME \"nvs\"",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/nvs_flash.html",

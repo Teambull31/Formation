@@ -123,6 +123,14 @@ void reboot(const char *why) {
         else off += static_cast<size_t>(n);
     }
     if (ok && ::lseek(fd, 0, SEEK_SET) == 0) {
+        // The learner's open descriptors would survive the exec (no O_CLOEXEC): keep stdio, the trace and the state.
+        int keep[2] = {std::min(fd, trace_fd), std::max(fd, trace_fd)};
+        unsigned from = 3;
+        for (int k : keep) {
+            if (k > static_cast<int>(from)) ::close_range(from, static_cast<unsigned>(k) - 1, 0);
+            from = std::max(from, static_cast<unsigned>(k) + 1);
+        }
+        ::close_range(from, ~0U, 0);
         ::setenv("ESPSIM_STATE_FD", std::to_string(fd).c_str(), 1);
         ::setenv("ESPSIM_TRACE_FD", std::to_string(trace_fd).c_str(), 1);
         ::execv(self_exe.c_str(), saved_argv);

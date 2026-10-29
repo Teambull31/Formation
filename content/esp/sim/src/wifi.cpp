@@ -59,10 +59,14 @@ bool ap_up(int64_t t) {
 bool sta_mode() { return mode == WIFI_MODE_STA || mode == WIFI_MODE_APSTA; }
 
 void post(const char *name, int32_t id, const void *data, size_t size, bool ip = false, int reason = 0) {
+    // Traced after the post: a full queue (a handler stuck in sys_evt) or a missing default loop loses the event,
+    // and the line then says "delivered": false so a check does not believe a handler saw it. The handlers run
+    // later, in sys_evt, so the trace order does not change.
+    esp_err_t posted = esp_event_post(ip ? IP_EVENT : WIFI_EVENT, id, data, size, 0);
     sim::Event e(sim::now_ms(), "wifi");
     e.str("event", name);
     if (reason) e.num("reason", reason);
-    esp_event_post(ip ? IP_EVENT : WIFI_EVENT, id, data, size, 0);  // dropped when there is no default loop
+    if (posted != ESP_OK) e.flag("delivered", false);
 }
 
 void post_disconnected(int reason) {
@@ -129,6 +133,7 @@ bool wifi_load_scenario(const Json &root, std::string &err) {
     const Json *w = root.get("wifi");
     if (!w) return true;
     if (w->type != Json::Object) { err = "\"wifi\" doit être un objet"; return false; }
+    if (!only_keys(*w, {"up_from_ms", "down", "fail_attempts"}, "wifi", err)) return false;
     long long up = 0, fail = 0;
     if (const Json *j = w->get("up_from_ms"); j && !j->as_int(0, INT64_MAX >> 12, up)) {
         err = "wifi : \"up_from_ms\" entier >= 0 attendu";

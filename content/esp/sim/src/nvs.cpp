@@ -112,9 +112,9 @@ esp_err_t get_int(nvs_handle_t h, const char *key, T *out) {
 
 // Length protocol of nvs_get_str / nvs_get_blob: out == NULL asks for the size.
 esp_err_t get_bytes(nvs_handle_t h, const char *key, int type, void *out, size_t *length) {
-    if (!length) return ESP_ERR_INVALID_ARG;
     const Value *v;
-    if (esp_err_t e = fetch(h, key, type, v)) return e;
+    if (esp_err_t e = fetch(h, key, type, v)) return e;  // the key is looked up first, as in nvs_get_str_or_blob
+    if (!length) return ESP_ERR_NVS_INVALID_LENGTH;
     if (!out) { *length = v->bytes.size(); return ESP_OK; }
     if (*length < v->bytes.size()) { *length = v->bytes.size(); return ESP_ERR_NVS_INVALID_LENGTH; }
     std::memcpy(out, v->bytes.data(), v->bytes.size());

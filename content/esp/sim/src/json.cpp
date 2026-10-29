@@ -172,6 +172,18 @@ struct Parser {
 
 }  // namespace
 
+bool only_keys(const Json &object, std::initializer_list<const char *> allowed, const char *where, std::string &err) {
+    for (const auto &member : object.obj) {
+        bool known = false;
+        for (const char *k : allowed) known = known || member.first == k;
+        if (!known) {
+            err = std::string(where) + " : clé inconnue \"" + member.first + "\"";
+            return false;
+        }
+    }
+    return true;
+}
+
 bool json_parse(const std::string &text, Json &out, std::string &err) {
     Parser p{text};
     out = Json();

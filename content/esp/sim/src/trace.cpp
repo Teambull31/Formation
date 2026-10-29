@@ -29,6 +29,25 @@ void append_json_string(std::string &out, const std::string &s) {
 
 }  // namespace
 
+std::string utf8(const std::string &s) {
+    size_t i = 0;
+    bool ok = true;
+    while (i < s.size() && ok) {
+        unsigned char c = s[i];
+        size_t n = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 0;
+        if (n == 0 || i + n > s.size()) { ok = false; break; }
+        for (size_t k = 1; k < n; ++k) ok = ok && (static_cast<unsigned char>(s[i + k]) >> 6) == 2;
+        i += n;
+    }
+    if (ok) return s;
+    std::string out;
+    for (unsigned char c : s) {
+        if (c < 0x80) out += static_cast<char>(c);
+        else { out += static_cast<char>(0xC0 | c >> 6); out += static_cast<char>(0x80 | (c & 0x3F)); }
+    }
+    return out;
+}
+
 Event::Event(int64_t t_ms, const char *ev) {
     line_ = "{\"t_ms\": " + std::to_string(t_ms) + ", \"ev\": ";
     append_json_string(line_, ev);

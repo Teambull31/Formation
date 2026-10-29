@@ -1348,3 +1348,125 @@ def test_new_fields_are_known_to_the_trace_reader():
     good = esp_trace.Trace('{"t_ms": 1, "ev": "mqtt_publish", "topic": "a", "payload": "b", "retain": true, "qos": 1}\n'
                            '{"t_ms": 2, "ev": "mqtt_publish", "topic": "a", "payload": "b", "retain": 1, "qos": 1}\n')
     assert len(good.events("mqtt_publish")) == 1 and good.bad_lines == 1
+
+
+# ---------------------------------------- Task 15, fix round 1
+
+def test_nvs_canonical_init_pattern_compiles_and_runs(lib, tmp_path):
+    # The sim never returns NO_FREE_PAGES / NEW_VERSION_FOUND, but the code every ESP-IDF example uses must build.
+    trace = sim_run("""
+extern "C" void app_main(void) {
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+    ESP_LOGI("r", "%s 0x%x", esp_err_to_name(ESP_ERR_NVS_NEW_VERSION_FOUND), (unsigned)ESP_ERR_NVS_NEW_VERSION_FOUND);
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == ["ESP_ERR_NVS_NEW_VERSION_FOUND 0x1110"]
+
+
+def test_mqtt_data_event_buffers_are_not_nul_terminated(lib, tmp_path):
+    app = MQTT_APP.replace('ESP_LOGI("m", "data %.*s=%.*s", ev->topic_len, ev->topic, ev->data_len, ev->data);', """
+        ESP_LOGI("m", "strcmp=%d strncmp=%d contiguous=%d", strcmp(ev->topic, "home/devices/d1/command") == 0,
+                 strncmp(ev->topic, "home/devices/d1/command", ev->topic_len) == 0, ev->data == ev->topic + ev->topic_len);
+        ESP_LOGI("m", "after_topic=%d after_data=%d", ev->topic[ev->topic_len] != 0, ev->data[ev->data_len] != 0);
+        ESP_LOGI("m", "data %.*s=%.*s", ev->topic_len, ev->topic, ev->data_len, ev->data);""")
+    assert app != MQTT_APP
+    sc = '{"mqtt": {"incoming": [{"t_ms": 2000, "topic": "home/devices/d1/command", "payload": "{\\"on\\":true}"}]}}'
+    trace = sim_run(app + MQTT_MAIN, 3000, lib, tmp_path, sc)
+    assert [m for m in msgs(trace, "m") if m.startswith(("strcmp", "after", "data"))] == [
+        "strcmp=0 strncmp=1 contiguous=1", "after_topic=1 after_data=1", 'data home/devices/d1/command={"on":true}']
+
+
+def test_mqtt_wildcard_hash_matches_parent_level(lib, tmp_path):
+    app = MQTT_APP.replace('esp_mqtt_client_subscribe(client, "home/devices/d1/command", 1);', """
+        esp_mqtt_client_subscribe(client, "a/#", 0);
+        esp_mqtt_client_subscribe(client, "b/+", 0);""")
+    sc = ('{"mqtt": {"incoming": [{"t_ms": 1000, "topic": "a", "payload": "1"}, {"t_ms": 1100, "topic": "a/x/y", "payload": "2"},'
+          '{"t_ms": 1200, "topic": "b", "payload": "3"}, {"t_ms": 1300, "topic": "ab", "payload": "4"}]}}')
+    trace = sim_run(app + MQTT_MAIN, 3000, lib, tmp_path, sc)
+    assert [m for m in msgs(trace, "m") if m.startswith("data")] == ["data a=1", "data a/x/y=2"]
+
+
+def test_mqtt_last_will_fully_traced(lib, tmp_path):
+    trace = sim_run("""
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtt://broker.local";
+    cfg.credentials.client_id = "d1";
+    cfg.session.last_will.topic = "home/devices/d1/status";
+    cfg.session.last_will.msg = "offline";
+    cfg.session.last_will.qos = 1;
+    cfg.session.last_will.retain = true;
+    esp_mqtt_client_handle_t c = esp_mqtt_client_init(&cfg);
+    ESP_ERROR_CHECK(esp_mqtt_client_start(c));
+    for (;;) vTaskDelay(pdMS_TO_TICKS(1000));
+}
+""", 1000, lib, tmp_path)
+    conn = next(e for e in trace if e["ev"] == "mqtt" and e["event"] == "connected")
+    assert (conn["lwt_topic"], conn["lwt_msg"], conn["lwt_retain"], conn["lwt_qos"]) == ("home/devices/d1/status", "offline", True, 1)
+
+
+def test_wifi_event_lost_when_queue_full_is_traced_as_not_delivered(lib, tmp_path):
+    # the handler blocks on the first event, so only 32 later events fit in the loop's queue
+    app = WIFI_APP.replace("static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data) {",
+                           "static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data) {\n"
+                           "    if (id == WIFI_EVENT_STA_START) { ESP_LOGI(\"w\", \"start\"); vTaskDelay(portMAX_DELAY); }")
+    main = 'extern "C" void app_main(void) { wifi_up(); for (int i = 0; i < 40; i++) { esp_wifi_connect(); vTaskDelay(pdMS_TO_TICKS(1100)); } }\n'
+    trace = sim_run(app + main, 60000, lib, tmp_path, '{"wifi": {"fail_attempts": 1000}}')
+    w = [e for e in trace if e["ev"] == "wifi" and e["event"] == "sta_disconnected"]
+    assert len(w) == 40
+    assert [e.get("delivered", True) for e in w] == [True] * 32 + [False] * 8
+
+
+@pytest.mark.parametrize("scenario", [
+    '{"wifi": {"fail_attempt": 3}}', '{"wifi": {"up_from_ms": 1, "downs": []}}',
+    '{"mqtt": {"broker_downs": []}}', '{"mqtt": {"incoming": [], "retained": []}}',
+    '{"mqtt": {"incoming": [{"t_ms": 1, "topic": "a", "payload": "x", "qos_level": 1}]}}',
+])
+def test_unknown_wifi_mqtt_keys_are_refused(lib, tmp_path, scenario):
+    prog = compile_src(lib, SYS + 'extern "C" void app_main(void) {}\n', tmp_path)
+    path = tmp_path / "bad.json"
+    path.write_text(scenario)
+    r = subprocess.run([str(prog), "--scenario", str(path)], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and r.stdout == "" and "scénario" in r.stderr
+
+
+def test_nvs_get_blob_without_length_reports_invalid_length(lib, tmp_path):
+    trace = sim_run("""
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    nvs_handle_t h;
+    ESP_ERROR_CHECK(nvs_open("cfg", NVS_READWRITE, &h));
+    char buf[8];
+    R(nvs_get_str(h, "s", buf, NULL));                   // key missing: NOT_FOUND comes first
+    ESP_ERROR_CHECK(nvs_set_str(h, "s", "x"));
+    ESP_ERROR_CHECK(nvs_set_blob(h, "b", "xy", 2));
+    R(nvs_get_str(h, "s", buf, NULL));
+    R(nvs_get_blob(h, "b", buf, NULL));
+    R(nvs_get_blob(h, "b", NULL, NULL));
+}
+""", 100, lib, tmp_path)
+    assert msgs(trace, "r") == ["ESP_ERR_NVS_NOT_FOUND"] + ["ESP_ERR_NVS_INVALID_LENGTH"] * 3
+
+
+def test_learner_fds_do_not_leak_across_restarts(lib, tmp_path):
+    src = """
+#include <fcntl.h>
+#include <unistd.h>
+extern "C" void app_main(void) {
+    int n = 0;
+    for (int fd = 3; fd < 64; ++fd) if (fcntl(fd, F_GETFD) != -1) ++n;
+    ESP_LOGI("fd", "open=%d", n);
+    open("/dev/null", O_RDONLY);  // leaked on purpose, no O_CLOEXEC
+    vTaskDelay(pdMS_TO_TICKS(100));
+    esp_restart();
+}
+"""
+    trace = sim_run(src, 450, lib, tmp_path)
+    counts = msgs(trace, "fd")
+    assert len(counts) >= 4 and len(set(counts)) == 1, counts

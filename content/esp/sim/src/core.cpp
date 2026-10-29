@@ -45,6 +45,7 @@ const char *esp_err_to_name(esp_err_t code) {
         case ESP_ERR_NVS_NO_FREE_PAGES: return "ESP_ERR_NVS_NO_FREE_PAGES";
         case ESP_ERR_NVS_VALUE_TOO_LONG: return "ESP_ERR_NVS_VALUE_TOO_LONG";
         case ESP_ERR_NVS_PART_NOT_FOUND: return "ESP_ERR_NVS_PART_NOT_FOUND";
+        case ESP_ERR_NVS_NEW_VERSION_FOUND: return "ESP_ERR_NVS_NEW_VERSION_FOUND";
         case ESP_ERR_WIFI_NOT_INIT: return "ESP_ERR_WIFI_NOT_INIT";
         case ESP_ERR_WIFI_NOT_STARTED: return "ESP_ERR_WIFI_NOT_STARTED";
         case ESP_ERR_WIFI_NOT_STOPPED: return "ESP_ERR_WIFI_NOT_STOPPED";

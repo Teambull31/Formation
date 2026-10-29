@@ -20,8 +20,13 @@
 // message actually sent to the broker), "mqtt_subscribe", and "mqtt" for the events (event = before_connect,
 // connected, disconnected, error, subscribed, unsubscribed, published, data).
 //
+// MQTT_EVENT_DATA buffers: as in esp-mqtt, topic and data point into one receive buffer ("topic" then "data"
+// then one more byte, '~'). Neither is NUL-terminated: strcmp(event->topic, "a/b") and printf("%s", event->data)
+// read past their end, as on the board. Use topic_len / data_len (strncmp, "%.*s", cJSON_ParseWithLength).
+// topic and data are NULL (lengths 0) for the other events.
+//
 // Simplifications: one broker, no keep-alive, no authentication or TLS, no Last Will delivery (the will of
-// the configuration is traced with "connected" as lwt_topic), no retained-message store (a retained publish
+// the configuration is traced with "connected" as lwt_topic, lwt_msg, lwt_retain and lwt_qos), no retained-message store (a retained publish
 // is only traced), no MQTT_EVENT_DISCONNECTED on esp_mqtt_client_stop, no fragmented DATA events, no outbox
 // limit, QoS 1/2 handshakes reduced to one MQTT_EVENT_PUBLISHED, the subscription qos in a DATA event is the
 // lower of the two, esp_mqtt_client_stop/destroy from a handler are not detected.
@@ -67,7 +72,9 @@ struct Out {
 }  // namespace
 
 struct esp_mqtt_client {
-    std::string uri, hostname, client_id, lwt_topic;
+    std::string uri, hostname, client_id, lwt_topic, lwt_msg;
+    int lwt_qos = 0;
+    bool lwt_retain = false;
     int reconnect_ms = kDefaultReconnectMs;
     bool auto_reconnect = true, clean = true;
     bool started = false, connected = false, destroyed = false, had_session = false;
@@ -106,26 +113,6 @@ esp_mqtt_client *live(esp_mqtt_client_handle_t h) {
     return nullptr;
 }
 
-// JSON text must be UTF-8: bytes that are not valid UTF-8 are shown as the Latin-1 characters they would be.
-std::string utf8(const std::string &s) {
-    size_t i = 0;
-    bool ok = true;
-    while (i < s.size() && ok) {
-        unsigned char c = s[i];
-        size_t n = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 0;
-        if (n == 0 || i + n > s.size()) { ok = false; break; }
-        for (size_t k = 1; k < n; ++k) ok = ok && (static_cast<unsigned char>(s[i + k]) >> 6) == 2;
-        i += n;
-    }
-    if (ok) return s;
-    std::string out;
-    for (unsigned char c : s) {
-        if (c < 0x80) out += static_cast<char>(c);
-        else { out += static_cast<char>(0xC0 | c >> 6); out += static_cast<char>(0x80 | (c & 0x3F)); }
-    }
-    return out;
-}
-
 bool topic_matches(const std::string &filter, const std::string &topic) {
     size_t f = 0, t = 0;
     while (true) {
@@ -134,7 +121,8 @@ bool topic_matches(const std::string &filter, const std::string &topic) {
         std::string tl = topic.substr(t, te == std::string::npos ? std::string::npos : te - t);
         if (fl == "#") return true;
         if (fl != "+" && fl != tl) return false;
-        if (fe == std::string::npos || te == std::string::npos) return fe == te;
+        if (fe == std::string::npos) return te == std::string::npos;
+        if (te == std::string::npos) return filter.compare(fe + 1, std::string::npos, "#") == 0;  // "a/#" matches "a" (MQTT 3.1.1, 4.7.1.2)
         f = fe + 1;
         t = te + 1;
     }
@@ -158,9 +146,10 @@ void emit(esp_mqtt_client *c, Ev ev) {
     t.str("event", event_name(ev.id));
     if (ev.id == MQTT_EVENT_CONNECTED) {
         t.str("client_id", c->client_id);
-        if (!c->lwt_topic.empty()) t.str("lwt_topic", c->lwt_topic);
+        if (!c->lwt_topic.empty())
+            t.str("lwt_topic", c->lwt_topic).str("lwt_msg", sim::utf8(c->lwt_msg)).flag("lwt_retain", c->lwt_retain).num("lwt_qos", c->lwt_qos);
     } else if (ev.id == MQTT_EVENT_DATA) {
-        t.str("topic", utf8(ev.topic));
+        t.str("topic", sim::utf8(ev.topic));
     } else if (ev.id == MQTT_EVENT_ERROR) {
         t.num("sock_errno", ev.sock_errno);
     }
@@ -176,10 +165,14 @@ void dispatch(esp_mqtt_client *c, Ev &ev) {
     esp_mqtt_event_t e = {};
     e.event_id = static_cast<esp_mqtt_event_id_t>(ev.id);
     e.client = c;
-    e.data = &ev.data[0];
-    e.data_len = e.total_data_len = static_cast<int>(ev.data.size());
-    e.topic = &ev.topic[0];
-    e.topic_len = static_cast<int>(ev.topic.size());
+    // One buffer "topic data ~", as in esp-mqtt's receive buffer: no NUL after the topic nor after the data.
+    std::string buffer = ev.topic + ev.data + '~';
+    if (ev.id == MQTT_EVENT_DATA) {
+        e.topic = buffer.data();
+        e.topic_len = static_cast<int>(ev.topic.size());
+        e.data = buffer.data() + ev.topic.size();
+        e.data_len = e.total_data_len = static_cast<int>(ev.data.size());
+    }
     e.msg_id = ev.msg_id;
     e.session_present = ev.session_present;
     e.error_handle = &err;
@@ -202,7 +195,7 @@ void client_main(void *arg) {
 }
 
 void send(esp_mqtt_client *c, const Out &m) {
-    sim::Event(sim::now_ms(), "mqtt_publish").str("topic", utf8(m.topic)).str("payload", utf8(m.data))
+    sim::Event(sim::now_ms(), "mqtt_publish").str("topic", sim::utf8(m.topic)).str("payload", sim::utf8(m.data))
         .flag("retain", m.retain).num("qos", m.qos).num("msg_id", m.id);
     if (m.qos > 0) {
         Ev ev{MQTT_EVENT_PUBLISHED};
@@ -285,6 +278,7 @@ bool mqtt_load_scenario(const Json &root, std::string &err) {
     const Json *m = root.get("mqtt");
     if (!m) return true;
     if (m->type != Json::Object) { err = "\"mqtt\" doit être un objet"; return false; }
+    if (!only_keys(*m, {"broker_down", "incoming"}, "mqtt", err)) return false;
     std::vector<Window> down;
     if (!parse_windows(m->get("broker_down"), "mqtt : \"broker_down\"", down, err)) return false;
     std::vector<Incoming> in;
@@ -292,6 +286,7 @@ bool mqtt_load_scenario(const Json &root, std::string &err) {
         if (list->type != Json::Array) { err = "mqtt : \"incoming\" doit être un tableau"; return false; }
         for (const Json &e : list->arr) {
             long long t = 0, qos = 0;
+            if (e.type == Json::Object && !only_keys(e, {"t_ms", "topic", "payload", "qos", "retain"}, "mqtt : \"incoming\"", err)) return false;
             const Json *jt = e.type == Json::Object ? e.get("t_ms") : nullptr;
             const Json *jtopic = e.type == Json::Object ? e.get("topic") : nullptr;
             const Json *jp = e.type == Json::Object ? e.get("payload") : nullptr;
@@ -331,7 +326,12 @@ esp_mqtt_client_handle_t esp_mqtt_client_init(const esp_mqtt_client_config_t *co
     if (config->broker.address.uri) c->uri = config->broker.address.uri;
     if (config->broker.address.hostname) c->hostname = config->broker.address.hostname;
     c->client_id = config->credentials.client_id ? config->credentials.client_id : "ESP32_000000";
-    if (config->session.last_will.topic) c->lwt_topic = config->session.last_will.topic;
+    if (const auto &will = config->session.last_will; will.topic) {
+        c->lwt_topic = will.topic;
+        if (will.msg) c->lwt_msg = will.msg_len > 0 ? std::string(will.msg, static_cast<size_t>(will.msg_len)) : std::string(will.msg);
+        c->lwt_qos = will.qos;
+        c->lwt_retain = will.retain;
+    }
     if (config->network.reconnect_timeout_ms > 0) c->reconnect_ms = config->network.reconnect_timeout_ms;
     c->auto_reconnect = !config->network.disable_auto_reconnect;
     c->clean = !config->session.disable_clean_session;
@@ -379,7 +379,7 @@ int esp_mqtt_client_subscribe_single(esp_mqtt_client_handle_t client, const char
     bool known = false;
     for (auto &s : c->subs) if (s.first == topic) { s.second = qos; known = true; }
     if (!known) c->subs.emplace_back(topic, qos);
-    sim::Event(sim::now_ms(), "mqtt_subscribe").str("topic", utf8(topic)).num("qos", qos).num("msg_id", id);
+    sim::Event(sim::now_ms(), "mqtt_subscribe").str("topic", sim::utf8(topic)).num("qos", qos).num("msg_id", id);
     Ev ev{MQTT_EVENT_SUBSCRIBED};
     ev.msg_id = id;
     emit(c, std::move(ev));

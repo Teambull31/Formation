@@ -27,8 +27,8 @@ FIELDS = {
     "i2c_xfer": {"addr": int, "ok": bool},  # one transfer to a device; ok False = NACK/no device (ESP_ERR_TIMEOUT)
     "nvs_set": {"ns": str, "key": str, "type": str},  # plus "value" (number or text) or "size" for a blob
     "nvs_commit": {"ns": str},
-    "wifi": {"event": str},  # sta_start | sta_connected | sta_disconnected (plus "reason") | got_ip | sta_stop
-    "mqtt": {"event": str},  # before_connect | connected | disconnected | error | subscribed | unsubscribed | published | data
+    "wifi": {"event": str},  # sta_start | sta_connected | sta_disconnected (plus "reason") | got_ip | sta_stop; "delivered": false when the event queue refused it
+    "mqtt": {"event": str},  # before_connect | connected | disconnected | error | subscribed | unsubscribed | published | data; "connected" carries client_id and lwt_topic, lwt_msg, lwt_retain, lwt_qos
     "mqtt_publish": {"topic": str, "payload": str, "retain": bool, "qos": int},  # plus "msg_id"
     "mqtt_subscribe": {"topic": str, "qos": int},
     "wdt_reset": {"tasks": str, "panic": bool},  # task watchdog expiry; "tasks" = the names that did not reset it

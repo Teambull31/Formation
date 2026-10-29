@@ -18,6 +18,9 @@ namespace sim {
 // main points trace_fd at the original stdout and sends fd 1 to stderr, so learner output
 // (printf, std::cout, write(1, ...)) can neither break nor forge the trace.
 extern int trace_fd;
+// JSON text must be UTF-8: bytes that are not valid UTF-8 are shown as the Latin-1 characters they would be.
+// Every trace field that carries learner or network bytes goes through it.
+std::string utf8(const std::string &s);
 
 class Event {
 public:
