@@ -517,6 +517,56 @@ extern "C" void app_main(void) {
     assert levels(trace) == [(250, "1"), (250, "1 0")]
 
 
+def test_event_group_timeout_at_the_instant_of_the_set(lib, tmp_path):
+    # The set lands in the very tick the wait times out: whichever wins, the waiter and the group must agree
+    # (satisfied and cleared, or timed out and the bit still in the group), never "satisfied but not cleared".
+    trace = compile_and_run(EVG + """
+static EventGroupHandle_t g;
+static void setter(void *) {
+    vTaskDelay(pdMS_TO_TICKS(200));
+    xEventGroupSetBits(g, 0x1);
+    vTaskDelete(NULL);
+}
+extern "C" void app_main(void) {
+    g = xEventGroupCreate();
+    xTaskCreate(setter, "s", 2048, NULL, 5, NULL);
+    EventBits_t b = xEventGroupWaitBits(g, 0x1, pdTRUE, pdFALSE, pdMS_TO_TICKS(200));
+    vTaskDelay(pdMS_TO_TICKS(50));
+    ESP_LOGI("t", "%x %x", (unsigned)b, (unsigned)xEventGroupWaitBits(g, 0x1, pdFALSE, pdFALSE, 0));
+}
+""", 1000, lib, tmp_path)
+    (t, msg), = levels(trace)
+    assert (t, msg) in {(250, "1 0"), (250, "0 1")}, (t, msg)
+
+
+def test_event_group_zero_ticks_unsatisfied_returns_immediately(lib, tmp_path):
+    trace = compile_and_run(EVG + """
+extern "C" void app_main(void) {
+    EventGroupHandle_t g = xEventGroupCreate();
+    xEventGroupSetBits(g, 0x1);
+    EventBits_t a = xEventGroupWaitBits(g, 0x3, pdTRUE, pdTRUE, 0);   // needs both, ticks == 0: no wait, no clear
+    EventBits_t b = xEventGroupWaitBits(g, 0x6, pdTRUE, pdFALSE, 0);  // none of these: no wait
+    ESP_LOGI("z", "%x %x %x", (unsigned)a, (unsigned)b, (unsigned)xEventGroupWaitBits(g, 0x1, pdFALSE, pdFALSE, 0));
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(0, "1 1 1")]
+
+
+def test_config_assert(lib, tmp_path):
+    trace = compile_and_run(HEADERS + """
+extern "C" void app_main(void) {
+    configASSERT(1 + 1 == 2);
+    ESP_LOGI("a", "passed");
+    configASSERT(pdFALSE);
+    ESP_LOGI("a", "never");
+}
+""", 1000, lib, tmp_path)
+    assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "abort"
+    assert [e["msg"] for e in logs(trace) if e["level"] == "I"] == ["passed"]
+    errors = [e for e in logs(trace) if e["level"] == "E"]
+    assert errors and "pdFALSE" in errors[0]["msg"]
+
+
 def test_event_group_wait_for_all_bits_needs_every_bit(lib, tmp_path):
     trace = compile_and_run(EVG + """
 static EventGroupHandle_t g;
@@ -613,6 +663,8 @@ SKIPPED_MACROS = {
     "ESP_LOGV": "same as ESP_LOGE",
     "CONFIG_ESP_WIFI_SSID": "project Kconfig symbol of the official station example (sample value in the sim)",
     "CONFIG_ESP_WIFI_PASSWORD": "project Kconfig symbol of the official station example (sample value in the sim)",
+    "configASSERT": "real expansion is ESP-IDF's assert-and-abort (FreeRTOSConfig.h); the sim logs the expression and aborts",
+    "sim_config_assert_failed": "sim-only helper behind configASSERT, not an ESP-IDF function",
     "ESP_ERROR_CHECK": "real body also depends on NDEBUG and Kconfig options",
     # Not only macros: declarations the sim deliberately shortens (see the comment at the top of the header).
     "WIFI_INIT_CONFIG_DEFAULT": "real initialiser fills ~25 driver-tuning fields and Kconfig-dependent values",

@@ -21,6 +21,16 @@ typedef unsigned int UBaseType_t;
 #define errQUEUE_FULL ( ( BaseType_t ) 0 )
 #define errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY ( -1 )
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+/* Sim only: logs the failed expression (tag "assert") and ends the run with reason "abort". */
+void sim_config_assert_failed(const char *expr, const char *file, int line);
+#ifdef __cplusplus
+}
+#endif
+#define configASSERT( x ) ( ( x ) ? ( void ) 0 : sim_config_assert_failed( #x, __FILE__, __LINE__ ) )
+
 #define portMAX_DELAY ( TickType_t ) 0xffffffffUL
 #define portTICK_PERIOD_MS ( ( TickType_t ) 1000 / configTICK_RATE_HZ )
 #define pdMS_TO_TICKS( xTimeInMs ) \

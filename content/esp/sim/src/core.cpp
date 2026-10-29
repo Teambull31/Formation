@@ -84,6 +84,13 @@ void esp_log_write(esp_log_level_t level, const char *tag, const char *format, .
         .str("msg", msg);
 }
 
+void sim_config_assert_failed(const char *expr, const char *file, int line) {
+    char msg[512];
+    std::snprintf(msg, sizeof msg, "assert failed: %s:%d (%s)", file, line, expr);
+    sim::Event(sim::now_ms(), "log").str("level", "E").str("tag", "assert").str("msg", msg);
+    sim::end("abort");
+}
+
 void _esp_error_check_failed(esp_err_t rc, const char *file, int line, const char *function,
                              const char *expression) {
     char msg[512];
