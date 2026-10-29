@@ -35,7 +35,7 @@
    "Il redémarre la carte avec esp_restart pour repartir de zéro"
   ],
   "answer": 0,
-  "explain": "Le gestionnaire ne bloque jamais : il note l'événement en levant un bit (xEventGroupSetBits) et laisse une tâche faire l'attente avec vTaskDelay, puis rappeler esp_wifi_connect. Dormir dans le gestionnaire bloquerait la tâche sys_evt, rappeler tout de suite martèle la box, et redémarrer relance les dix tentatives sans fin.",
+  "explain": "Le gestionnaire ne bloque jamais : il note l'événement en levant un bit (xEventGroupSetBits) et laisse une tâche faire l'attente avec vTaskDelay, puis rappeler esp_wifi_connect. Dormir dans le gestionnaire bloquerait la tâche sys_evt, rappeler tout de suite, comme le fait l'exemple officiel (qui limite seulement le nombre d'essais), martèle la box : ce TP exige l'attente croissante. Redémarrer, lui, relance les dix tentatives sans fin.",
   "remedial_lesson_id": "es7"
  },
  {

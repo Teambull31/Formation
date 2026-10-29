@@ -3,9 +3,9 @@
 Deux exécutions du même programme (SCENARIOS) :
   a : la box refuse les 3 premières tentatives (wifi.fail_attempts = 3) puis accepte : 4 tentatives, attentes de
       1 s, 2 s et 4 s entre elles, adresse IP journalisée une fois (ESP_LOGI, tag « wifi », « adresse IP : 192.168.1.42 »),
-      aucun ESP_LOGE de tag « wifi ».
+      aucun ESP_LOGE (quel que soit le tag).
   b : réseau absent (la box n'existe qu'à partir de 10^9 ms) pendant 120 s : EXACTEMENT 10 tentatives, attentes de
-      1, 2, 4, 8, 8, 8, 8, 8, 8 s, puis UN ESP_LOGE de tag « wifi » (après le 10e échec) et plus aucune tentative.
+      1, 2, 4, 8, 8, 8, 8, 8, 8 s, puis UN seul ESP_LOGE, de tag « wifi » (après le 10e échec) et plus aucune tentative.
 
 Les tentatives se lisent dans les événements « wifi » de la trace, sans que le programme ait rien à émettre : la
 station du simulateur termine une tentative refusée 1000 ms après esp_wifi_connect (sta_disconnected, raison 201 ou
@@ -24,7 +24,8 @@ import re
 
 from esp_trace import Trace, need
 
-FAIL_MS, CONNECT_MS = 1000, 300  # durées d'une tentative du simulateur (wifi.cpp)
+# Garder en phase avec kFailMs et kConnectMs de content/esp/sim/src/wifi.cpp (le test de la référence détecte une dérive).
+FAIL_MS, CONNECT_MS = 1000, 300  # durées d'une tentative du simulateur
 FAIL_REASONS = {201, 205}  # WIFI_REASON_NO_AP_FOUND, WIFI_REASON_CONNECTION_FAIL
 WAIT_UNDER_MS, WAIT_OVER_MS = 50, 500
 FIRST_WAIT_MS, MAX_WAIT_MS = 1000, 8000
@@ -52,6 +53,8 @@ S_SECRET = "Le mot de passe ne s'écrit jamais dans le code"
 _TOKEN = re.compile(r"""//[^\n]*|/\*.*?\*/|R"([^()\s]{0,16})\(.*?\)\1"|"(?:\\.|[^"\\\n])*"|(?<![0-9A-Fa-f])'(?:\\.|[^'\\\n])*'""",
                     re.S)
 SECRETISH = re.compile(r"pass|pwd|mdp|secret|psk", re.I)
+# Noms ESP-IDF qui contiennent « pass » ou « psk » sans être un mot de passe : retirés avant la recherche.
+NOT_SECRET = re.compile(r"\b(?:pdPASS|CONFIG_ESP_WIFI_PASSWORD|WIFI_AUTH_\w+)\b")
 
 
 def _blank(source: str) -> tuple[str, str]:
@@ -76,12 +79,12 @@ def _static(source: str) -> None:
          f"lisez-le dans CONFIG_ESP_WIFI_PASSWORD (relire : « {S_SECRET} »)")
     for line in code.splitlines():
         s = line.strip()
-        need(not (s.startswith("#") and re.match(r"#\s*define\b", s) and SECRETISH.search(s) and '""' in s),
+        need(not (s.startswith("#") and re.match(r"#\s*define\b", s) and SECRETISH.search(NOT_SECRET.sub(" ", s)) and '""' in s),
              f"mot de passe en dur : la ligne « {s[:60]} » met un texte entre guillemets dans un #define qui parle d'un mot de "
              f"passe : lisez-le dans CONFIG_ESP_WIFI_PASSWORD (relire : « {S_SECRET} »)")
     statements = re.split(r"[;{}]", re.sub(r"(?m)^[ \t]*#[^\n]*$", " ", code))
     for st in statements:
-        need(not (SECRETISH.search(st) and '""' in st),
+        need(not (SECRETISH.search(NOT_SECRET.sub(" ", st)) and '""' in st),
              "mot de passe en dur : une instruction parle d'un mot de passe et contient un texte entre guillemets "
              f"(« {' '.join(st.split())[:70]} ») : lisez-le dans CONFIG_ESP_WIFI_PASSWORD, jamais dans le code "
              f"(relire : « {S_SECRET} »)")
@@ -176,8 +179,8 @@ def _check_a(trace: Trace) -> None:
          f"quand elle arrive (relire : « {S_IP} »)")
     need(ip_logs[0]["t_ms"] >= t_ip, f"{label} : l'adresse est journalisée à {_s(ip_logs[0]['t_ms'])}, avant d'être obtenue "
          f"({_s(t_ip)}) : la ligne se trouve dans la réaction à IP_EVENT_STA_GOT_IP (relire : « {S_IP} »)")
-    errors = trace.logs(tag=TAG, level="E")
-    need(not errors, f"{label} : un ESP_LOGE de tag « {TAG} » à {_s(errors[0]['t_ms'] if errors else 0)} (« "
+    errors = trace.logs(level="E")  # tous les tags : le TP n'a qu'un tag, « wifi »
+    need(not errors, f"{label} : un ESP_LOGE de tag « {errors[0]['tag'] if errors else ''} » à {_s(errors[0]['t_ms'] if errors else 0)} (« "
          f"{errors[0]['msg'] if errors else ''} ») alors que la connexion réussit : un échec intermédiaire se journalise "
          f"avec ESP_LOGW ou ESP_LOGI, ESP_LOGE est réservé à l'abandon (relire : « {S_GIVEUP} »)")
 
@@ -194,10 +197,11 @@ def _check_b(trace: Trace) -> None:
          "échec il faut abandonner et ne plus jamais rappeler esp_wifi_connect() (relire : « "
          f"{S_GIVEUP} »)")
     _check_waits(trace, "b")
-    errors = trace.logs(tag=TAG, level="E")
-    need(errors, f"{label} : aucune ligne d'erreur après l'abandon : il faut un ESP_LOGE de tag « {TAG} » qui dit que l'on "
+    errors = trace.logs(level="E")
+    need(any(e["tag"] == TAG for e in errors),
+         f"{label} : aucune ligne d'erreur après l'abandon : il faut un ESP_LOGE de tag « {TAG} » qui dit que l'on "
          f"abandonne (relire : « {S_GIVEUP} »)")
-    need(len(errors) == 1, f"{label} : {len(errors)} lignes ESP_LOGE de tag « {TAG} » au lieu d'une : les échecs intermédiaires "
+    need(len(errors) == 1, f"{label} : {len(errors)} lignes ESP_LOGE (tous tags confondus) au lieu d'une : les échecs intermédiaires "
          f"se journalisent avec ESP_LOGW ou ESP_LOGI, une seule ligne d'erreur pour l'abandon (relire : « {S_GIVEUP} »)")
     need(errors[0]["t_ms"] >= fails[-1], f"{label} : la ligne d'erreur est écrite à {_s(errors[0]['t_ms'])}, avant le "
          f"{_ordinal(MAX_TRIES)} échec ({_s(fails[-1])}) : on abandonne après le {_ordinal(MAX_TRIES)} échec "

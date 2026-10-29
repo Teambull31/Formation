@@ -4,7 +4,7 @@
 
 Cette leçon contient toute la théorie du TP. Lisez-la dans l'ordre : les messages du contrôle vous disent quelle section relire. Elle suppose les leçons précédentes : les tâches FreeRTOS et `vTaskDelay` (TP 3), les journaux `ESP_LOGx`, et l'idée d'**état** d'un programme (TP 6).
 
-Tout ce qui est écrit ici est le vrai ESP-IDF : le code est celui de l'exemple officiel `examples/wifi/getting_started/station` (version 5.5.3), que vous pourrez recopier dans un vrai projet. Le TP tourne dans le simulateur, qui joue le rôle de la puce Wi-Fi et de la box.
+Tout ce qui est écrit ici est le vrai ESP-IDF : l'initialisation (NVS, pile réseau, gestionnaires, configuration, démarrage) est celle de l'exemple officiel `examples/wifi/getting_started/station` (version 5.5.3), que vous pourrez recopier dans un vrai projet. La reconnexion avec attente croissante, elle, est propre à ce TP : l'exemple officiel est plus simple (voir la section sur la reconnexion). Le TP tourne dans le simulateur, qui joue le rôle de la puce Wi-Fi et de la box.
 
 ## La vue d'ensemble : les étapes d'une connexion
 
@@ -115,7 +115,7 @@ La première ligne dit « tous les événements `WIFI_EVENT` », la seconde « s
 
 Qui exécute le gestionnaire ? **Pas votre tâche** : la boucle d'événements par défaut a sa propre tâche, nommée `sys_evt`. Les événements y sont mis en **file d'attente** (32 places par défaut) et le gestionnaire les traite **un par un, dans l'ordre**. La documentation décrit cette boucle comme un moyen de « sérialiser et différer » l'exécution du code dans un autre contexte. Deux conséquences :
 
-1. **Un gestionnaire ne doit jamais bloquer** (pas de `vTaskDelay` long, pas d'attente d'une file) : pendant qu'il dort, la tâche `sys_evt` ne traite plus aucun événement du système, ni les vôtres. Si la file de 32 places se remplit, de nouveaux événements sont perdus.
+1. **Un gestionnaire ne doit jamais bloquer** (pas de `vTaskDelay` long, pas d'attente d'une file) : pendant qu'il dort, la tâche `sys_evt` ne traite plus aucun événement du système, ni les vôtres. Si la file de 32 places se remplit, les tâches qui postent des événements doivent attendre : `esp_event_post` prend un délai, et renvoie `ESP_ERR_TIMEOUT` si la file est toujours pleine à l'expiration.
 2. Un gestionnaire qui doit **attendre** ou **décider lentement** ne le fait pas lui-même : il **note** ce qui s'est passé et **réveille une autre tâche**, par exemple avec un **groupe d'événements**.
 
 Le contrôle ne peut pas voir ce que fait votre gestionnaire à l'intérieur, et la règle n°1 n'est donc pas vérifiée par lui. Elle reste vraie sur une vraie carte : respectez-la.
@@ -177,7 +177,7 @@ static int attente_ms(int n) {
 
 `attente_ms(1)` vaut 1000, `attente_ms(3)` vaut 4000, `attente_ms(4)` et tout ce qui suit valent 8000.
 
-**Où attendre ?** Pas dans le gestionnaire (règle n°1 de la section précédente). Le schéma de l'exemple officiel et de ce TP : le gestionnaire de `STA_DISCONNECTED` ne fait que **lever un drapeau** dans un **groupe d'événements**, et c'est une tâche (ici `app_main` elle-même) qui attend ce drapeau, puis `vTaskDelay`, puis rappelle `esp_wifi_connect()`.
+**Où attendre ?** Pas dans le gestionnaire (règle n°1 de la section précédente). **Ce que fait l'exemple officiel** (`station_example_main.c`, v5.5.3) : son gestionnaire de `STA_DISCONNECTED` rappelle `esp_wifi_connect()` **tout de suite, sans aucune attente**, tant qu'il n'a pas atteint `EXAMPLE_ESP_MAXIMUM_RETRY` essais ; ensuite il lève le drapeau `WIFI_FAIL_BIT`. L'exemple utilise bien un groupe d'événements, mais seulement pour annoncer le **résultat final** (connecté ou échec) à `app_main`. Il n'y a ni attente croissante ni `vTaskDelay` : c'est ce que ce TP ajoute. **Le schéma de ce TP** : le gestionnaire de `STA_DISCONNECTED` ne fait que **lever un drapeau** dans un **groupe d'événements**, et c'est une tâche (ici `app_main` elle-même) qui attend ce drapeau, puis `vTaskDelay`, puis rappelle `esp_wifi_connect()`.
 
 Un **groupe d'événements** (`freertos/event_groups.h`) est un petit mot de bits partagé entre tâches. Chaque bit est un drapeau :
 
@@ -209,7 +209,7 @@ Un programme qui réessaie **sans fin** un réseau qui n'existe pas ne se règle
 
 « Abandonner proprement » veut dire : un message d'erreur, plus de tentative, et un programme qui ne plante pas et ne redémarre pas la carte (`esp_restart()` est refusé par le contrôle : un redémarrage relancerait les dix tentatives, sans fin).
 
-Les échecs **intermédiaires** ne sont pas des erreurs du programme : journalisez-les avec `ESP_LOGW` ou `ESP_LOGI`. Le contrôle exige **zéro** `ESP_LOGE` de tag `wifi` quand la connexion réussit, et **exactement un** quand on abandonne : une ligne d'erreur, c'est ce qu'un humain va chercher dans le journal.
+Les échecs **intermédiaires** ne sont pas des erreurs du programme : journalisez-les avec `ESP_LOGW` ou `ESP_LOGI`. Le contrôle exige **zéro** `ESP_LOGE` (quel que soit le tag) quand la connexion réussit, et **exactement un**, de tag `wifi`, quand on abandonne : une ligne d'erreur, c'est ce qu'un humain va chercher dans le journal.
 
 !!Après le dixième échec, n'attendez pas et ne rappelez pas esp_wifi_connect : écrivez UN ESP_LOGE de tag wifi puis arrêtez de réessayer!!
 
@@ -246,7 +246,7 @@ esp_wifi_connect();                               // ...puis réessayer
 
 ## Ce que le simulateur simplifie
 
-- La **box** est un simple modèle : le scénario dit à partir de quand elle existe, quand elle est absente, et combien de tentatives elle refuse. Aucune radio, aucun signal, aucune analyse de réseaux (scan), aucun mot de passe vérifié : tout mot de passe de 8 caractères ou plus est accepté.
+- La **box** est un simple modèle : le scénario dit à partir de quand elle existe, quand elle est absente, et combien de tentatives elle refuse. Aucune radio, aucun signal, aucune analyse de réseaux (scan), et le mot de passe n'est jamais comparé à celui d'une box. `esp_wifi_set_config` accepte un mot de passe vide (réseau ouvert) ou d'au moins 8 caractères ; il refuse un mot de passe non vide de moins de 8 caractères avec `ESP_ERR_WIFI_PASSWORD` (la documentation dit seulement « invalid password » : cette règle de longueur est celle du simulateur).
 - Une tentative **échouée** dure 1 seconde, une tentative **réussie** donne `STA_CONNECTED` après 0,3 s puis `GOT_IP` 0,2 s plus tard. Sur une vraie carte, ces durées varient.
 - **L'adresse** est toujours `192.168.1.42`.
 - **La NVS** : le simulateur exige `nvs_flash_init()` avant `esp_wifi_init`, comme le font les exemples officiels. Sur une vraie carte, le comportement exact dépend de la configuration du projet : le motif d'initialisation reste le bon réflexe.

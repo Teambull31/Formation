@@ -1306,6 +1306,10 @@ ES7_MUTANTS = {
     "error_log_on_every_failure": ([('ESP_LOGW(TAG, "échec', 'ESP_LOGE(TAG, "échec')],
                                    ["scénario a", "ESP_LOGE de tag « wifi »", "alors que la connexion réussit"]),
     "no_error_log_on_giving_up": ([('ESP_LOGE(TAG, "abandon', 'ESP_LOGW(TAG, "abandon')], ["scénario b", "aucune ligne d'erreur"]),
+    "error_log_of_another_tag_on_every_failure": ([('ESP_LOGW(TAG, "échec', 'ESP_LOGE("reco", "échec')],
+                                                  ["scénario a", "ESP_LOGE", "alors que la connexion réussit"]),
+    "extra_error_log_of_another_tag_on_giving_up": ([(ABANDON_RETURN, '                ESP_LOGE("reco", "fin");\n' + ABANDON_RETURN)],
+                                                    ["scénario b", "2 lignes ESP_LOGE", "au lieu d'une"]),
     "wrong_tag_on_giving_up": ([('ESP_LOGE(TAG, "abandon', 'ESP_LOGE("reseau", "abandon')], ["scénario b", "aucune ligne d'erreur"]),
 }
 
@@ -1402,6 +1406,13 @@ ES7_VARIANTS = {
                                        (PASSWORD_COPY, "MON_SECRET, sizeof(conf.sta.password) - 1")],
     "password_with_memcpy": [("    strncpy((char *)conf.sta.password, CONFIG_ESP_WIFI_PASSWORD, sizeof(conf.sta.password) - 1);",
                               "    memcpy(conf.sta.password, CONFIG_ESP_WIFI_PASSWORD, strlen(CONFIG_ESP_WIFI_PASSWORD));")],
+    "pdpass_check_on_a_task_creation": [
+        ("    demarrer_wifi();\n", '    demarrer_wifi();\n    if (xTaskCreate([](void *) { vTaskDelete(NULL); }, "aux", 2048, NULL, 5, NULL) != pdPASS) {\n'
+                                  '        ESP_LOGW(TAG, "tâche auxiliaire impossible");\n    }\n')],
+    "password_length_test_with_warning": [
+        ("    demarrer_wifi();\n", '    if (strlen(CONFIG_ESP_WIFI_PASSWORD) < 8) ESP_LOGW(TAG, "mot de passe trop court");\n    demarrer_wifi();\n')],
+    "auth_mode_logged": [
+        ("    demarrer_wifi();\n", '    ESP_LOGI(TAG, "auth %d", (int)WIFI_AUTH_WPA2_PSK);\n    demarrer_wifi();\n')],
     "extra_info_log_when_giving_up": [(ABANDON_RETURN, '                ESP_LOGI(TAG, "plus de tentative");\n' + ABANDON_RETURN)],
     "comment_inside_the_nvs_pattern": [("        ESP_ERROR_CHECK(nvs_flash_erase());",
                                         "        // NVS pleine ou trop récente : on l'efface\n        ESP_ERROR_CHECK(nvs_flash_erase());")],

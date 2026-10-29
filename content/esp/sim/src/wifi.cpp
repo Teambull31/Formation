@@ -34,6 +34,7 @@ struct esp_netif_obj {
 
 namespace {
 
+// Keep in step with FAIL_MS and CONNECT_MS in content/esp/checks/es7-tp.py (the check derives attempts from them).
 constexpr int64_t kFailMs = 1000, kConnectMs = 300, kDhcpMs = 200;
 
 struct Scenario {
