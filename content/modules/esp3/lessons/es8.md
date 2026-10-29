@@ -50,7 +50,7 @@ cfg.session.last_will.retain = true;
 ```
 
 - **L'URI** a la forme `schéma://hôte:port`. Le schéma `mqtt://` veut dire MQTT sur TCP, sans chiffrement, port 1883 par défaut ; `mqtts://` est la version chiffrée (port 8883 par défaut), que le simulateur n'a pas. Le courtier du TP est simulé : l'adresse `192.168.1.10` est une valeur d'exemple.
-- **L'identifiant du client** (`client_id`) : le courtier n'accepte qu'**un** client par identifiant. Si deux appareils prennent le même, le courtier coupe l'ancien. Par défaut ESP-IDF en fabrique un, `ESP32_` suivi de trois octets de l'adresse MAC ; le TP en fixe un lisible.
+- **L'identifiant du client** (`client_id`) : le courtier n'accepte qu'**un** client par identifiant. Si deux appareils prennent le même, le courtier coupe l'ancien. Par défaut ESP-IDF en fabrique un, `ESP32_` suivi des trois derniers octets de l'adresse MAC ; le TP en fixe un lisible.
 - **Les reconnexions sont automatiques** : si la connexion tombe, le client réessaie tout seul toutes les 10 secondes (champ `network.reconnect_timeout_ms`, 10 s par défaut) tant que vous n'avez pas mis `network.disable_auto_reconnect` à `true`. Vous n'avez pas à écrire de boucle de reconnexion.
 - **La session est propre par défaut** (`session.disable_clean_session` vaut `false`) : à chaque connexion, le courtier **oublie** tout ce qu'il savait de ce client, abonnements compris. C'est la raison du réflexe décrit dans « S'abonner, et se réabonner après une coupure ».
 
@@ -78,7 +78,7 @@ static void gestionnaire_mqtt(void *arg, esp_event_base_t base, int32_t id, void
 | `MQTT_EVENT_BEFORE_CONNECT` | juste avant chaque tentative de connexion | rien d'utile |
 | `MQTT_EVENT_CONNECTED` | connecté au courtier : on peut publier et s'abonner | `session_present` |
 | `MQTT_EVENT_DISCONNECTED` | la connexion est perdue | rien d'utile |
-| `MQTT_EVENT_ERROR` | une tentative de connexion échoue (réseau, courtier absent...) | `ev->error_handle->error_type` |
+| `MQTT_EVENT_ERROR` | une erreur, par exemple une tentative de connexion qui échoue (réseau, courtier absent...) | `ev->error_handle->error_type` |
 | `MQTT_EVENT_SUBSCRIBED` | le courtier a accepté un abonnement | `msg_id` |
 | `MQTT_EVENT_PUBLISHED` | un message de QoS 1 ou 2 a été acquitté (jamais pour le QoS 0) | `msg_id` |
 | `MQTT_EVENT_DATA` | un message arrive sur un sujet auquel vous êtes abonné | `topic`, `topic_len`, `data`, `data_len`... |
@@ -119,7 +119,7 @@ int id = esp_mqtt_client_subscribe_single(client, "home/devices/pool-ctl/command
 //                                         client,  filtre,                          QoS maximal
 ```
 
-L'exemple officiel écrit `esp_mqtt_client_subscribe(...)` : c'est une macro de l'en-tête qui choisit entre l'abonnement à un sujet et l'abonnement à plusieurs. Le TP appelle directement `esp_mqtt_client_subscribe_single`, la fonction visée, pour ne dépendre d'aucune astuce de macro.
+En C, `esp_mqtt_client_subscribe` est une macro qui choisit avec `_Generic` entre l'abonnement à un sujet et l'abonnement à plusieurs (c'est ce que fait l'exemple officiel, écrit en C). En C++, l'en-tête la définit simplement comme un alias de `esp_mqtt_client_subscribe_single`. Le TP appelle directement `esp_mqtt_client_subscribe_single`.
 
 - **Le client doit être connecté** : la documentation le dit, et la fonction renvoie -1 sinon. On s'abonne donc **dans la réaction à `MQTT_EVENT_CONNECTED`**, jamais juste après `esp_mqtt_client_start` (la connexion n'est pas encore faite : l'abonnement serait perdu sans bruit).
 - **À chaque connexion, pas une seule fois.** La session est propre : quand la connexion tombe puis revient, le courtier a **tout oublié**. Un programme qui s'abonne une seule fois fonctionne jusqu'à la première coupure du courtier, puis devient sourd aux commandes **sans aucune erreur**. Le scénario c du TP provoque exactement cette coupure.
@@ -183,7 +183,7 @@ Un message reçu arrive dans `MQTT_EVENT_DATA`. L'événement (`esp_mqtt_event_h
 
 **Piège central : `topic` et `data` ne se terminent PAS par un NUL.** Ce sont des **morceaux** du tampon de réception : le sujet, puis tout de suite la charge utile, sans caractère de fin. L'exemple officiel le sait : il affiche avec `printf("TOPIC=%.*s\r\n", event->topic_len, event->topic)` et `printf("DATA=%.*s\r\n", event->data_len, event->data)`, c'est-à-dire en donnant la **longueur** à afficher. Le simulateur reproduit ce comportement.
 
-- `strcmp(ev->topic, "home/devices/pool-ctl/command")` **échoue toujours** : `strcmp` ne s'arrête qu'au NUL, et lit donc la charge utile à la suite du sujet. Le sujet reçu ne ressemble jamais à celui que vous attendez, et la commande n'est jamais exécutée.
+- `strcmp(ev->topic, "home/devices/pool-ctl/command")` **échoue en pratique** : `strcmp` ne s'arrête qu'au NUL, et lit donc la charge utile à la suite du sujet. Le sujet reçu ne ressemble pas à celui que vous attendez, et la commande n'est pas exécutée.
 - `printf("%s", ev->data)` ou `ESP_LOGI(TAG, "%s", ev->data)` affiche aussi ce qui traîne derrière le message (un `~` de plus dans le simulateur, des octets quelconques sur une vraie carte). Écrivez `"%.*s", ev->data_len, ev->data`.
 - Les règles : **comparer le sujet** avec `topic_len` : `ev->topic_len == (int)strlen(attendu) && strncmp(ev->topic, attendu, ev->topic_len) == 0` ; **copier la charge utile** dans un tampon à vous, à la taille `data_len`, puis y mettre un NUL.
 
@@ -228,7 +228,7 @@ La boucle de `app_main` publie, puis attend 10 secondes avec `vTaskDelay(pdMS_TO
 - Pendant une coupure du courtier, les messages de QoS 0 sont refusés de la même façon : la télémétrie **reprend** d'elle-même après la reconnexion, sans rien faire de plus. Un programme qui s'arrête de publier après la première erreur est faux.
 - La période est de **10 secondes** : une période de 1 s inonde le courtier, de 1 min rend la télémétrie inutile. Le contrôle accepte de **9 s à 11 s** entre deux messages.
 
-Le simulateur ne fournit pas de minuteur logiciel FreeRTOS : on écrit la boucle périodique avec `vTaskDelay` dans `app_main` ou dans une tâche créée avec `xTaskCreate`.
+Le simulateur ne fournit ni minuteur logiciel FreeRTOS ni `vTaskDelayUntil` (qui existe sur la vraie carte) : on écrit la boucle périodique avec `vTaskDelay` dans `app_main` ou dans une tâche créée avec `xTaskCreate`.
 
 ## Un exemple pas à pas : une serre avec un ventilateur
 

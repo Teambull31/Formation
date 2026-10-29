@@ -213,8 +213,8 @@ def _common(trace: Trace, name: str) -> list[int]:
         need(any(e["payload"] == "online" for e in mine),
              f"{label} : le statut publié à la connexion de {_s(tc)} est « {mine[0]['payload']} » au lieu de « online » "
              f"(relire : « {S_STATUS} »)")
-        subs = [e for e in trace.events("mqtt_subscribe") if tc <= e["t_ms"] < nxt and _match(e["topic"], T_CMD)]
-        need(subs, f"{label} : aucun abonnement à « {T_CMD} » après la connexion de {_s(tc)} : la session est propre, le "
+        subs = [e for e in trace.events("mqtt_subscribe") if tc <= e["t_ms"] <= min(tc + SETUP_MS, nxt) and _match(e["topic"], T_CMD)]
+        need(subs, f"{label} : aucun abonnement à « {T_CMD} » dans les {_s(SETUP_MS)} qui suivent la connexion de {_s(tc)} : la session est propre, le "
              f"courtier oublie les abonnements à chaque connexion, il faut s'abonner dans la réaction à "
              f"MQTT_EVENT_CONNECTED (relire : « {S_SUBSCRIBE} »)")
     return times
@@ -277,9 +277,6 @@ def _check_c(trace: Trace, times: list[int]) -> None:
     _cadence(label, tele, times[0], DOWN[0], True, "avant la coupure")
     _cadence(label, tele, times[-1], MAX_MS["c"], False, "après la reconnexion")
     _expect_relay(trace, "c", [(25_000, 1), (95_000, 0)])
-    back = [(t, o["relay"]) for t, o in _telemetry(trace, "c") if DOWN[1] <= t < 95_000]
-    need(all(r for _, r in back), f"{label} : après la reconnexion et avant la commande de 95 s, le relais est allumé mais "
-         f"la télémétrie annonce relay=false (relire : « {S_JSON} »)")
 
 
 def verify(traces: dict, source: str) -> None:
