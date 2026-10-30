@@ -246,7 +246,7 @@ def _check_a(trace: Trace) -> None:
     first = trace.events("mqtt", event="connected")[0]["t_ms"]
     _cadence(label, times, first, MAX_MS["a"], True, "")
     _expect_relay(trace, "a", [(30_000, 1), (70_000, 0)])
-    need(not any("refused" in e["msg"] for e in trace.logs(tag=TAG)),
+    need(not any("command refused" in e["msg"] for e in trace.logs(tag=TAG)),
          f"{label} : une commande est journalisée comme refusée alors que le niveau est de 72,5 %, sous la limite de "
          f"{LIMIT} % (relire : « {S_SAFE} »)")
 

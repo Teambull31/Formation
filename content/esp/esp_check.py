@@ -70,7 +70,7 @@ MSG_BAD_TRACE = "la trace du simulateur est illisible ({n} lignes inattendues)"
 MSG_BUSY_LOOP = ("votre tâche « {task} » ne rend jamais la main : ajoutez un vTaskDelay(pdMS_TO_TICKS(...)) "
                  "dans sa boucle, ou faites-la attendre avec un délai non nul (xQueueReceive(..., portMAX_DELAY)), "
                  "pour laisser tourner les autres tâches")
-MSG_TOO_MANY_TASKS = ("trop de tâches : le simulateur en autorise 4 en plus de app_main (xTaskCreate). Le Wi-Fi, la boucle "
+MSG_TOO_MANY_TASKS = ("trop de tâches : le simulateur en autorise au moins 4 en plus de app_main (xTaskCreate). Le Wi-Fi, la boucle "
                       "d'événements et chaque client MQTT ajoutent leurs propres threads (3 avec le Wi-Fi et un client MQTT) "
                       "et comptent dans la limite : réduisez le nombre de tâches ou de clients MQTT")
 MSG_BOOT_LOOP = ("votre programme redémarre en boucle ({n} redémarrages{when}) : esp_restart(), un watchdog ou un "

@@ -1680,3 +1680,11 @@ def test_restart_every_tick_ends_with_boot_loop(lib, tmp_path):
     trace = sim_run('extern "C" void app_main(void) { vTaskDelay(1); esp_restart(); }\n', 60000, lib, tmp_path)
     assert trace[-1]["ev"] == "end" and trace[-1]["reason"] == "boot_loop"
     assert len([e for e in trace if e["ev"] == "reboot"]) == 301  # the 301st is traced, then refused
+
+
+def test_mqtt_failed_attempt_is_followed_by_disconnected(lib, tmp_path):
+    """esp-mqtt v5.5.3 (mqtt_client.c) posts MQTT_EVENT_ERROR then MQTT_EVENT_DISCONNECTED for a failed connection attempt."""
+    trace = sim_run(MQTT_APP + MQTT_MAIN, 30000, lib, tmp_path, '{"mqtt": {"broker_down": [{"from_ms": 0, "to_ms": 15000}]}}')
+    m = [(e["t_ms"], e["event"]) for e in trace if e["ev"] == "mqtt" and e["event"] in ("before_connect", "error", "disconnected", "connected")]
+    assert [n for _, n in m][:6] == ["before_connect", "error", "disconnected", "before_connect", "error", "disconnected"]
+    assert m[1][0] == m[2][0]

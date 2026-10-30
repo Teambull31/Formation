@@ -67,7 +67,7 @@ Une fois acceptée, la consigne est écrite dans la variable partagée `haut` (u
 
 Une variable en RAM **disparaît** au redémarrage. Pour garder un réglage, on l'écrit dans la **NVS** (*Non-Volatile Storage*), une zone de la mémoire flash organisée en paires **clé / valeur**. Les valeurs sont rangées dans des **espaces de noms** (*namespaces*) ; clés et noms d'espaces font **15 caractères au plus**. Types possibles : entiers de 8 à 64 bits, signés ou non (`nvs_set_u8`, `nvs_set_i32`...), chaînes terminées par un NUL, et blocs d'octets (*blobs*).
 
-Avant tout, la NVS doit être initialisée, une fois : `nvs_flash_init()`. L'idiome officiel (déjà dans `init_nvs`, fourni) : si elle renvoie `ESP_ERR_NVS_NO_FREE_PAGES` ou `ESP_ERR_NVS_NEW_VERSION_FOUND`, on efface la partition (`nvs_flash_erase()`) et on réessaie. Le Wi-Fi en a aussi besoin, c'est pourquoi `app_main` l'appelle **en premier**.
+Avant tout, la NVS doit être initialisée, une fois : `nvs_flash_init()`. L'idiome officiel (déjà dans `init_nvs`, fourni) : si elle renvoie `ESP_ERR_NVS_NO_FREE_PAGES` ou `ESP_ERR_NVS_NEW_VERSION_FOUND`, on efface la partition (`nvs_flash_erase()`) et on réessaie. Le Wi-Fi en a aussi besoin, c'est pourquoi `app_main` l'appelle **avant** `wifi_connecter()` (dans le TP, juste après `init_relais()` et `init_adc()`).
 
 **Écrire** suit toujours les quatre mêmes temps :
 
@@ -99,7 +99,7 @@ if (err == ESP_ERR_NVS_NOT_FOUND) return HAUT_DEFAUT;                   // clé 
 
 - Ouvert en `NVS_READONLY`, un espace de noms qui n'existe pas encore fait échouer `nvs_open` avec `ESP_ERR_NVS_NOT_FOUND` (documenté) : c'est le **premier démarrage**, pas une panne. Un handle `NVS_READONLY` refuse toute écriture.
 - `nvs_get_i32` renvoie `ESP_ERR_NVS_NOT_FOUND` si la clé n'existe pas. En cas d'erreur, la valeur de sortie est **laissée inchangée** (documenté).
-- **Ne faites pas confiance à ce que vous relisez** : une valeur hors des bornes 10 à 80 % (flash corrompue, ancienne version du programme) est écartée, avec un `ESP_LOGW` et la valeur par défaut : on ne pilote jamais la pompe avec une consigne qui n'a pas le droit d'exister.
+- **Ne faites pas confiance à ce que vous relisez** : une valeur hors des bornes 10 à 80 % (flash corrompue, ancienne version du programme) est écartée, avec un `ESP_LOGW` et la valeur par défaut : on ne pilote jamais la pompe avec une consigne qui n'a pas le droit d'exister. **Le contrôle ne vérifie pas cette règle** (la NVS du TP ne contient jamais de valeur invalide au démarrage) : elle reste vraie sur une vraie carte, respectez-la.
 
 ## Restaurer au démarrage, avant d'allumer le relais
 
@@ -116,7 +116,7 @@ Quand la carte redémarre, **tout ce qui est en RAM est perdu** : variables, tâ
 
 L'erreur classique est d'allumer le relais « par défaut » au démarrage, ou de piloter le relais **avant** d'avoir relu la consigne : avec la consigne par défaut (60 %), un niveau de 50 % allume la pompe, puis la consigne enregistrée (40 %) l'éteint une fraction de seconde plus tard. Sur une vraie piscine, ce clic de relais peut remplir pendant que le logiciel « corrige » : la pompe ne doit tourner que d'après une consigne **connue**. Le scénario b du TP redémarre la carte avec une consigne de 40 % pour un niveau de 50 % : le relais ne doit **jamais** s'allumer après le redémarrage, pas même brièvement.
 
-Le point 4 se fait **avant** `wifi_connecter()`, qui bloque jusqu'à l'obtention d'une adresse IP : la régulation ne doit pas dépendre du réseau.
+Le point 4 se fait **avant** `wifi_connecter()`, qui bloque jusqu'à l'obtention d'une adresse IP : la régulation ne doit pas dépendre du réseau. **Le contrôle ne vérifie pas cette règle** (le Wi-Fi du simulateur répond vite, la variante qui pilote le relais après `wifi_connecter()` passe) : sur une vraie carte, une box absente retarderait la pompe, respectez-la.
 
 ## Le watchdog de tâche : surveiller la boucle
 
@@ -205,7 +205,7 @@ Ce que le contrôle vérifie, dans chaque exécution : aucun `wdt_reset` ; **auc
 - **Le watchdog** : les tâches idle ne sont pas simulées (une tâche qui ne rend jamais la main arrête la simulation avec un message dédié) ; le délai par défaut du simulateur est de 5 s ; sans `trigger_panic`, il avertit et se répète à chaque délai écoulé (la documentation dit seulement qu'il affiche un avertissement et laisse le programme continuer).
 - **Le courtier** : un seul, sans keep-alive, sans testament ni message retenu (TP 8) ; la reconnexion est tentée toutes les 10 s après une erreur ou une déconnexion ; après une coupure, une tentative de connexion échoue (0,1 s) puis la suivante a lieu 10 s plus tard.
 - **`ESP_ERROR_CHECK`** : un échec arrête la simulation (le contrôle le signale) ; sur une vraie carte l'`abort()` fait en plus redémarrer la carte par défaut.
-- **Pas de minuteur logiciel FreeRTOS** ni de cJSON : le JSON se produit avec `snprintf` et se lit avec `strstr` et `strtol`. Les tâches comptent dans une limite (le Wi-Fi, la boucle d'événements et le client MQTT en prennent trois) : le TP n'en crée aucune.
+- **Pas de minuteur logiciel FreeRTOS** ni de cJSON : le JSON se produit avec `snprintf` et se lit avec `strstr` et `strtol`. Les tâches comptent dans une limite, de 4 tâches à vous au moins (le Wi-Fi, la boucle d'événements et le client MQTT en prennent trois) : le TP n'en crée aucune.
 - Le temps est virtuel et n'avance que pendant les attentes ; l'abonnement au watchdog n'est pas tracé (d'où la lecture du texte).
 
 ## Pièges

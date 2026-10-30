@@ -181,12 +181,12 @@ def _check_relay(trace: Trace, name: str) -> None:
             bad = sorted(got - {state})
             if state == 0 and kind == "boot" and t > 0:
                 need(False, f"{label} : le relais est allumé après le redémarrage de {_s(t)} alors que la consigne enregistrée "
-                     f"({max(v for tc, v in HIGH_AT[name] if tc <= t)} %) interdit de l'allumer à ce niveau : relisez la consigne en NVS AVANT de piloter le relais "
+                     f"({[v for tc, v in HIGH_AT[name] if tc <= t][-1]} %) interdit de l'allumer à ce niveau : relisez la consigne en NVS AVANT de piloter le relais "
                      f"(et ne l'allumez pas « par défaut » au démarrage) (relire : « {S_BOOT} »)")
             if kind == "boot" and t > 0:
                 need(False, f"{label} : après le redémarrage de {_s(t)}, le relais n'est pas "
                      f"{'allumé' if state else 'éteint'} comme le veut la consigne enregistrée en NVS "
-                     f"({max(v for tc, v in HIGH_AT[name] if tc <= t)} %, niveau {_pct(LEVELS[name])} %) : la consigne a-t-elle été "
+                     f"({[v for tc, v in HIGH_AT[name] if tc <= t][-1]} %, niveau {_pct(LEVELS[name])} %) : la consigne a-t-elle été "
                      f"enregistrée (nvs_commit) puis relue au démarrage ? (relire : « {S_BOOT} »)")
             if kind == "boot":
                 need(False, f"{label} : le relais n'est pas {'allumé' if state else 'éteint'} au démarrage, alors que le niveau "
@@ -318,7 +318,7 @@ def _check_logs(trace: Trace, name: str) -> None:
         near = f" (message trouvé : « {refused[0]['msg']} », niveau {refused[0]['level']})" if refused else ""
         need(hit, f"{label} : la consigne reçue à {_s(t)} doit être refusée par un ESP_LOGW de tag « {TAG} » au format exact "
              f"« {msg} »{near} (relire : « {S_SETPOINT} »)")
-    extra = [e for e in refused if not any(e["msg"] == f"setpoint refused: {text}" and t <= e["t_ms"] <= t + REACT_MS for t, text in want)]
+    extra = [e for e in refused if e["level"] in ("W", "E") and e["msg"].startswith("setpoint refused") and not any(e["msg"] == f"setpoint refused: {text}" and t <= e["t_ms"] <= t + REACT_MS for t, text in want)]
     need(not extra, f"{label} : la ligne « {extra[0]['msg'] if extra else ''} » à {_s(extra[0]['t_ms'] if extra else 0)} refuse une "
          f"commande qui n'est pas hors des bornes 10..80 % (ou la refuse deux fois) : seules les consignes hors bornes sont "
          f"refusées, une ligne chacune ; un texte qui n'est pas une commande est ignoré en silence (relire : « {S_SETPOINT} »)")

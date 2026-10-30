@@ -1204,7 +1204,7 @@ extern "C" void app_main(void) {
 
 def test_too_many_tasks_message_is_exact(drv):
     msg = drv.MSG_TOO_MANY_TASKS
-    assert "4" in msg and "Wi-Fi" in msg and "MQTT" in msg
+    assert "au moins 4" in msg and "Wi-Fi" in msg and "MQTT" in msg
 
 
 # ---- TP es7 (Wi-Fi : NVS, événements, reconnexion à attente croissante) : solution livrée + variantes ----
@@ -1614,6 +1614,7 @@ ES8_VARIANTS = {
     "refusal_also_switches_the_relay_off": [(REFUSE_LOG + "\n            return;", REFUSE_LOG + "\n            regler_relais(false);\n            return;")],
     "received_message_logged_with_its_length": [(NOT_A_COMMAND, '        ESP_LOGI(TAG, "reçu : %.*s", len, data);\n' + NOT_A_COMMAND)],
     "level_compared_as_an_integer": [("if (niveau > LIMITE_PCT) {", "if ((int)niveau > (int)LIMITE_PCT) {")],
+    "publication_refused_logged_in_english": [('ESP_LOGI(TAG, "télémétrie non envoyée : client déconnecté");', 'ESP_LOGI(TAG, "publish refused: client offline");')],
     "telemetry_not_sent_message_dropped": [('ESP_LOGI(TAG, "télémétrie non envoyée : client déconnecté");', "")],
     "event_loop_all_cases_listed": [("    default:\n        break;\n    }\n}\n\n// Configure",
                                     '    case MQTT_EVENT_DISCONNECTED:\n        ESP_LOGW(TAG, "déconnecté du courtier");\n        break;\n'
@@ -1693,7 +1694,7 @@ ES9_MUTANTS = {
     # relais au démarrage
     "relay_on_at_boot_before_restore": ([(APP_INIT, "    init_relais();\n    gpio_set_level(RELAIS_GPIO, 1);\n    init_adc();\n    init_nvs();\n")],
                                         ["scénario a", "n'est pas éteint au démarrage", "Restaurer au démarrage"]),
-    "relay_driven_before_restore": ([(RESTORE, "    appliquer_consigne();\n" + RESTORE)], ["scénario b", "après le redémarrage de 60 s", "AVANT de piloter le relais"]),
+    "relay_driven_before_restore": ([(RESTORE, "    appliquer_consigne();\n" + RESTORE)], ["scénario b", "après le redémarrage de 60 s", "(40 %)", "AVANT de piloter le relais"]),
     "relay_lit_by_default_then_corrected": ([(RESTORE, RESTORE + "    regler_relais(true);\n    vTaskDelay(pdMS_TO_TICKS(50));\n    appliquer_consigne();\n")],
                                             ["scénario", "relais"]),
     # réabonnement
@@ -1770,6 +1771,8 @@ def test_es9_tp_task_variant_passes(tmp_path, bwrap_ok):
 
 
 ES9_VARIANTS = {
+    "log_mentioning_a_refused_publication": [('ESP_LOGI(TAG, "télémétrie non envoyée (hors connexion)");', 'ESP_LOGI(TAG, "publication refusée (hors connexion)");')],
+    "log_mentioning_a_refused_publication_in_english": [('ESP_LOGI(TAG, "télémétrie non envoyée (hors connexion)");', 'ESP_LOGI(TAG, "publish refused (offline)");')],
     "idle_mask_of_one_core_only": [("cfg.idle_core_mask = (1 << 0) | (1 << 1);", "cfg.idle_core_mask = 1;")],
     "slow_down_to_100ms_loop": [("PAS_MS = 1000;", "PAS_MS = 100;"), ("TOURS_TELEMETRIE = 10;", "TOURS_TELEMETRIE = 100;")],
     "default_watchdog_configuration": [("    ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));\n", "")],
@@ -1799,3 +1802,22 @@ def test_es9_check_sections_exist_in_lesson():
     constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
     cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
     assert cited and cited <= titles, cited - titles
+
+
+def test_es9_reconnection_instant_matches_the_simulator_constants():
+    """« reconnexion vers 110,6 s » (leçon, énoncé, docstring) se déduit de mqtt.cpp : dérive détectée ici."""
+    import re
+    sim = (ESP / "sim" / "src" / "mqtt.cpp").read_text(encoding="utf-8")
+    connect = int(re.search(r"kConnectMs = (\d+);", sim).group(1))
+    retry = int(re.search(r"kDefaultReconnectMs = (\d+);", sim).group(1))
+    import sys
+    sys.modules.setdefault("esp_trace", _load("esp_trace_probe", ESP / "trace.py"))
+    check = _load("es9_check_probe", ESP / "checks" / "es9-tp.py")
+    down_from, down_to = check.DOWN["a"]
+    begin = down_from + retry  # le courtier tombe : première tentative une période plus tard
+    while begin < down_to:
+        begin += connect + retry  # tentative échouée, la suivante vient après la période
+    connected = begin + connect
+    assert connected == 110_600, connected
+    for path in (ES9.parent / "es9.md", ES9 / "tp.json", ESP / "checks" / "es9-tp.py"):
+        assert "110,6 s" in path.read_text(encoding="utf-8"), path

@@ -16,7 +16,8 @@
 //
 // Timing (virtual): a connection attempt (MQTT_EVENT_BEFORE_CONNECT) ends 100 ms later, with
 // MQTT_EVENT_CONNECTED or MQTT_EVENT_ERROR (MQTT_ERROR_TYPE_TCP_TRANSPORT); the next attempt is
-// reconnect_timeout_ms after that error or after MQTT_EVENT_DISCONNECTED. Trace: "mqtt_publish" (each
+// reconnect_timeout_ms after that error or after MQTT_EVENT_DISCONNECTED (a failed attempt posts MQTT_EVENT_ERROR then
+// MQTT_EVENT_DISCONNECTED, as esp_mqtt_abort_connection does in esp-mqtt v5.5.3; both at the same instant). Trace: "mqtt_publish" (each
 // message actually sent to the broker), "mqtt_subscribe", and "mqtt" for the events (event = before_connect,
 // connected, disconnected, error, subscribed, unsubscribed, published, data).
 //
@@ -219,6 +220,7 @@ void finish_attempt(esp_mqtt_client *c, uint64_t gen) {
         ev.error_type = MQTT_ERROR_TYPE_TCP_TRANSPORT;
         ev.sock_errno = network_ok() ? ECONNREFUSED : EHOSTUNREACH;
         emit(c, std::move(ev));
+        emit(c, Ev{MQTT_EVENT_DISCONNECTED});  // esp-mqtt (v5.5.3): esp_mqtt_abort_connection posts it after a failed attempt too
         schedule_retry(c);
         return;
     }

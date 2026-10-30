@@ -64,7 +64,7 @@ if (xTaskCreate(tache_led, "led", 4096, NULL, 5, NULL) != pdPASS) {
 
 !!Le simulateur de ce TP ignore les priorités : il fait tourner les tâches chacune à son tour, et ne change de tâche que lorsque la tâche courante se bloque (vTaskDelay, attente sur une file). Le TP ne dépend pas des priorités, mais sur la vraie puce elles comptent!!
 
-Le simulateur accepte au plus 4 tâches en plus de `app_main` ; ce TP en utilise 2.
+Le simulateur accepte au moins 4 tâches en plus de `app_main` (au-delà, cela dépend de la place que prennent les autres threads) ; ce TP en utilise 2.
 
 ## La taille de la pile
 

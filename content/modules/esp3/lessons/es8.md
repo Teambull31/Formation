@@ -77,7 +77,7 @@ static void gestionnaire_mqtt(void *arg, esp_event_base_t base, int32_t id, void
 |---|---|---|
 | `MQTT_EVENT_BEFORE_CONNECT` | juste avant chaque tentative de connexion | rien d'utile |
 | `MQTT_EVENT_CONNECTED` | connecté au courtier : on peut publier et s'abonner | `session_present` |
-| `MQTT_EVENT_DISCONNECTED` | la connexion est perdue | rien d'utile |
+| `MQTT_EVENT_DISCONNECTED` | la connexion est perdue, ou une tentative de connexion a échoué (juste après `MQTT_EVENT_ERROR`) | rien d'utile |
 | `MQTT_EVENT_ERROR` | une erreur, par exemple une tentative de connexion qui échoue (réseau, courtier absent...) | `ev->error_handle->error_type` |
 | `MQTT_EVENT_SUBSCRIBED` | le courtier a accepté un abonnement | `msg_id` |
 | `MQTT_EVENT_PUBLISHED` | un message de QoS 1 ou 2 a été acquitté (jamais pour le QoS 0) | `msg_id` |
@@ -251,7 +251,7 @@ Une carte de serre publie `greenhouse/temp` et reçoit `greenhouse/fan` avec `{"
 - Les échanges QoS 1 et 2 sont **réduits** à un événement `MQTT_EVENT_PUBLISHED`.
 - Le client se connecte 0,1 s après `esp_mqtt_client_start` (ou erreur si le courtier est absent) ; après une coupure ou une erreur, la tentative suivante vient 10 s plus tard.
 - **Le Wi-Fi** : une fois `esp_wifi_init` appelé, la connexion MQTT attend l'adresse IP.
-- **Les tâches** : le Wi-Fi, la boucle d'événements et le client MQTT créent leurs propres tâches, qui comptent dans la limite de tâches du simulateur (4 tâches à vous au plus). Le TP n'en crée aucune.
+- **Les tâches** : le Wi-Fi, la boucle d'événements et le client MQTT créent leurs propres tâches, qui comptent dans la limite de tâches du simulateur (au moins 4 tâches à vous restent possibles). Le TP n'en crée aucune.
 - Le temps est virtuel et n'avance que pendant les attentes.
 - La bibliothèque cJSON n'est pas fournie.
 - Le simulateur exige `nvs_commit` pour qu'une écriture NVS persiste (plus strict que la vraie carte) ; ce TP n'écrit rien dans la NVS.
