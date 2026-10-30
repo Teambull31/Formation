@@ -1,6 +1,7 @@
 import io
 import json
 import zipfile
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +24,13 @@ from app.portfolio import leak_reason
     ('variable "db" {\n  sensitive = true\n  default   = "x"\n}', "secret en clair"),
     ('variable "db" {\n  sensitive = true\n}', None),
     ("secret_key = abcdef123456", "secret en clair"),
+    # code C++ : une variable donnée à un champ n'est pas un secret, un littéral l'est
+    ("    cfg.credentials.authentication.password = mot_de_passe;", None),
+    ("    cfg.password = pass_buffer.data;", None),
+    ('    cfg.credentials.authentication.password = "hunter2222";', "secret en clair"),
+    ("    password = hunter2222", "secret en clair"),
+    ("PASSWORD=abcdef123456;", None),  # shortcut: un mot nu suivi de ; passe pour du code
+    ("    cfg.token = lire_jeton(&t);", "secret en clair"),
 ])
 def test_leak_reason(text, why):
     assert leak_reason(text) == why
@@ -89,3 +97,16 @@ def test_readme_lists_rank_skills(client, tmp_path):
     client.post("/api/quest/step", json={"kind": "lesson", "lesson_id": "l1"})
     readme = _zip(client).read("README.md").decode()
     assert "**Rang :** Bronze" in readme and "| demo | 20 |" in readme
+
+
+def test_es10_solution_passes_the_export(client, tmp_path):
+    """La solution du TP es10 (identifiants lus en NVS, `password = mot_de_passe;`) n'est pas prise pour un secret en clair."""
+    _flag_demo(tmp_path)
+    _pass_t1(client, tmp_path)
+    shipped = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp4" / "lessons" / "es10.tp" / "solution.sh"
+    solution = shipped.read_text(encoding="utf-8").split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+    assert leak_reason(solution) is None
+    (tmp_path / "ws" / "main.cpp").write_text(solution, encoding="utf-8")
+    z = _zip(client)
+    assert any(n.endswith("main.cpp") for n in z.namelist())
+    assert "secret en clair détecté" not in z.read("README.md").decode()

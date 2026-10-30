@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es10-q1",
+  "text": "Une liaison MQTT chiffrée en TLS, mais où la carte ne vérifie pas le certificat du courtier, est exposée à quoi ?",
+  "options": [
+   "À un chiffrement trop lent pour une carte sans accélérateur matériel",
+   "À un faux courtier qui se place sur le réseau et lit ou modifie tout",
+   "À un refus systématique de la connexion par tous les vrais courtiers",
+   "À une perte des abonnements MQTT après chaque reconnexion de la carte"
+  ],
+  "answer": 1,
+  "explain": "TLS chiffre, mais le chiffrement seul ne dit pas avec qui on parle. Sans vérification du certificat, un attaquant placé entre la carte et le vrai courtier présente son propre certificat : la carte chiffre bien, mais avec lui, et il lit ou modifie tous les messages, commandes de la pompe comprises. La vérification (chaîne, dates, nom) est la garantie d'authentification du serveur. Le coût du chiffrement et les abonnements n'ont rien à voir avec ce risque, et un vrai courtier n'est pas gêné par la carte.",
+  "remedial_lesson_id": "es10"
+ },
+ {
+  "id": "es10-q2",
+  "text": "Que permet de faire, à un attaquant, l'option skip_cert_common_name_check = true du client esp-mqtt ?",
+  "options": [
+   "Lire le mot de passe MQTT stocké dans la mémoire flash de la carte",
+   "Allumer le relais sans que la limite de 80 % soit contrôlée",
+   "Empêcher la carte de se reconnecter après chaque coupure du courtier",
+   "Se faire passer pour le courtier avec le certificat d'un autre site"
+  ],
+  "answer": 3,
+  "explain": "Cette option saute la comparaison entre le nom du certificat et l'hôte demandé : la documentation d'esp-mqtt dit qu'elle réduit la sécurité de TLS et rend le client susceptible aux attaques de l'homme du milieu. Un certificat valide mais émis pour un autre nom est alors accepté. Elle ne donne pas accès à la flash, ne touche pas la limite de 80 % (contrôlée par le programme) et n'empêche aucune reconnexion.",
+  "remedial_lesson_id": "es10"
+ },
+ {
+  "id": "es10-q3",
+  "text": "Comment embarquer le certificat PEM du courtier pour que le client reçoive une chaîne terminée par un NUL ?",
+  "options": [
+   "Avec EMBED_TXTFILES, qui ajoute un octet NUL final au fichier",
+   "Avec EMBED_FILES, qui ajoute toujours un octet NUL après le texte",
+   "En donnant la longueur du PEM dans le champ certificate_len du client",
+   "En lisant le fichier sur la carte avec un nvs_get_str au démarrage"
+  ],
+  "answer": 0,
+  "explain": "Dans le système de construction d'ESP-IDF, EMBED_TXTFILES embarque le fichier avec un NUL final (utilisable comme chaîne C, ce que le client exige pour un PEM), alors qu'EMBED_FILES n'en ajoute pas. Le symbole _binary_<fichier>_start donne ensuite l'adresse du texte. Pour un PEM, certificate_len reste à 0 : c'est le NUL qui marque la fin. La NVS sert aux identifiants, pas à embarquer le certificat.",
+  "remedial_lesson_id": "es10"
+ },
+ {
+  "id": "es10-q4",
+  "text": "Où le programme du TP doit-il prendre le nom d'utilisateur et le mot de passe MQTT ?",
+  "options": [
+   "Dans des constantes du fichier main.cpp, hors du dépôt public",
+   "Dans l'URI du courtier, sous la forme mqtts://nom:mot@hôte",
+   "Dans la NVS, lus par nvs_get_str sans jamais être journalisés",
+   "Dans un ESP_LOGI qui les affiche, pour vérifier la bonne lecture"
+  ],
+  "answer": 2,
+  "explain": "Un secret écrit dans le code (ou dans l'URI) part avec chaque copie du programme, et deux cartes ont alors le même : on ne le change qu'en recompilant. Lus en NVS, il peut être différent pour chaque carte, enregistré à la mise en service. Il ne se journalise jamais : les journaux se copient. Attention : la NVS n'est pas chiffrée par défaut, elle protège d'un secret dans le code, pas d'une personne qui tient la carte.",
+  "remedial_lesson_id": "es10"
+ },
+ {
+  "id": "es10-q5",
+  "text": "La poignée de main TLS échoue plusieurs fois de suite. Quelle conduite suit les règles du TP ?",
+  "options": [
+   "Éteindre le relais, attendre 1 s, 2 s, 4 s, 8 s puis 8 s, ne jamais abandonner",
+   "Garder le relais dans son état, attendre 10 s fixes, abandonner après cinq essais",
+   "Couper la vérification du certificat après le deuxième échec pour passer",
+   "Rappeler la connexion sans attente, pour reprendre au plus vite la main"
+  ],
+  "answer": 0,
+  "explain": "Sans liaison, personne ne surveille la pompe : le relais est éteint tout de suite (avant l'attente). La nouvelle tentative suit une attente croissante avec un plafond (1, 2, 4, 8 s puis 8 s), et le client n'abandonne jamais : il se reconnectera dès que le courtier répondra. Couper la vérification irait contre toute la leçon, une boucle sans attente martèle le serveur, et l'abandon rend la carte muette jusqu'au redémarrage.",
+  "remedial_lesson_id": "es10"
+ }
+]

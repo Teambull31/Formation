@@ -1890,3 +1890,207 @@ def test_a_tls_section_without_server_cert_is_refused():
     driver = _load("esp_check_guard", ESP / "esp_check.py")
     with pytest.raises(driver.CheckError, match="server_cert"):
         driver.materialize({"tls": {"handshake_fail": []}})
+
+
+# ---- TP es10 (MQTT sur TLS : certificat vérifié, identifiants en NVS, attente croissante, relais en état sûr) ----
+
+ES10 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp4" / "lessons" / "es10.tp"
+
+
+def _es10_reference() -> str:
+    text = (ES10 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es10_mutant(*edits: tuple[str, str]) -> str:
+    src = _es10_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es10_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es10-tp")
+
+
+def test_es10_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es10_run(tmp_path, _es10_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es10_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es10_run(tmp_path, (ES10 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "aucun événement MQTT" in out and "relire" in out, out
+
+
+CERT_LINE = "    cfg.broker.verification.certificate = _binary_server_cert_pem_start;\n"
+USER_LINE = "    cfg.credentials.username = utilisateur;\n"
+PASS_LINE = "    cfg.credentials.authentication.password = mot_de_passe;\n"
+RELAY_OFF = '    if (relais) {\n        regler_relais(false);\n        ESP_LOGW(TAG, "liaison perdue : relais éteint (état sûr)");\n    }\n'
+RESET_FAILS = "        echecs = 0;\n"
+WAIT_LINE = "    vTaskDelay(pdMS_TO_TICKS(attente));\n"
+SUBSCRIBE10 = "        esp_mqtt_client_subscribe_single(ev->client, TOPIC_COMMANDE, 1);\n"
+ERR_FORMAT = '"échec TLS : esp_err 0x%x, pile TLS 0x%x, drapeaux du certificat 0x%x"'
+RECONNECT = ('    esp_err_t err = esp_mqtt_client_reconnect(client);\n    if (err != ESP_OK) {\n'
+             '        ESP_LOGE(TAG, "esp_mqtt_client_reconnect : %s", esp_err_to_name(err));\n    }\n')
+START10 = "    ESP_ERROR_CHECK(esp_mqtt_client_start(client));\n"
+
+# nom -> (remplacements, fragments de message attendus)
+ES10_MUTANTS = {
+    # la vérification
+    "skip_common_name_check": ([(CERT_LINE, CERT_LINE + "    cfg.broker.verification.skip_cert_common_name_check = true;\n")],
+                               ["skip_cert_common_name_check", "homme du milieu"]),
+    "skip_common_name_check_through_a_variable": ([(CERT_LINE, CERT_LINE + "    bool vite = true;\n    cfg.broker.verification.skip_cert_common_name_check = vite;\n")],
+                                                  ["skip_cert_common_name_check"]),
+    "certificate_not_provided": ([(CERT_LINE, "")], ["scénario a", "n'a jamais pu se connecter", "fatal error"]),
+    "certificate_empty_text": ([(CERT_LINE, '    cfg.broker.verification.certificate = "";\n')], ["scénario a", "n'a jamais pu se connecter", "pas un PEM valide"]),
+    "certificate_text_of_ones_own": ([(CERT_LINE, '    cfg.broker.verification.certificate = "-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n";\n')],
+                                     ["scénario a", "n'a jamais pu se connecter"]),
+    "public_bundle_instead_of_the_brokers_certificate": ([(CERT_LINE, "    cfg.broker.verification.crt_bundle_attach = esp_crt_bundle_attach;\n"),
+                                                          ('#include "sdkconfig.h"', '#include "sdkconfig.h"\n#include "esp_crt_bundle.h"')],
+                                                         ["scénario a", "n'a jamais pu se connecter", "paquet de certificats public"]),
+    "tls_insecure_option_named_in_code": ([(CERT_LINE, CERT_LINE + "#ifdef CONFIG_ESP_TLS_INSECURE\n    cfg.broker.verification.certificate = NULL;\n#endif\n")],
+                                          ["CONFIG_ESP_TLS_INSECURE"]),
+    "plain_mqtt_uri": ([('"mqtts://broker.local:8883"', '"mqtt://broker.local:1883"')], ["scénario a", "aucune poignée de main TLS", "mqtts://"]),
+    # les identifiants
+    "credentials_written_in_the_code": ([(USER_LINE, '    cfg.credentials.username = "piscine-ctl-07";\n'),
+                                         (PASS_LINE, '    cfg.credentials.authentication.password = "Pz9-ke4N-77qL";\n')],
+                                        ["en clair", "NVS"]),
+    "password_literal_in_the_code": ([(PASS_LINE, '    cfg.credentials.authentication.password = "hunter2hunter";\n')],
+                                     ["cfg.credentials.authentication.password", "valeur écrite dans le programme"]),
+    "username_literal_in_the_code": ([(USER_LINE, '    cfg.credentials.username = "admin";\n')],
+                                     ["cfg.credentials.username", "valeur écrite dans le programme"]),
+    "credentials_in_the_uri": ([('"mqtts://broker.local:8883"', '"mqtts://admin:hunter2@broker.local:8883"')], ["URI du courtier", "NVS"]),
+    "credentials_copied_from_a_literal": ([("    return true;\n}\n\n// Étape 2", '    strcpy(mot_de_passe, "motdepasse-maison");\n    return true;\n}\n\n// Étape 2')],
+                                          ["mot_de_passe", "valeur écrite dans le programme"]),
+    "credentials_not_given_to_the_client": ([(USER_LINE, ""), (PASS_LINE, "")], ["scénario a", "ne transmet pas d'identifiants"]),
+    "credentials_never_loaded": ([("    if (charger_identifiants()) {", "    if (true) {")], ["scénario a", "ne transmet pas d'identifiants"]),
+    # la panne
+    "abandons_after_a_few_failures": ([("    int n = ++echecs;\n", "    int n = ++echecs;\n    if (n > 4) {\n        return;\n    }\n")],
+                                      ["scénario b", "ne s'est pas reconnecté"]),
+    "reconnect_never_called": ([(RECONNECT, "")], ["scénario b", "aucune tentative de poignée de main"]),
+    "tight_reconnect_loop": ([(WAIT_LINE, "")], ["scénario b", "première attente", "boucle serrée"]),
+    "relay_left_on_during_the_outage": ([(RELAY_OFF, "")], ["scénario b", "relais est encore allumé après la perte"]),
+    "relay_cut_only_after_the_third_failure": ([(RELAY_OFF, RELAY_OFF.replace("if (relais)", "if (relais && echecs >= 3)"))],
+                                               ["scénario b", "relais est encore allumé après la perte"]),
+    "fails_counter_not_reset_after_a_connection": ([(RESET_FAILS, "")], ["scénario b", "première attente", "repartir de 1 s"]),
+    "constant_wait": ([("    int attente = attente_ms(n);\n", "    int attente = 2000;\n")], ["scénario b", "au moins 1,5 fois"]),
+    "wait_without_a_cap": ([("ms < 8000", "ms < 800000")], ["scénario b", "dépasse 35 s"]),
+    "wait_starting_too_high": ([("    int ms = 1000;\n", "    int ms = 5000;\n")], ["scénario b", "première attente"]),
+    "wait_shrinks_back": ([("    int attente = attente_ms(n);\n", "    int attente = n == 1 ? 2000 : n == 2 ? 1000 : 8000;\n")], ["scénario b", "raccourcit"]),
+    "wait_never_reaches_8s": ([("ms < 8000", "ms < 4000")], ["scénario b", "n'a pas atteint 8 s"]),
+    "only_the_librarys_fixed_10_s_retry": ([("    cfg.network.disable_auto_reconnect = true;  // c'est le programme qui décide quand réessayer (étape 4)\n", ""), (RECONNECT, "")],
+                                           ["scénario b", "première attente"]),
+    "error_not_logged": ([("        ESP_LOGW(TAG, " + ERR_FORMAT, "        (void)(" + ERR_FORMAT)], ["scénario c", "journalisé avec son code"]),
+    "not_subscribed": ([(SUBSCRIBE10, "")], ["scénario a", "aucun abonnement"]),
+    "subscribed_once_at_start": ([(SUBSCRIBE10, ""), (START10, START10 + "    esp_mqtt_client_subscribe_single(client, TOPIC_COMMANDE, 1);\n")],
+                                 ["abonnement"]),
+    "relay_switched_on_when_the_link_drops": ([("    case MQTT_EVENT_DISCONNECTED:\n", "    case MQTT_EVENT_DISCONNECTED:\n        regler_relais(true);\n")],
+                                              ["relais"]),
+    "telemetry_never_published": ([("            publier_telemetrie();\n", "")], ["scénario a", "aucun message sur"]),
+    "telemetry_reports_a_wrong_relay": ([('relais ? "true" : "false"', '"false"')], ["scénario a", "ce n'est pas l'état réel du relais"]),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES10_MUTANTS.values(), ids=ES10_MUTANTS.keys())
+def test_es10_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es10_run(tmp_path, _es10_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+# Variantes valides, écrites autrement.
+ES10_VARIANTS = {
+    "common_name_check_explicitly_enabled": [(CERT_LINE, CERT_LINE + "    cfg.broker.verification.skip_cert_common_name_check = false;\n")],
+    "bundle_function_named_in_a_comment": [(CERT_LINE, CERT_LINE + "    // pas de crt_bundle_attach : le courtier est privé, il n'est pas dans le paquet\n")],
+    "credentials_read_with_the_length_protocol": [
+        ("    size_t taille_user = sizeof(utilisateur);\n    size_t taille_mdp = sizeof(mot_de_passe);\n",
+         "    size_t taille_user = 0;\n    size_t taille_mdp = 0;\n    if (nvs_get_str(h, NVS_CLE_USER, NULL, &taille_user) != ESP_OK || taille_user > sizeof(utilisateur) ||\n"
+         "        nvs_get_str(h, NVS_CLE_MDP, NULL, &taille_mdp) != ESP_OK || taille_mdp > sizeof(mot_de_passe)) {\n"
+         '        nvs_close(h);\n        ESP_LOGE(TAG, "identifiants absents ou trop longs");\n        return false;\n    }\n')],
+    "nvs_key_names_in_secret_looking_constants": [('static const char *NVS_CLE_USER = "user";', 'static const char *K_USER = "user";\nstatic const char *NVS_CLE_USER = K_USER;'),
+                                                  ('static const char *NVS_CLE_MDP = "pass";', 'static const char *K_PASS = "pass";\nstatic const char *NVS_CLE_MDP = K_PASS;')],
+    "doubling_computed_by_a_shift": [("    int attente = attente_ms(n);\n", "    int attente = 1000 << (n < 4 ? n - 1 : 3);\n")],
+    "first_wait_of_2_seconds": [("    int attente = attente_ms(n);\n", "    int attente = 2000 << (n < 3 ? n - 1 : 2);\n")],
+    "loss_polled_instead_of_waited": [("        EventBits_t bits = xEventGroupWaitBits(groupe_liaison, BIT_PERDU, pdTRUE, pdFALSE, pdMS_TO_TICKS(PAS_MS));\n",
+                                       "        vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n        EventBits_t bits = xEventGroupClearBits(groupe_liaison, BIT_PERDU);\n")],
+    "library_retry_left_on_with_the_programs_own_waits": [("    cfg.network.disable_auto_reconnect = true;  // c'est le programme qui décide quand réessayer (étape 4)\n", "")],
+    "english_log_with_decimal_codes": [(ERR_FORMAT, '"handshake failed: err=%u stack=%u flags=%u"')],
+    "relay_cut_in_the_handler_too": [("    case MQTT_EVENT_DISCONNECTED:\n", "    case MQTT_EVENT_DISCONNECTED:\n        regler_relais(false);\n")],
+    "comment_and_string_naming_the_bypass_option": [(CERT_LINE, CERT_LINE + "    // skip_cert_common_name_check = true : NON, voir la leçon\n    const char *note = \"skip_cert_common_name_check\";\n    (void)note;\n")],
+}
+
+
+@pytest.mark.parametrize("edits", ES10_VARIANTS.values(), ids=ES10_VARIANTS.keys())
+def test_es10_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es10_run(tmp_path, _es10_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+def _es10_check_module():
+    import sys
+    sys.modules.setdefault("esp_trace", _load("esp_trace_probe", ESP / "trace.py"))
+    return _load("es10_check_probe", ESP / "checks" / "es10-tp.py")
+
+
+@pytest.mark.parametrize("src", [
+    'static const char *NVS_CLE_MDP = "pass";',
+    'static const char *K_PASS = "pass";\nconst char *K_USER = "user";',
+    'if (xTaskCreate(f, "t", 4096, NULL, 5, NULL) != pdPASS) { }',
+    'cfg.broker.verification.skip_cert_common_name_check = false;',
+    'cfg.broker.verification.skip_cert_common_name_check = 0;',
+    '// skip_cert_common_name_check = true est interdit\nint x = 1;',
+    '/* skip_cert_common_name_check = true */ int y = 2;',
+    'ESP_LOGI(TAG, "skip_cert_common_name_check = true ? non");',
+    'static char mot_de_passe[64];\nstatic char utilisateur[32];',
+    'nvs_get_str(h, "pass", mot_de_passe, &t);',
+    'const char *espace_mdp = "mqtt";',
+    'cfg.credentials.client_id = "pool-ctl";',
+    'ESP_LOGE(TAG, "mot de passe illisible");',
+    'int tokens = 3;',
+    'char *p = strstr(msg, "password");',
+])
+def test_es10_source_scan_does_not_refuse_legitimate_idioms(src):
+    _es10_check_module()._check_source(src)
+
+
+@pytest.mark.parametrize("src", [
+    "cfg.broker.verification.skip_cert_common_name_check = true;",
+    "cfg.broker.verification.skip_cert_common_name_check=1;",
+    "cfg.broker.verification.skip_cert_common_name_check = vite;",
+    "cfg.broker.verification.skip_cert_common_name_check = !false;",
+    "#define SKIP skip_cert_common_name_check",
+    "#ifdef CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY\n#endif",
+    "cfg.skip_server_cert_verify = true;",
+    "cfg.skip_common_name = true;",
+    'const char *mdp = "abc";',
+    'char *password = "abc";',
+    'cfg.credentials.authentication.password = "x1";',
+    'strcpy(utilisateur, "admin");',
+    'const char *uri = "mqtts://u:p@h";',
+    'ESP_LOGI(TAG, "x"); /* c */ const char *secret = "s";',
+])
+def test_es10_source_scan_refuses_bypasses_and_clear_text_credentials(src):
+    import sys
+    module = _es10_check_module()
+    with pytest.raises(sys.modules["esp_trace"].CheckError):
+        module._check_source(src)
+
+
+def test_es10_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES10.parent / "es10.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es10-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles
+
+
+def test_es10_test_credentials_live_only_in_the_check_module():
+    """Le contrôle cherche les identifiants d'essai dans le programme de l'apprenant : ils ne doivent figurer dans aucun fichier du TP."""
+    check = _es10_check_module()
+    for path in (ES10 / "seed" / "main.cpp", ES10 / "solution.sh", ES10 / "tp.json", ES10.parent / "es10.md", ES10.parent / "es10.qcm.json"):
+        text = path.read_text(encoding="utf-8")
+        assert check.USER not in text and check.PASS not in text, path

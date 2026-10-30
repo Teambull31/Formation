@@ -23,6 +23,9 @@ DOCKER_ENV = re.compile(r"^\s*(?:ENV|ARG)\s+\w*" + KEYWORDS + r"\w*\s+['\"]?([^\
 SENSITIVE_DEFAULT = re.compile(r"sensitive\s*=\s*true", re.I)
 ANY_DEFAULT = re.compile(r"^\s*default\s*=", re.M)
 PLACEHOLDER = re.compile(r"^(\$\{|\$[A-Z_]|var\.|<|\{\{|changeme|example|xxx|\*+$)", re.I)
+# Une variable ou un champ du code (`cfg.password = mot_de_passe;`) : le secret est ailleurs, pas dans ce texte. Une valeur entre guillemets
+# s'arrête avant le guillemet fermant, donc ne finit jamais par `;` : `password = "hunter2222";` reste refusé.
+CODE_REF = re.compile(r"^[A-Za-z_][\w.\[\]>-]*[;,)]$")
 
 
 def leak_reason(text: str) -> str | None:
@@ -31,7 +34,7 @@ def leak_reason(text: str) -> str | None:
         if not m.group(0).lower().endswith("@example.test"):
             return "adresse e-mail"
     for m in SECRET.finditer(text):
-        if not PLACEHOLDER.match(m.group(1)):
+        if not PLACEHOLDER.match(m.group(1)) and not CODE_REF.match(m.group(1)):
             return "secret en clair"
     for m in DOCKER_ENV.finditer(text):
         if not PLACEHOLDER.match(m.group(1)):
