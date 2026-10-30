@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es9-q1",
+  "text": "Après une coupure du courtier de 60 s, la carte est reconnectée mais ne reçoit plus aucune commande. Quelle est la cause la plus probable ?",
+  "options": [
+   "Le client MQTT n'a pas réessayé de se connecter après la coupure",
+   "Le programme ne s'abonne qu'une fois, au démarrage de la carte",
+   "Le courtier garde les messages de QoS 0 pendant toute la coupure",
+   "La reconnexion automatique est limitée à une seule tentative"
+  ],
+  "answer": 1,
+  "explain": "Le client MQTT d'ESP-IDF se reconnecte tout seul (toutes les 10 s par défaut), et la session est propre par défaut : à chaque connexion le courtier oublie les abonnements. Un programme qui s'abonne une seule fois fonctionne jusqu'à la première coupure, puis reste sourd sans aucune erreur. Le réabonnement se fait dans la réaction à MQTT_EVENT_CONNECTED, à chaque connexion. La reconnexion n'est pas limitée à un essai, et un message de QoS 0 n'est pas gardé.",
+  "remedial_lesson_id": "es9"
+ },
+ {
+  "id": "es9-q2",
+  "text": "Que garantit l'appel à nvs_commit après un nvs_set_i32 ?",
+  "options": [
+   "Que le programme a bien ouvert l'espace de noms en lecture seule",
+   "Que la valeur peut être relue plus tard grâce à un autre type",
+   "Que l'écriture sera aussi visible dans la RAM des autres tâches",
+   "Que la valeur écrite est enregistrée en mémoire flash"
+  ],
+  "answer": 3,
+  "explain": "Selon la documentation, après avoir écrit des valeurs il faut appeler nvs_commit pour garantir qu'elles sont écrites en mémoire non volatile, et nvs_close ne le fait pas à sa place. Sur une vraie carte l'oubli peut passer inaperçu, le simulateur le refuse. Le commit ne change ni le mode d'ouverture, ni le type de la clé (une valeur écrite en i32 se relit en i32), ni la visibilité entre tâches.",
+  "remedial_lesson_id": "es9"
+ },
+ {
+  "id": "es9-q3",
+  "text": "Pourquoi relire la consigne en NVS avant de piloter le relais au démarrage ?",
+  "options": [
+   "Pour ne pas allumer la pompe d'après la consigne par défaut",
+   "Pour que le Wi-Fi obtienne son adresse IP plus rapidement qu'avant",
+   "Pour éviter d'appeler nvs_commit pendant le fonctionnement normal",
+   "Pour que le watchdog de tâche puisse être alimenté dès le départ"
+  ],
+  "answer": 0,
+  "explain": "Au démarrage la RAM est vide : tant que la consigne enregistrée n'est pas relue, seule la valeur par défaut est connue. Piloter le relais avant de la relire peut allumer la pompe un instant alors que la consigne enregistrée l'interdit. Le relais reste donc éteint (état sûr) jusqu'à la relecture. Cet ordre n'a aucun lien avec l'obtention de l'adresse IP, avec nvs_commit (qui sert à l'écriture) ni avec l'alimentation du watchdog.",
+  "remedial_lesson_id": "es9"
+ },
+ {
+  "id": "es9-q4",
+  "text": "Une tâche abonnée au watchdog n'appelle plus esp_task_wdt_reset, avec la configuration par défaut (trigger_panic à false). Que se passe-t-il ?",
+  "options": [
+   "La carte redémarre aussitôt avec le motif ESP_RST_TASK_WDT",
+   "Le watchdog supprime la tâche fautive puis relance la boucle",
+   "Un avertissement est affiché, puis le programme continue",
+   "L'appel d'esp_task_wdt_init est refusé avec ESP_ERR_NO_MEM"
+  ],
+  "answer": 2,
+  "explain": "La documentation dit que par défaut le watchdog de tâche affiche seulement un avertissement et une trace avant de laisser l'application continuer. Pour redémarrer la carte, il faut trigger_panic à true (ou l'option CONFIG_ESP_TASK_WDT_PANIC) : le redémarrage a alors le motif ESP_RST_TASK_WDT. Le watchdog ne supprime aucune tâche, et esp_task_wdt_init renvoie ESP_ERR_INVALID_STATE (pas ESP_ERR_NO_MEM) parce qu'il est déjà initialisé au démarrage.",
+  "remedial_lesson_id": "es9"
+ },
+ {
+  "id": "es9-q5",
+  "text": "Pourquoi ne faut-il pas écrire ESP_ERROR_CHECK autour de esp_mqtt_client_publish pour la télémétrie ?",
+  "options": [
+   "Parce que cette fonction renvoie toujours ESP_OK en QoS 0",
+   "Parce qu'une coupure du courtier ferait abandonner le programme",
+   "Parce qu'ESP_ERROR_CHECK est interdit dans une boucle principale",
+   "Parce que la publication échoue seulement avec un QoS de 2"
+  ],
+  "answer": 1,
+  "explain": "Hors connexion, un message de QoS 0 est refusé : esp_mqtt_client_publish renvoie -1, ce qui n'est pas ESP_OK, et ESP_ERROR_CHECK appelle alors abort(). Une panne du réseau arrêterait (puis redémarrerait) le contrôle de la pompe. Il faut tester le résultat, journaliser et continuer. La fonction ne renvoie pas toujours ESP_OK, rien n'interdit la macro dans une boucle, et l'échec concerne le QoS 0 hors connexion, pas le QoS 2.",
+  "remedial_lesson_id": "es9"
+ }
+]

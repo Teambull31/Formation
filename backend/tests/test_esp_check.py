@@ -1637,3 +1637,161 @@ def test_es8_check_sections_exist_in_lesson():
     constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
     cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es9 (robustesse : réabonnement, consigne en NVS, watchdog de tâche, publication sans ESP_ERROR_CHECK) ----
+
+ES9 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp3" / "lessons" / "es9.tp"
+
+
+def _es9_reference() -> str:
+    text = (ES9 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es9_mutant(*edits: tuple[str, str]) -> str:
+    src = _es9_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es9_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es9-tp")
+
+
+def test_es9_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es9_run(tmp_path, _es9_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es9_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es9_run(tmp_path, (ES9 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "scénario a" in out and "relire" in out, out
+
+
+RESTORE = "    haut = charger_consigne();\n"
+SUBSCRIBE9 = "        esp_mqtt_client_subscribe_single(ev->client, TOPIC_COMMANDE, 1);\n"
+WDT_RESET = "        ESP_ERROR_CHECK(esp_task_wdt_reset());\n"
+COMMIT = "    if (err == ESP_OK) {\n        err = nvs_commit(h);\n    }\n"
+PUBLISH9 = "    if (esp_mqtt_client_publish(client, TOPIC_TELEMETRIE, json, 0, 0, 0) < 0) {"
+REFUSE9 = 'ESP_LOGW(TAG, "setpoint refused: high=%ld", valeur);'
+WDT_ADD = "    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));\n"
+SAVE_CALL = "    sauver_consigne((int)valeur);\n"
+RANGE9 = '    if (valeur < HAUT_MIN || valeur > HAUT_MAX) {\n        ESP_LOGW(TAG, "setpoint'
+APP_INIT = "    init_relais();\n    init_adc();\n    init_nvs();\n"
+
+ES9_MUTANTS = {
+    # consigne et NVS
+    "setpoint_lost_at_reboot": ([(RESTORE, "    haut = HAUT_DEFAUT;\n")], ["scénario a", "après le redémarrage de 120 s", "enregistrée en NVS"]),
+    "write_without_commit": ([(COMMIT, "")], ["scénario a", "n'est pas suivie de nvs_commit", "Sauvegarder en NVS"]),
+    "setpoint_never_saved": ([(SAVE_CALL, "")], ["scénario a", "après le redémarrage de 120 s"]),
+    "nothing_saved_gives_zero": ([("return HAUT_DEFAUT;  // espace de noms pas encore créé", "return 0;  // espace de noms pas encore créé")],
+                                 ["scénario a", "annonce la consigne 0"]),
+    "refused_value_saved": ([(RANGE9, "    sauver_consigne((int)valeur);\n" + RANGE9)], ["scénario c", "refusée", "enregistrée en NVS"]),
+    # relais au démarrage
+    "relay_on_at_boot_before_restore": ([(APP_INIT, "    init_relais();\n    gpio_set_level(RELAIS_GPIO, 1);\n    init_adc();\n    init_nvs();\n")],
+                                        ["scénario a", "n'est pas éteint au démarrage", "Restaurer au démarrage"]),
+    "relay_driven_before_restore": ([(RESTORE, "    appliquer_consigne();\n" + RESTORE)], ["scénario b", "après le redémarrage de 60 s", "AVANT de piloter le relais"]),
+    "relay_lit_by_default_then_corrected": ([(RESTORE, RESTORE + "    regler_relais(true);\n    vTaskDelay(pdMS_TO_TICKS(50));\n    appliquer_consigne();\n")],
+                                            ["scénario", "relais"]),
+    # réabonnement
+    "subscribe_only_once": ([(SUBSCRIBE9, "        if (!abonne) { abonne = true; esp_mqtt_client_subscribe_single(ev->client, TOPIC_COMMANDE, 1); }\n"),
+                             ("static esp_mqtt_client_handle_t client;", "static esp_mqtt_client_handle_t client;\nstatic bool abonne = false;")],
+                            ["scénario a", "aucun abonnement", "après la reconnexion"]),
+    "no_subscription": ([(SUBSCRIBE9, "")], ["scénario a", "aucun abonnement"]),
+    "subscribe_after_start_only": ([(SUBSCRIBE9, ""), ("    demarrer_mqtt();\n", "    demarrer_mqtt();\n    esp_mqtt_client_subscribe_single(client, TOPIC_COMMANDE, 1);\n")],
+                                   ["scénario a", "aucun abonnement"]),
+    "topic_compared_with_strcmp": ([("strncmp(ev->topic, TOPIC_COMMANDE, ev->topic_len) == 0", "strcmp(ev->topic, TOPIC_COMMANDE) == 0")],
+                                   ["scénario a", "après la commande de 115 s", "topic_len"]),
+    # watchdog
+    "watchdog_never_fed": ([(WDT_RESET, "")], ["scénario a", "watchdog de tâche s'est déclenché", "Le watchdog de tâche"]),
+    "watchdog_fed_once": ([(WDT_RESET, ""), ("    for (int tour = 0;; tour++) {\n", "    esp_task_wdt_reset();\n    for (int tour = 0;; tour++) {\n")],
+                          ["scénario a", "watchdog de tâche s'est déclenché"]),
+    "watchdog_never_used": ([(WDT_RESET, "        esp_task_wdt_reset();\n"), (WDT_ADD, "")],
+                            ["aucun appel à esp_task_wdt_add", "Le watchdog de tâche"]),
+    "watchdog_only_in_a_comment": ([(WDT_RESET, "        // esp_task_wdt_reset();\n"), (WDT_ADD, "    // esp_task_wdt_add(NULL);\n")],
+                                   ["aucun appel à esp_task_wdt_add"]),
+    "watchdog_fed_too_late": ([("vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n    }", "vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n        if (tour == 20) { vTaskDelay(pdMS_TO_TICKS(20000)); }\n    }")],
+                              ["scénario a", "watchdog de tâche s'est déclenché"]),
+    "restart_on_error": ([('ESP_LOGI(TAG, "télémétrie non envoyée (hors connexion)");', "if (xTaskGetTickCount() > pdMS_TO_TICKS(5000)) esp_restart();")], ["scénario a", "redémarrage(s) inattendu(s)", "(sw)"]),
+    # gestion d'erreur
+    "error_check_on_publish": ([(PUBLISH9, "    ESP_ERROR_CHECK(esp_mqtt_client_publish(client, TOPIC_TELEMETRIE, json, 0, 0, 0) < 0 ? ESP_FAIL : ESP_OK);\n    if (false) {")],
+                               ["ESP_ERROR_CHECK a arrêté le programme"]),
+    "error_check_on_publish_during_outage": ([(PUBLISH9, "    if (esp_mqtt_client_publish(client, TOPIC_TELEMETRIE, json, 0, 0, 0) < 0 && xTaskGetTickCount() > pdMS_TO_TICKS(5000)) {\n        ESP_ERROR_CHECK(ESP_FAIL);\n    }\n    if (false) {")],
+                                              ["ESP_ERROR_CHECK a arrêté le programme"]),
+    "telemetry_stops_after_a_failure": ([(PUBLISH9, "    static bool arret = false;\n    if (arret) return;\n    if (esp_mqtt_client_publish(client, TOPIC_TELEMETRIE, json, 0, 0, 0) < 0 && (arret = true)) {")],
+                                        ["scénario a", "aucun message sur"]),
+    "telemetry_hard_coded_setpoint": ([("lire_niveau(), relais, haut);", "lire_niveau(), relais, HAUT_DEFAUT);")], ["scénario a", "annonce la consigne 60"]),
+    "telemetry_relay_always_false": ([("lire_niveau(), relais, haut);", "lire_niveau(), false, haut);")], ["scénario a", "annonce relay=false"]),
+    "telemetry_period_1s": ([("TOURS_TELEMETRIE = 10;", "TOURS_TELEMETRIE = 1;")], ["scénario a", "entre deux télémétries"]),
+    # bornes de sécurité
+    "setpoint_above_limit_accepted": ([("HAUT_MAX = 80;", "HAUT_MAX = 100;")], ["scénario c", "setpoint refused: high=95"]),
+    "setpoint_80_refused": ([("HAUT_MAX = 80;", "HAUT_MAX = 79;")], ["scénario c", "refuse une commande"]),
+    "setpoint_10_refused": ([("HAUT_MIN = 10;", "HAUT_MIN = 11;")], ["scénario c", "refuse une commande"]),
+    "setpoint_too_low_accepted": ([("HAUT_MIN = 10;", "HAUT_MIN = 0;")], ["scénario c", "setpoint refused: high=5"]),
+    "refusal_not_logged": ([(REFUSE9, 'ESP_LOGI(TAG, "ignorée");')], ["scénario c", "setpoint refused: high=95"]),
+    "refusal_wrong_format": ([(REFUSE9, 'ESP_LOGW(TAG, "consigne refusée : %ld", valeur);')], ["scénario c", "setpoint refused: high=95", "refusée"]),
+    "refusal_wrong_level": ([(REFUSE9, 'ESP_LOGE(TAG, "setpoint refused: high=%ld", valeur);')], ["scénario c", "niveau E"]),
+    "garbage_logged_as_refusal": ([("    if (p == NULL) {\n        return;  // pas une commande : on ignore", '    if (p == NULL) {\n        ESP_LOGW(TAG, "setpoint refused: high=0");\n        return;')],
+                                  ["scénario c", "refuse une commande"]),
+    "relay_threshold_far_too_high": ([("lire_niveau() < haut;", "lire_niveau() < haut + 20;")], ["scénario a", "relais"]),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES9_MUTANTS.values(), ids=ES9_MUTANTS.keys())
+def test_es9_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es9_run(tmp_path, _es9_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+# Variante valide, écrite autrement : consigne en u8, lecture de la commande avec sscanf, télémétrie par une tâche dédiée
+# elle aussi abonnée au watchdog, relais aussi piloté dès la commande, session non propre avec réabonnement.
+ES9_TASK_VARIANT_EDITS = [
+    ("    for (int tour = 0;; tour++) {\n        ESP_ERROR_CHECK(esp_task_wdt_reset());\n        appliquer_consigne();\n        if (tour % TOURS_TELEMETRIE == 0) {\n            publier_telemetrie();\n        }\n        vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n    }\n",
+     '    xTaskCreate(tache_telemetrie, "telemetrie", 4096, NULL, 5, NULL);\n    for (;;) {\n        ESP_ERROR_CHECK(esp_task_wdt_reset());\n        appliquer_consigne();\n        vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n    }\n'),
+    ("// ---- Fourni : le Wi-Fi", "static void appliquer_consigne(void);\n\n// ---- Fourni : le Wi-Fi"),
+    ("// Étape 6 :", 'static void tache_telemetrie(void *) {\n    ESP_ERROR_CHECK(esp_task_wdt_add(NULL));\n    for (;;) {\n        esp_task_wdt_reset();\n        publier_telemetrie();\n        vTaskDelay(pdMS_TO_TICKS(PAS_MS * TOURS_TELEMETRIE));\n    }\n}\n\n// Étape 6 :'),
+    ("nvs_set_i32(h, NVS_CLE, valeur)", "nvs_set_u8(h, NVS_CLE, (uint8_t)valeur)"),
+    ("    int32_t valeur = HAUT_DEFAUT;\n    esp_err_t err = nvs_get_i32(h, NVS_CLE, &valeur);", "    uint8_t valeur = HAUT_DEFAUT;\n    esp_err_t err = nvs_get_u8(h, NVS_CLE, &valeur);"),
+    ("    char *fin;\n    long valeur = strtol(p, &fin, 10);\n    if (fin == p) {", "    int lu = 0;\n    long valeur;\n    if (sscanf(p, \"%d\", &lu) != 1) {"),
+    ('    if (valeur < HAUT_MIN || valeur > HAUT_MAX) {\n        ESP_LOGW(TAG, "setpoint', '    valeur = lu;\n    if (valeur < HAUT_MIN || valeur > HAUT_MAX) {\n        ESP_LOGW(TAG, "setpoint'),
+    ("    sauver_consigne((int)valeur);\n", "    sauver_consigne((int)valeur);\n    appliquer_consigne();\n"),
+    ('    cfg.credentials.client_id = "pool-ctl";\n    client', '    cfg.credentials.client_id = "pool-ctl";\n    cfg.session.disable_clean_session = true;\n    client'),
+]
+
+
+def test_es9_tp_task_variant_passes(tmp_path, bwrap_ok):
+    code, out = _es9_run(tmp_path, _es9_mutant(*ES9_TASK_VARIANT_EDITS))
+    assert code == 0 and out.startswith("OK"), out
+
+
+ES9_VARIANTS = {
+    "default_watchdog_configuration": [("    ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));\n", "")],
+    "watchdog_fed_through_a_helper": [(WDT_RESET, "        nourrir();\n"), ("static void configurer_watchdog(void) {", "static void nourrir(void) { ESP_ERROR_CHECK(esp_task_wdt_reset()); }\n\nstatic void configurer_watchdog(void) {")],
+    "load_with_read_write_handle": [("nvs_open(NVS_ESPACE, NVS_READONLY, &h) != ESP_OK", "nvs_open(NVS_ESPACE, NVS_READWRITE, &h) != ESP_OK")],
+    "two_writes_one_commit": [("    err = nvs_set_i32(h, NVS_CLE, valeur);", '    err = nvs_set_i32(h, NVS_CLE, valeur);\n    nvs_set_u8(h, "ecrit", 1);')],
+    "subscription_with_wildcard_in_qos_0": [("TOPIC_COMMANDE, 1);\n        break;", '"home/devices/+/command", 0);\n        break;')],
+    "telemetry_in_qos_1": [("json, 0, 0, 0)", "json, 0, 1, 0)")],
+    "wake_up_slightly_early": [("vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n    }", "vTaskDelay(pdMS_TO_TICKS(PAS_MS - 20));\n    }")],
+    "reset_reason_not_logged": [('    ESP_LOGI(TAG, "démarrage, motif %d, consigne %d %%", (int)esp_reset_reason(), (int)haut);\n', "")],
+    "relay_driven_only_after_wifi": [("    appliquer_consigne();\n    wifi_connecter();", "    wifi_connecter();\n    appliquer_consigne();")],
+}
+
+
+@pytest.mark.parametrize("edits", ES9_VARIANTS.values(), ids=ES9_VARIANTS.keys())
+def test_es9_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es9_run(tmp_path, _es9_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es9_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES9.parent / "es9.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es9-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles
