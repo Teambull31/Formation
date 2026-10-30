@@ -2247,3 +2247,93 @@ def test_ota_and_tls_sections_accept_their_documented_keys(lib, tmp_path):
           "boot": {"first_boot_after_ota": False, "self_test_fails": False}}
     trace = sim_run('extern "C" void app_main(void) { ESP_LOGI("a", "ok"); }\n', 100, lib, tmp_path, json.dumps(sc))
     assert msgs(trace, "a") == ["ok"]
+
+
+# ---------------------------------------------------------------- Task 20: NVS prefilled by the scenario
+
+NVS_PRESET_READ = """
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    nvs_handle_t h;
+    esp_err_t o = nvs_open("mqtt", NVS_READONLY, &h);
+    char user[32] = "?", pass[32] = "?";
+    size_t n1 = sizeof user, n2 = sizeof pass;
+    esp_err_t e1 = o == ESP_OK ? nvs_get_str(h, "user", user, &n1) : o;
+    esp_err_t e2 = o == ESP_OK ? nvs_get_str(h, "pass", pass, &n2) : o;
+    int32_t port = -1;
+    esp_err_t e3 = o == ESP_OK ? nvs_get_i32(h, "port", &port) : o;
+    ESP_LOGI("p", "%s %s %s | %s %s | %d", esp_err_to_name(e1), user, esp_err_to_name(e2), pass, esp_err_to_name(e3), (int)port);
+    for (;;) vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+NVS_PRESET = '{"nvs": {"mqtt": {"user": "pool-ctl", "pass": "s3cr3t-abc", "port": 8883}}}'
+
+
+def test_nvs_scenario_prefills_the_partition(lib, tmp_path):
+    trace = sim_run(NVS_PRESET_READ, 1000, lib, tmp_path, NVS_PRESET)
+    assert msgs(trace, "p") == ["ESP_OK pool-ctl ESP_OK | s3cr3t-abc ESP_OK | 8883"]
+
+
+def test_nvs_without_the_section_is_empty(lib, tmp_path):
+    trace = sim_run(NVS_PRESET_READ, 1000, lib, tmp_path)
+    assert msgs(trace, "p")[0].startswith("ESP_ERR_NVS_NOT_FOUND ? ESP_ERR_NVS_NOT_FOUND")
+
+
+NVS_PRESET_REBOOT = """
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    nvs_handle_t h;
+    ESP_ERROR_CHECK(nvs_open("mqtt", NVS_READWRITE, &h));
+    char user[32] = "?";
+    size_t n = sizeof user;
+    esp_err_t e = nvs_get_str(h, "user", user, &n);
+    ESP_LOGI("p", "%s %s", esp_err_to_name(e), user);
+    if (strcmp(user, "pool-ctl") == 0) {
+        ESP_ERROR_CHECK(nvs_set_str(h, "user", "autre"));
+        ESP_ERROR_CHECK(nvs_commit(h));
+    }
+    nvs_close(h);
+    for (;;) vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+
+
+def test_nvs_preset_is_applied_at_the_first_boot_only(lib, tmp_path):
+    trace = sim_run(NVS_PRESET_REBOOT, 3000, lib, tmp_path, '{"nvs": {"mqtt": {"user": "pool-ctl"}}, "reboots_at_ms": [1000, 2000]}')
+    assert msgs(trace, "p") == ["ESP_OK pool-ctl", "ESP_OK autre", "ESP_OK autre"]  # committed overwrite survives, preset not replayed
+
+
+def test_nvs_erase_is_not_undone_by_a_restart(lib, tmp_path):
+    src = """
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    nvs_handle_t h;
+    esp_err_t o = nvs_open("mqtt", NVS_READONLY, &h);
+    ESP_LOGI("p", "%s", esp_err_to_name(o));
+    if (o == ESP_OK) { nvs_close(h); ESP_ERROR_CHECK(nvs_flash_erase()); ESP_ERROR_CHECK(nvs_flash_init()); }
+    for (;;) vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = sim_run(src, 3000, lib, tmp_path, '{"nvs": {"mqtt": {"user": "pool-ctl"}}, "reboots_at_ms": [1000]}')
+    assert msgs(trace, "p") == ["ESP_OK", "ESP_ERR_NVS_NOT_FOUND"]
+
+
+@pytest.mark.parametrize("scenario", [
+    '{"nvs": []}', '{"nvs": {"mqtt": 3}}', '{"nvs": {"mqtt": {"user": true}}}', '{"nvs": {"mqtt": {"user": 1.5}}}',
+    '{"nvs": {"mqtt": {"user": 2147483648}}}', '{"nvs": {"mqtt": {"user": -2147483649}}}', '{"nvs": {"mqtt": {"user": null}}}',
+    '{"nvs": {"": {"user": "x"}}}', '{"nvs": {"a_namespace_too_long": {"user": "x"}}}',
+    '{"nvs": {"mqtt": {"": "x"}}}', '{"nvs": {"mqtt": {"a_key_that_is_too_long": "x"}}}',
+    '{"nvs": {"mqtt": {"user": "%s"}}}' % ("x" * 4000), '{"nvs": {"mqtt": {"user": [1]}}}',
+])
+def test_malformed_nvs_scenario_fails_cleanly(lib, tmp_path, scenario):
+    prog = compile_src(lib, SYS + 'extern "C" void app_main(void) {}\n', tmp_path)
+    path = tmp_path / "bad.json"
+    path.write_text(scenario)
+    r = subprocess.run([str(prog), "--scenario", str(path)], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and r.stdout == "" and "scénario" in r.stderr and "nvs" in r.stderr
+
+
+def test_nvs_scenario_accepts_the_extremes(lib, tmp_path):
+    sc = {"nvs": {"a" * 15: {"k" * 15: "x" * 3999, "i": 2147483647, "j": -2147483648}}}
+    trace = sim_run('extern "C" void app_main(void) { ESP_LOGI("a", "ok"); }\n', 100, lib, tmp_path, json.dumps(sc))
+    assert msgs(trace, "a") == ["ok"]

@@ -93,6 +93,8 @@ void boot_begin();                                                // from the ma
 // Handed-over state: one "<key> <values>" line per item.
 void plant_save(std::ostream &out);
 void plant_restore(std::istream &in);
+bool nvs_load_scenario(const Json &scenario, std::string &err);  // "nvs": the partition content at the first boot
+void nvs_apply_preset();                                          // first boot only, before app_main
 bool nvs_ready();  // nvs_flash_init was called in this boot (and not undone)
 void nvs_save(std::ostream &out);
 void nvs_restore(const std::string &key, std::istream &in);

@@ -12,7 +12,8 @@
 // ESP_ERR_NVS_NO_FREE_PAGES, writes never return ESP_ERR_NVS_NOT_ENOUGH_SPACE); only the default partition;
 // a namespace created by nvs_open(NVS_READWRITE) exists at once, committed or not; null pointers return
 // ESP_ERR_INVALID_ARG where the real code would crash; an empty key is ESP_ERR_NVS_INVALID_NAME.
-// Trace: nvs_set (each set_*) and nvs_commit.
+// Scenario "nvs": {"ns": {"key": "text" | int32}} fills the partition at the first boot (never again: a restart keeps
+// the committed content, an erase stays erased). Trace: nvs_set (each set_*) and nvs_commit.
 #include <cstring>
 #include <map>
 #include <sstream>
@@ -35,7 +36,7 @@ struct Value {
 };
 using Space = std::map<std::string, std::map<std::string, Value>>;
 
-Space working, committed;
+Space working, committed, preset;  // preset: the scenario's "nvs" section, the partition content at the first boot
 bool initialised = false;
 struct Handle {
     std::string ns;
@@ -140,6 +141,46 @@ std::string unhex(const std::string &s) {
 namespace sim {
 
 bool nvs_ready() { return initialised; }
+
+// Scenario section "nvs": {"namespace": {"key": "text" | integer}}: what a partition prepared at the factory holds (the
+// credentials the program must read, never write in its source). Texts become NVS strings, integers (int32) i32.
+bool nvs_load_scenario(const Json &root, std::string &err) {
+    const Json *n = root.get("nvs");
+    if (!n) return true;
+    if (n->type != Json::Object) { err = "\"nvs\" doit être un objet {espace: {clé: texte ou entier}}"; return false; }
+    Space out;
+    for (const auto &ns : n->obj) {
+        if (ns.second.type != Json::Object || ns.first.empty() || ns.first.size() > kKeyMax) {
+            err = "nvs : chaque espace de noms (1 à 15 caractères) attend un objet {clé: texte ou entier}";
+            return false;
+        }
+        auto &space = out[ns.first];
+        for (const auto &kv : ns.second.obj) {
+            long long i = 0;
+            bool is_int = kv.second.type == Json::Number && kv.second.as_int(INT32_MIN, INT32_MAX, i);
+            bool is_str = kv.second.type == Json::String && kv.second.str.size() + 1 <= kStrMax;
+            if (kv.first.empty() || kv.first.size() > kKeyMax || !(is_int || is_str)) {
+                err = "nvs : la clé \"" + kv.first + "\" de l'espace \"" + ns.first + "\" attend un nom de 1 à 15 caractères "
+                      "et un texte de moins de 4000 octets ou un entier de 32 bits";
+                return false;
+            }
+            if (is_int) {
+                int32_t v = static_cast<int32_t>(i);
+                auto *b = reinterpret_cast<const unsigned char *>(&v);
+                space[kv.first] = Value{I32, std::vector<unsigned char>(b, b + sizeof v)};
+            } else {
+                std::vector<unsigned char> bytes(kv.second.str.begin(), kv.second.str.end());
+                bytes.push_back(0);
+                space[kv.first] = Value{STR, std::move(bytes)};
+            }
+        }
+    }
+    preset = std::move(out);
+    return true;
+}
+
+// First boot only (a restart restores the committed partition instead): the preset is the flash content.
+void nvs_apply_preset() { committed = working = preset; }
 
 void nvs_save(std::ostream &o) {
     for (auto &ns : committed) {

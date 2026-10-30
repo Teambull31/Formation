@@ -162,7 +162,7 @@ bool load_scenario(const char *path, std::string &err) {
     return sim::gpio_load_scenario(root, err) && sim::adc_load_scenario(root, err) &&
            sim::i2c_load_scenario(root, err) && sim::plant_load_scenario(root, err) &&
            sim::wifi_load_scenario(root, err) && sim::mqtt_load_scenario(root, err) && sim::boot_load_scenario(root, err) &&
-           sim::tls_load_scenario(root, err) && sim::ota_load_scenario(root, err);
+           sim::tls_load_scenario(root, err) && sim::ota_load_scenario(root, err) && sim::nvs_load_scenario(root, err);
 }
 
 }  // namespace
@@ -199,6 +199,7 @@ int main(int argc, char **argv) {
     int64_t start_ms = sim::boot_restore();
     if (start_ms < 0) {
         start_ms = 0;
+        sim::nvs_apply_preset();
         sim::trace_fd = ::dup(STDOUT_FILENO);
         if (sim::trace_fd < 0 || ::dup2(STDERR_FILENO, STDOUT_FILENO) < 0) {
             std::perror("trace");
