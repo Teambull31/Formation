@@ -1668,7 +1668,7 @@ def test_es9_tp_reference_passes(tmp_path, bwrap_ok):
 
 def test_es9_tp_seed_refused(tmp_path, bwrap_ok):
     code, out = _es9_run(tmp_path, (ES9 / "seed" / "main.cpp").read_text(encoding="utf-8"))
-    assert failed(code, out) and "scénario a" in out and "relire" in out, out
+    assert failed(code, out) and "app_main ne fait rien après les initialisations" in out and "étape 8" in out, out
 
 
 RESTORE = "    haut = charger_consigne();\n"
@@ -1713,6 +1713,8 @@ ES9_MUTANTS = {
                             ["aucun appel à esp_task_wdt_add", "Le watchdog de tâche"]),
     "watchdog_only_in_a_comment": ([(WDT_RESET, "        // esp_task_wdt_reset();\n"), (WDT_ADD, "    // esp_task_wdt_add(NULL);\n")],
                                    ["aucun appel à esp_task_wdt_add"]),
+    "watchdog_names_only_in_strings": ([(WDT_RESET, '        ESP_LOGI(TAG, "esp_task_wdt_reset()");\n'), (WDT_ADD, '    ESP_LOGI(TAG, "esp_task_wdt_add(NULL)");\n')],
+                                       ["aucun appel à esp_task_wdt_add"]),
     "watchdog_fed_too_late": ([("vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n    }", "vTaskDelay(pdMS_TO_TICKS(PAS_MS));\n        if (tour == 20) { vTaskDelay(pdMS_TO_TICKS(20000)); }\n    }")],
                               ["scénario a", "watchdog de tâche s'est déclenché"]),
     "restart_on_error": ([('ESP_LOGI(TAG, "télémétrie non envoyée (hors connexion)");', "if (xTaskGetTickCount() > pdMS_TO_TICKS(5000)) esp_restart();")], ["scénario a", "redémarrage(s) inattendu(s)", "(sw)"]),
@@ -1768,6 +1770,8 @@ def test_es9_tp_task_variant_passes(tmp_path, bwrap_ok):
 
 
 ES9_VARIANTS = {
+    "idle_mask_of_one_core_only": [("cfg.idle_core_mask = (1 << 0) | (1 << 1);", "cfg.idle_core_mask = 1;")],
+    "slow_down_to_100ms_loop": [("PAS_MS = 1000;", "PAS_MS = 100;"), ("TOURS_TELEMETRIE = 10;", "TOURS_TELEMETRIE = 100;")],
     "default_watchdog_configuration": [("    ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));\n", "")],
     "watchdog_fed_through_a_helper": [(WDT_RESET, "        nourrir();\n"), ("static void configurer_watchdog(void) {", "static void nourrir(void) { ESP_ERROR_CHECK(esp_task_wdt_reset()); }\n\nstatic void configurer_watchdog(void) {")],
     "load_with_read_write_handle": [("nvs_open(NVS_ESPACE, NVS_READONLY, &h) != ESP_OK", "nvs_open(NVS_ESPACE, NVS_READWRITE, &h) != ESP_OK")],

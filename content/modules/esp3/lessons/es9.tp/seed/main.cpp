@@ -182,7 +182,7 @@ static void publier_telemetrie(void) {
 static void appliquer_consigne(void) {
 }
 
-// TODO étape 7 : esp_task_wdt_config_t cfg = {} avec timeout_ms = WDT_DELAI_MS, idle_core_mask = 1, trigger_panic = true ;
+// TODO étape 7 : esp_task_wdt_config_t cfg = {} avec timeout_ms = WDT_DELAI_MS, idle_core_mask = (1 << 0) | (1 << 1), trigger_panic = true ;
 // ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg)) puis ESP_ERROR_CHECK(esp_task_wdt_add(NULL)) (abonne la tâche courante).
 static void configurer_watchdog(void) {
 }

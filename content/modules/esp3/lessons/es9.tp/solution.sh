@@ -247,7 +247,7 @@ static void appliquer_consigne(void) {
 static void configurer_watchdog(void) {
     esp_task_wdt_config_t cfg = {};
     cfg.timeout_ms = WDT_DELAI_MS;
-    cfg.idle_core_mask = 1;
+    cfg.idle_core_mask = (1 << 0) | (1 << 1);
     cfg.trigger_panic = true;
     ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));
     ESP_ERROR_CHECK(esp_task_wdt_add(NULL));

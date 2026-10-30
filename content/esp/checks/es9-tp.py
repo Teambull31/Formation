@@ -38,6 +38,7 @@ MAX_MS = {"a": 180_000, "b": 100_000, "c": 80_000}
 REACT_MS, BOOT_MS, SETUP_MS, COMMIT_MS, TELE_MS = 2_000, 5_000, 5_000, 2_000, 1_000
 TELE_MIN_MS, TELE_MAX_MS = 8_000, 12_000
 OUTPUT_MODES = {"output", "input_output"}
+MAX_OUT = 4_000_000  # boucle plus rapide que la seconde annoncée : trace plus longue que le plafond par défaut (1 Mo)
 REFUSED_VALUES = {95, 5}
 
 INCOMING = {
@@ -99,8 +100,8 @@ def _match(flt: str, topic: str) -> bool:
 
 
 def _code(source: str) -> str:
-    """Le texte du programme sans commentaires (les chaînes restent : on n'y cherche que des noms de fonctions)."""
-    return re.sub(r"//[^\n]*|/\*.*?\*/", " ", source, flags=re.S)
+    """Le texte du programme sans commentaires ni chaînes littérales (un nom de fonction dans une chaîne ne compte pas)."""
+    return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
 
 
 def _relay_changes(trace: Trace) -> list[tuple[int, int]]:
@@ -325,6 +326,9 @@ def _check_logs(trace: Trace, name: str) -> None:
 
 def _check_common(trace: Trace, name: str) -> None:
     label = LABELS[name]
+    need(trace.events("adc_read") or trace.events("mqtt"),
+         f"{label} : app_main ne fait rien après les initialisations : suivez les étapes TODO du fichier, l'étape 8 écrit "
+         f"app_main (relire : « {S_BOOT} »)")
     wdt = trace.events("wdt_reset")
     need(not wdt, f"{label} : le watchdog de tâche s'est déclenché à {_s(wdt[0]['t_ms'] if wdt else 0)} : la tâche « "
          f"{wdt[0]['tasks'] if wdt else ''} » ne l'a pas alimenté à temps : appelez esp_task_wdt_reset à chaque tour de la boucle "

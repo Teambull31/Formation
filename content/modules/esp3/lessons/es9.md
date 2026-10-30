@@ -124,25 +124,25 @@ Si votre boucle principale se bloque (attente infinie, boucle sans fin), la pomp
 
 Ce que dit la documentation d'ESP-IDF 5.5.3 :
 
-- Le TWDT est **initialisé automatiquement au démarrage** (option `CONFIG_ESP_TASK_WDT_INIT`, activée par défaut). Il surveille déjà la **tâche idle** du cœur 0 (la tâche qui tourne quand rien d'autre ne tourne : si une tâche monopolise le processeur, idle ne passe plus et le watchdog le voit). La documentation de l'API ne donne pas le délai par défaut en secondes : il vient de `CONFIG_ESP_TASK_WDT_TIMEOUT_S` (le simulateur prend 5 s).
+- Le TWDT est **initialisé automatiquement au démarrage** (option `CONFIG_ESP_TASK_WDT_INIT`, activée par défaut). Il surveille déjà les **tâches idle** des cœurs 0 et 1 (la documentation dit que celle de chaque cœur est abonnée au démarrage, options `CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU0` et `CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1`, activées par défaut ; une tâche idle est la tâche qui tourne quand rien d'autre ne tourne : si une tâche monopolise le processeur, idle ne passe plus et le watchdog le voit). La documentation de l'API ne donne pas le délai par défaut en secondes : il vient de `CONFIG_ESP_TASK_WDT_TIMEOUT_S` (le simulateur prend 5 s).
 - Votre tâche (par exemple `app_main`) n'y est **pas** abonnée par défaut : la documentation ne cite que les tâches idle. Elle doit appeler **`esp_task_wdt_add(NULL)`** (`NULL` = la tâche courante), puis **`esp_task_wdt_reset()`** régulièrement, **plus souvent que le délai**.
 - Comme il est déjà initialisé, **`esp_task_wdt_init` renvoie `ESP_ERR_INVALID_STATE`** si on l'appelle. Pour changer les réglages, on utilise **`esp_task_wdt_reconfigure(&cfg)`** avec une structure `esp_task_wdt_config_t` :
 
 ```cpp
 esp_task_wdt_config_t cfg = {};
 cfg.timeout_ms = 15000;        // délai : TWDT TIMEOUT
-cfg.idle_core_mask = 1;        // surveiller la tâche idle du cœur 0 (bit 0)
+cfg.idle_core_mask = (1 << 0) | (1 << 1);   // garder la surveillance des tâches idle des cœurs 0 et 1
 cfg.trigger_panic = true;      // redémarrer la carte au déclenchement
 ESP_ERROR_CHECK(esp_task_wdt_reconfigure(&cfg));
 ESP_ERROR_CHECK(esp_task_wdt_add(NULL));       // abonner la tâche courante
 // ... puis, dans la boucle :  ESP_ERROR_CHECK(esp_task_wdt_reset());
 ```
 
-- `timeout_ms` : le délai. `idle_core_mask` : les cœurs dont la tâche idle est surveillée (un bit par cœur). `trigger_panic` : « déclencher une panique quand le délai expire ».
+- `timeout_ms` : le délai. `idle_core_mask` : les cœurs dont la tâche idle est surveillée (`1 << i` : la tâche idle du cœur i) ; on remet ici les deux cœurs pour **ne rien perdre** de la surveillance par défaut. `trigger_panic` : « déclencher une panique quand le délai expire ».
 - **Quand il se déclenche** : si une tâche abonnée n'a pas appelé `esp_task_wdt_reset` dans le délai. Avec `trigger_panic = false` (le comportement par défaut), la documentation dit que le watchdog **affiche seulement un avertissement et une trace avant de laisser le programme continuer** : rien ne redémarre. Avec `trigger_panic = true` (ou l'option `CONFIG_ESP_TASK_WDT_PANIC`), il provoque une **panique et la carte redémarre** (le motif de redémarrage est `ESP_RST_TASK_WDT`). Pour une pompe, on veut en général que la carte **redémarre** (elle repart dans l'état sûr, relais éteint, puis relit sa consigne) : on met `true`.
 - **Le délai doit être plus long que le pire tour de boucle**. Ici : la boucle tourne chaque seconde, mais une publication MQTT peut, d'après la documentation, **bloquer plusieurs secondes** (jusqu'au délai réseau de 10 s) : le TP prend **15 s**. Trop court, le watchdog redémarre une carte saine ; trop long, il met du temps à réagir.
 - **Où alimenter ?** Dans la boucle principale, **une fois par tour**, pas dans une sous-fonction appelée de temps en temps : le but est de prouver que **la boucle entière** avance. Surtout, **ne pas s'abonner avant une initialisation longue** : `wifi_connecter()` peut attendre longtemps l'adresse IP, et une tâche abonnée qui n'a pas encore atteint sa boucle déclencherait le watchdog. On s'abonne juste **avant** la boucle.
-- Une tâche supprimée doit se désabonner (`esp_task_wdt_delete`).
+- Une tâche qui s'arrête doit se désabonner avec `esp_task_wdt_delete` : la documentation précise qu'une tâche désabonnée ne doit plus appeler `esp_task_wdt_reset` ; abonnée mais disparue, elle n'alimenterait plus le watchdog, qui se déclencherait.
 
 Dans le TP, aucun scénario ne bloque votre programme : le contrôle ne peut donc pas tester le redémarrage. Il vérifie deux choses : **le watchdog ne se déclenche jamais** (événement `wdt_reset` dans la trace du simulateur : une tâche abonnée qui n'est pas alimentée à temps le provoque) et, en lisant le texte de `main.cpp`, que le programme appelle bien **`esp_task_wdt_add` et `esp_task_wdt_reset`** (le simulateur ne trace pas l'abonnement : sans cette lecture, un programme sans watchdog passerait). Un appel dans un commentaire ne compte pas. Le choix `trigger_panic = true` est dans l'énoncé mais n'est pas contrôlé.
 
