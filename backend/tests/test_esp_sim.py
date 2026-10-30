@@ -2337,3 +2337,89 @@ def test_nvs_scenario_accepts_the_extremes(lib, tmp_path):
     sc = {"nvs": {"a" * 15: {"k" * 15: "x" * 3999, "i": 2147483647, "j": -2147483648}}}
     trace = sim_run('extern "C" void app_main(void) { ESP_LOGI("a", "ok"); }\n', 100, lib, tmp_path, json.dumps(sc))
     assert msgs(trace, "a") == ["ok"]
+
+
+# ---------------------------------------------------------------- Task 20: MQTT credentials traced, esp_mqtt_client_reconnect
+
+def _mqtt_events(trace):
+    return [(e["t_ms"], e["event"]) for e in trace if e["ev"] == "mqtt" and e["event"] in ("before_connect", "connected", "disconnected", "error")]
+
+
+def test_mqtt_connected_event_traces_the_credentials(lib, tmp_path):
+    src = """
+static esp_mqtt_client_handle_t client;
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtt://broker.local";
+    cfg.credentials.client_id = "d1";
+    cfg.credentials.username = "pool-ctl";
+    cfg.credentials.authentication.password = "s3cr3t-abc";
+    client = esp_mqtt_client_init(&cfg);
+    ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+    vTaskDelay(pdMS_TO_TICKS(500));
+}
+"""
+    trace = sim_run(src, 1000, lib, tmp_path)
+    c = [e for e in trace if e["ev"] == "mqtt" and e["event"] == "connected"][0]
+    assert c["username"] == "pool-ctl" and c["password"] == "s3cr3t-abc"
+
+
+def test_mqtt_connected_event_has_no_credentials_when_none_are_set(lib, tmp_path):
+    trace = sim_run(MQTT_APP + MQTT_MAIN, 1000, lib, tmp_path)
+    c = [e for e in trace if e["ev"] == "mqtt" and e["event"] == "connected"][0]
+    assert "username" not in c and "password" not in c
+
+
+MQTT_RECONNECT = """
+static esp_mqtt_client_handle_t client;
+static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    if (id == MQTT_EVENT_CONNECTED) ESP_LOGI("m", "connected");
+}
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtt://broker.local";
+    cfg.network.disable_auto_reconnect = DISABLE;
+    client = esp_mqtt_client_init(&cfg);
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, on_mqtt, NULL));
+    ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    ESP_LOGI("m", "while connected: %s", esp_err_to_name(esp_mqtt_client_reconnect(client)));
+    vTaskDelay(pdMS_TO_TICKS(3000));  // the broker drops the session at 3000 ms and is back at 3500 ms
+    ESP_LOGI("m", "now: %s", esp_err_to_name(esp_mqtt_client_reconnect(client)));
+    vTaskDelay(pdMS_TO_TICKS(100));
+    ESP_LOGI("m", "again: %s", esp_err_to_name(esp_mqtt_client_reconnect(client)));
+    ESP_LOGI("m", "null: %s", esp_err_to_name(esp_mqtt_client_reconnect(NULL)));
+    vTaskDelay(pdMS_TO_TICKS(30000));
+}
+"""
+RECONNECT_SCENARIO = '{"mqtt": {"broker_down": [{"from_ms": 3000, "to_ms": 3500}]}}'
+
+
+def test_mqtt_reconnect_forces_the_attempt_when_auto_reconnect_is_off(lib, tmp_path):
+    trace = sim_run(MQTT_RECONNECT.replace("DISABLE", "true"), 40000, lib, tmp_path, RECONNECT_SCENARIO)
+    ev = _mqtt_events(trace)
+    # dropped at 3000, then nothing happens by itself: the forced attempt is the one of the program, at 4000 ms
+    assert [n for t, n in ev] == ["before_connect", "connected", "disconnected", "before_connect", "connected"]
+    assert ev[2][0] == 3000 and ev[3][0] == 4000 and ev[4][0] == 4100
+    assert msgs(trace, "m")[:2] == ["connected", "while connected: ESP_FAIL"]  # not waiting for a reconnection: ignored
+    assert [m for m in msgs(trace, "m") if m != "connected"] == ["while connected: ESP_FAIL", "now: ESP_OK", "again: ESP_FAIL", "null: ESP_ERR_INVALID_ARG"]
+
+
+def test_mqtt_reconnect_cuts_the_wait_when_auto_reconnect_is_on(lib, tmp_path):
+    trace = sim_run(MQTT_RECONNECT.replace("DISABLE", "false"), 40000, lib, tmp_path, RECONNECT_SCENARIO)
+    ev = _mqtt_events(trace)
+    # the 10 s timer of the dropped session (13000 ms) must not start a second attempt after the forced one
+    assert [n for t, n in ev] == ["before_connect", "connected", "disconnected", "before_connect", "connected"]
+    assert ev[3][0] == 4000
+
+
+def test_mqtt_reconnect_before_start_fails(lib, tmp_path):
+    src = """
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtt://broker.local";
+    esp_mqtt_client_handle_t c = esp_mqtt_client_init(&cfg);
+    ESP_LOGI("m", "%s", esp_err_to_name(esp_mqtt_client_reconnect(c)));
+}
+"""
+    assert msgs(sim_run(src, 100, lib, tmp_path), "m") == ["ESP_FAIL"]

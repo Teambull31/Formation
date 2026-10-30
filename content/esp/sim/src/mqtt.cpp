@@ -33,6 +33,11 @@
 // keeps the pointer: the application must keep the buffer alive). Trace: "error" then carries error_type,
 // esp_tls_last_esp_err, esp_tls_stack_err and esp_tls_cert_verify_flags, and "tls_handshake" is traced by tls.cpp.
 //
+// Credentials (credentials.username and authentication.password) are not checked by the broker but the "connected"
+// event traces them (username, password), so a check can tell where the program got them from. esp_mqtt_client_reconnect
+// starts the next attempt at once, only while the client waits to reconnect (otherwise ESP_FAIL, as in esp-mqtt); with
+// disable_auto_reconnect it is the only way to reconnect, otherwise it cancels the pending 10 s timer.
+//
 // Simplifications: one broker, no keep-alive, no authentication, no Last Will delivery (the will of
 // the configuration is traced with "connected" as lwt_topic, lwt_msg, lwt_retain and lwt_qos), no retained-message store (a retained publish
 // is only traced), no MQTT_EVENT_DISCONNECTED on esp_mqtt_client_stop, no fragmented DATA events, no outbox
@@ -82,12 +87,14 @@ struct Out {
 }  // namespace
 
 struct esp_mqtt_client {
-    std::string uri, hostname, client_id, lwt_topic, lwt_msg;
+    std::string uri, hostname, client_id, lwt_topic, lwt_msg, username, password;
     int lwt_qos = 0;
     bool lwt_retain = false;
     int reconnect_ms = kDefaultReconnectMs;
     bool auto_reconnect = true, clean = true;
     bool started = false, connected = false, destroyed = false, had_session = false;
+    bool waiting = false;  // between a failed or lost connection and the next attempt (MQTT_STATE_WAIT_RECONNECT)
+    uint64_t retry_seq = 0;  // a timer of an earlier wait dies when it changes (a forced reconnection)
     bool tls = false;  // mqtts:// or wss://, or transport OVER_SSL/OVER_WSS without a scheme
     sim::TlsPeer peer;
     uint64_t gen = 0;  // timers of an earlier start/stop cycle die when it changes
@@ -158,6 +165,8 @@ void emit(esp_mqtt_client *c, Ev ev) {
     t.str("event", event_name(ev.id));
     if (ev.id == MQTT_EVENT_CONNECTED) {
         t.str("client_id", c->client_id);
+        if (!c->username.empty()) t.str("username", sim::utf8(c->username));
+        if (!c->password.empty()) t.str("password", sim::utf8(c->password));
         if (!c->lwt_topic.empty())
             t.str("lwt_topic", c->lwt_topic).str("lwt_msg", sim::utf8(c->lwt_msg)).flag("lwt_retain", c->lwt_retain).num("lwt_qos", c->lwt_qos);
     } else if (ev.id == MQTT_EVENT_DATA) {
@@ -225,9 +234,11 @@ void send(esp_mqtt_client *c, const Out &m) {
 void begin_attempt(esp_mqtt_client *c);
 
 void schedule_retry(esp_mqtt_client *c) {
-    if (!c->auto_reconnect) return;
-    uint64_t gen = c->gen;
-    sim::at(sim::now_ms() + c->reconnect_ms, [c, gen] { if (gen == c->gen && c->started && !c->connected) begin_attempt(c); });
+    c->waiting = true;
+    if (!c->auto_reconnect) return;  // without it the client waits for esp_mqtt_client_reconnect
+    uint64_t gen = c->gen, seq = ++c->retry_seq;
+    sim::at(sim::now_ms() + c->reconnect_ms,
+            [c, gen, seq] { if (gen == c->gen && seq == c->retry_seq && c->started && !c->connected) begin_attempt(c); });
 }
 
 // A failed attempt: MQTT_EVENT_ERROR, then MQTT_EVENT_DISCONNECTED (esp-mqtt v5.5.3: esp_mqtt_abort_connection posts it
@@ -273,6 +284,8 @@ void finish_attempt(esp_mqtt_client *c, uint64_t gen) {
 
 void begin_attempt(esp_mqtt_client *c) {
     if (!c->started) return;
+    c->waiting = false;
+    ++c->retry_seq;
     emit(c, Ev{MQTT_EVENT_BEFORE_CONNECT});
     uint64_t gen = c->gen;
     sim::at(sim::now_ms() + kConnectMs, [c, gen] { finish_attempt(c, gen); });
@@ -286,7 +299,7 @@ void drop(esp_mqtt_client *c) {
 }
 
 void halt(esp_mqtt_client *c) {
-    c->started = c->connected = false;
+    c->started = c->connected = c->waiting = false;
     ++c->gen;
     c->events.clear();
     if (c->task) sim::remove(c->task);
@@ -378,6 +391,8 @@ esp_mqtt_client_handle_t esp_mqtt_client_init(const esp_mqtt_client_config_t *co
                       : addr.transport == MQTT_TRANSPORT_OVER_SSL || addr.transport == MQTT_TRANSPORT_OVER_WSS;
     c->peer = sim::tls_peer(tls.certificate, tls.certificate_len, tls.crt_bundle_attach != nullptr, tls.use_global_ca_store,
                             tls.skip_cert_common_name_check, tls.common_name);
+    if (config->credentials.username) c->username = config->credentials.username;
+    if (config->credentials.authentication.password) c->password = config->credentials.authentication.password;
     c->clean = !config->session.disable_clean_session;
     clients.push_back(std::move(c));
     return clients.back().get();
@@ -405,6 +420,16 @@ esp_err_t esp_mqtt_client_stop(esp_mqtt_client_handle_t client) {
     if (!c) return ESP_ERR_INVALID_ARG;
     if (!c->started) return ESP_FAIL;
     halt(c);
+    return ESP_OK;
+}
+
+// Forces the next attempt now: only while the client waits to reconnect (esp-mqtt: any other state returns ESP_FAIL).
+// With automatic reconnection the pending timer is cancelled; without it this is the only way to reconnect.
+esp_err_t esp_mqtt_client_reconnect(esp_mqtt_client_handle_t client) {
+    esp_mqtt_client *c = live(client);
+    if (!c) return ESP_ERR_INVALID_ARG;
+    if (!c->started || !c->waiting) return ESP_FAIL;
+    begin_attempt(c);
     return ESP_OK;
 }
 

@@ -1282,6 +1282,13 @@
   },
   {
     "header": "mqtt_client.h",
+    "name": "esp_mqtt_client_reconnect",
+    "decl": "esp_err_t esp_mqtt_client_reconnect(esp_mqtt_client_handle_t client);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
     "name": "esp_mqtt_client_stop",
     "decl": "esp_err_t esp_mqtt_client_stop(esp_mqtt_client_handle_t client);",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
