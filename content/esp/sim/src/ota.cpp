@@ -23,14 +23,22 @@
 //     running app ESP_OTA_IMG_INVALID and restarts into the previous one (ESP_ERR_OTA_ROLLBACK_FAILED, and no
 //     restart, when no other slot holds a bootable app); event "rollback" (why "marked_invalid"); restart reason SW.
 //   - esp_https_ota writes the image into the other slot, does not restart (the application calls esp_restart) and,
-//     on success, makes that slot the boot slot; ESP_OK. Failures: ESP_ERR_INVALID_ARG (no config, no http_config,
-//     no URL, URL not https://), ESP_FAIL (server unreachable, TLS failure, 404, connection dropped),
-//     ESP_ERR_OTA_VALIDATE_FAILED (invalid image), ESP_ERR_OTA_ROLLBACK_INVALID_STATE (the running app is still
-//     PENDING_VERIFY: documented as "a firmware upgrade is not possible"). Whatever happens, the running slot and
+//     on success, makes that slot the boot slot; ESP_OK. Failures (esp_https_ota.c and esp_http_client.c, v5.5.3):
+//     ESP_ERR_INVALID_ARG (no config, no http_config, no URL, or no server-verification option at all: none of
+//     cert_pem, crt_bundle_attach, use_global_ca_store, skip_cert_common_name_check; refused before any connection, so
+//     no trace event), ESP_ERR_HTTP_CONNECT (Wi-Fi without IP, server unreachable, TLS handshake failure: the error of
+//     esp_http_client_open), ESP_FAIL (404, connection dropped during the download), ESP_ERR_OTA_VALIDATE_FAILED
+//     (invalid image), ESP_ERR_OTA_ROLLBACK_INVALID_STATE (the running app is still PENDING_VERIFY: documented as
+//     "a firmware upgrade is not possible"). The scheme is never read by esp_https_ota: an http:// URL is fetched in
+//     clear text (cert_pem ignored, no handshake); the trace says so ("ota_begin" has cleartext: true), so that a TP can
+//     refuse it. Whatever happens, the running slot and
 //     the boot slot stay as they were until success; but the write erases the other slot, so after any failure
 //     there is nothing to roll back to (esp_ota_check_rollback_is_possible is false).
-//   - esp_ota_get_state_partition: ESP_ERR_INVALID_ARG on a null argument, ESP_ERR_NOT_FOUND for a partition that is
-//     not one of the slots; a slot that never held a verified image reads ESP_OTA_IMG_UNDEFINED.
+//   - otadata: a slot has an OTA-data entry (and so a readable state) only once the OTA process chose it. A board
+//     flashed by cable has none: the first app runs from ota_0 with no entry, esp_ota_get_state_partition then returns
+//     ESP_ERR_NOT_FOUND and esp_ota_mark_app_valid_cancel_rollback returns ESP_FAIL (esp_ota_ops.c: "Running firmware is
+//     factory"). An app with an entry whose state is not VALID (also UNDEFINED) becomes VALID. esp_ota_get_state_partition:
+//     ESP_ERR_INVALID_ARG on a null argument, ESP_ERR_NOT_SUPPORTED for a partition that is not an OTA slot.
 //
 // Handed over to the next boot (the flash survives a reset), like the NVS: the boot slot, the version and state of
 // both slots (boot.cpp). A reboot of any kind (esp_restart, watchdog, scripted power cycle) is the "reset" above.
@@ -42,8 +50,8 @@
 // chip id, checksum and signature in ESP-IDF); no secure version or ESP_ERR_OTA_SMALL_SEC_VER; one slot pair (no
 // factory partition, no ota_2..); esp_https_ota_begin/perform/finish/abort, esp_ota_begin/write/end,
 // esp_ota_set_boot_partition and the http_client_init_cb are not provided or not called; a link loss during the
-// download (Wi-Fi) is not detected (only the scenario's drop_at_pct); http:// is refused as in a project without
-// CONFIG_ESP_HTTPS_OTA_ALLOW_HTTP; the partition table addresses are samples; HTTP redirects, proxies and range
+// download (Wi-Fi) is not detected (only the scenario's drop_at_pct); the URL needs no other scheme than http(s);
+// the partition table addresses are samples; HTTP redirects, proxies and range
 // requests are not simulated.
 #include <cstring>
 #include <sstream>
@@ -66,6 +74,7 @@ struct Image {
 struct Slot {
     std::string version;  // empty: nothing bootable
     uint32_t state = ESP_OTA_IMG_UNDEFINED;
+    bool otadata = false;  // the OTA data partition holds an entry for this slot
 };
 
 constexpr int64_t kConnectMs = 100;
@@ -178,13 +187,13 @@ bool ota_load_scenario(const Json &root, std::string &err) {
 }
 
 void ota_save(std::ostream &out) {
-    out << "ota " << boot_slot << " " << enc(slots[0].version) << " " << slots[0].state << " " << enc(slots[1].version) << " "
-        << slots[1].state << "\n";
+    out << "ota " << boot_slot << " " << enc(slots[0].version) << " " << slots[0].state << " " << slots[0].otadata << " "
+        << enc(slots[1].version) << " " << slots[1].state << " " << slots[1].otadata << "\n";
 }
 
 void ota_restore(std::istream &in) {
     std::string v0, v1;
-    if (in >> boot_slot >> v0 >> slots[0].state >> v1 >> slots[1].state) {
+    if (in >> boot_slot >> v0 >> slots[0].state >> slots[0].otadata >> v1 >> slots[1].state >> slots[1].otadata) {
         slots[0].version = dec(v0);
         slots[1].version = dec(v1);
         restored = true;
@@ -194,12 +203,12 @@ void ota_restore(std::istream &in) {
 // The bootloader's work, before app_main.
 void ota_boot() {
     if (!restored) {
-        slots[0] = {running_version, ESP_OTA_IMG_UNDEFINED};
-        slots[1] = {"", ESP_OTA_IMG_UNDEFINED};
+        slots[0] = {running_version, ESP_OTA_IMG_UNDEFINED, false};
+        slots[1] = {"", ESP_OTA_IMG_UNDEFINED, false};
         boot_slot = 0;
         if (first_boot_after_ota) {
-            slots[0] = {previous_version, ESP_OTA_IMG_VALID};
-            slots[1] = {running_version, ESP_OTA_IMG_NEW};
+            slots[0] = {previous_version, ESP_OTA_IMG_VALID, true};
+            slots[1] = {running_version, ESP_OTA_IMG_NEW, true};
             boot_slot = 1;
         }
     }
@@ -240,17 +249,18 @@ const esp_partition_t *esp_ota_get_running_partition(void) { return &parts[runni
 esp_err_t esp_ota_get_state_partition(const esp_partition_t *partition, esp_ota_img_states_t *ota_state) {
     if (!partition || !ota_state) return ESP_ERR_INVALID_ARG;
     for (int i = 0; i < 2; ++i) {
-        if (partition == &parts[i]) {
-            *ota_state = static_cast<esp_ota_img_states_t>(slots[i].state);
-            return ESP_OK;
-        }
+        if (partition != &parts[i]) continue;
+        if (!slots[i].otadata) return ESP_ERR_NOT_FOUND;
+        *ota_state = static_cast<esp_ota_img_states_t>(slots[i].state);
+        return ESP_OK;
     }
-    return ESP_ERR_NOT_FOUND;
+    return ESP_ERR_NOT_SUPPORTED;
 }
 
 esp_err_t esp_ota_mark_app_valid_cancel_rollback(void) {
     Slot &s = slots[running];
-    if (s.state == ESP_OTA_IMG_PENDING_VERIFY) s.state = ESP_OTA_IMG_VALID;
+    if (!s.otadata) return ESP_FAIL;  // "Running firmware is factory"
+    s.state = ESP_OTA_IMG_VALID;
     sim::Event(sim::now_ms(), "ota_mark").flag("valid", true);
     return ESP_OK;
 }
@@ -277,25 +287,30 @@ esp_err_t esp_https_ota(const esp_https_ota_config_t *config) {
     if (!config || !config->http_config || !config->http_config->url || !*config->http_config->url) return ESP_ERR_INVALID_ARG;
     const esp_http_client_config_t &http = *config->http_config;
     std::string url = http.url;
-    if (url.compare(0, 8, "https://") != 0) return ESP_ERR_INVALID_ARG;
+    bool cleartext = url.compare(0, 7, "http://") == 0;
+    if (!cleartext && url.compare(0, 8, "https://") != 0) return ESP_ERR_INVALID_ARG;
+    if (!http.cert_pem && !http.crt_bundle_attach && !http.use_global_ca_store && !http.skip_cert_common_name_check)
+        return ESP_ERR_INVALID_ARG;  // "No option for server verification is enabled in esp_http_client config."
     int64_t begin = sim::now_ms();
-    sim::Event(begin, "ota_begin").str("url", sim::utf8(url));
+    sim::Event(begin, "ota_begin").str("url", sim::utf8(url)).flag("cleartext", cleartext);
     auto finish = [&](esp_err_t e) {
         sim::Event(sim::now_ms(), "ota_end").str("url", sim::utf8(url)).flag("ok", e == ESP_OK).str("err", esp_err_to_name(e));
         return e;
     };
-    if (sim::wifi_in_use() && !sim::wifi_has_ip()) return finish(ESP_FAIL);
+    if (sim::wifi_in_use() && !sim::wifi_has_ip()) return finish(ESP_ERR_HTTP_CONNECT);
     sim::delay(static_cast<TickType_t>(sim::tick_of(kConnectMs)));
-    sim::TlsPeer peer = sim::tls_peer(http.cert_pem, http.cert_len, http.crt_bundle_attach != nullptr, http.use_global_ca_store,
-                                      http.skip_cert_common_name_check, http.common_name);
-    if (!sim::tls_handshake(peer, sim::uri_host(url)).ok) return finish(ESP_FAIL);
+    if (!cleartext) {
+        sim::TlsPeer peer = sim::tls_peer(http.cert_pem, http.cert_len, http.crt_bundle_attach != nullptr, http.use_global_ca_store,
+                                          http.skip_cert_common_name_check, http.common_name);
+        if (!sim::tls_handshake(peer, sim::uri_host(url)).ok) return finish(ESP_ERR_HTTP_CONNECT);
+    }
     const Image *img = nullptr;
     for (const Image &i : images) if (i.url == url) img = &i;
     if (!img) return finish(ESP_FAIL);  // HTTP 404
     if (slots[running].state == ESP_OTA_IMG_PENDING_VERIFY) return finish(ESP_ERR_OTA_ROLLBACK_INVALID_STATE);
     // esp_ota_begin erases the other slot: from here on it holds no bootable app, whatever the outcome.
     Slot &target = slots[1 - running];
-    target = {"", ESP_OTA_IMG_UNDEFINED};
+    target = {"", ESP_OTA_IMG_UNDEFINED, false};
     int received = 0;
     for (; received < 100; ++received) {
         if (img->drop_pct >= 0 && received == img->drop_pct) return finish(ESP_FAIL);
@@ -303,7 +318,7 @@ esp_err_t esp_https_ota(const esp_https_ota_config_t *config) {
     }
     if (img->drop_pct == 100) return finish(ESP_FAIL);
     if (!img->valid) return finish(ESP_ERR_OTA_VALIDATE_FAILED);
-    target = {img->version, ESP_OTA_IMG_NEW};
+    target = {img->version, ESP_OTA_IMG_NEW, true};
     boot_slot = 1 - running;
     return finish(ESP_OK);
 }

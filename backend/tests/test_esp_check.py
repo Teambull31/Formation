@@ -1868,3 +1868,25 @@ def test_no_certificate_or_key_is_stored_in_content():
     for p in ESP.rglob("*"):
         if p.is_file() and "__pycache__" not in p.parts and p.suffix in {".py", ".json", ".h", ".cpp", ".md"}:
             assert "PRIVATE KEY-----\n" not in p.read_text(encoding="utf-8", errors="replace"), p
+
+
+def test_make_certificate_refuses_a_name_that_is_not_a_host_name():
+    driver = _load("esp_check_cn", ESP / "esp_check.py")
+    for cn in ("a/O=b", "a+b", "", "x" * 65, "a\nb", "a b"):
+        with pytest.raises(driver.CheckError):
+            driver.make_certificate(cn)
+    assert driver.make_certificate("broker-1.local").startswith("-----BEGIN CERTIFICATE-----")
+
+
+def test_missing_openssl_is_an_internal_error_not_a_traceback(monkeypatch):
+    driver = _load("esp_check_noopenssl", ESP / "esp_check.py")
+    monkeypatch.setattr(driver.shutil, "which", lambda name: None)
+    with pytest.raises(driver.CheckError, match="openssl") as e:
+        driver.materialize({"tls": {"server_cert": "@generate"}})
+    assert e.value.hint == ""  # not the learner's fault: no lesson to re-read
+
+
+def test_a_tls_section_without_server_cert_is_refused():
+    driver = _load("esp_check_guard", ESP / "esp_check.py")
+    with pytest.raises(driver.CheckError, match="server_cert"):
+        driver.materialize({"tls": {"handshake_fail": []}})

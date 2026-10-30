@@ -88,7 +88,7 @@ MSG_SCENARIO = "erreur interne du TP (scénario refusé par le simulateur) : {er
 MSG_NO_END = "le programme s'est arrêté avant la fin de la simulation (code {rc})"
 MSG_STDERR = "\nSortie d'erreur du programme (extrait) :\n{err}"
 MSG_NO_OPENSSL = "le contrôle ne peut pas fabriquer le certificat de test (openssl : {cause})"
-MSG_INTERNAL ="erreur interne du contrôle ({cause})"
+MSG_INTERNAL = "erreur interne du contrôle ({cause})"
 HINT = " (relire : les « Pièges » de la leçon)"
 OK = "OK : le programme se comporte comme attendu dans le simulateur."
 
@@ -415,13 +415,15 @@ CERT_CN = "broker.local"
 
 
 def make_certificate(cn: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9.-]{1,64}", cn):  # goes into -subj /CN=...: no "/", "+" or control character
+        raise _not_learner(MSG_NO_OPENSSL.format(cause="server_cn invalide"))
     openssl = shutil.which("openssl")
     if openssl is None:
         raise _not_learner(MSG_NO_OPENSSL.format(cause="introuvable"))
     try:
         r = subprocess.run([openssl, "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes",
                             "-keyout", os.devnull, "-days", "2", "-subj", f"/CN={cn}"],
-                           capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
+                           capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError) as e:
         raise _not_learner(MSG_NO_OPENSSL.format(cause=type(e).__name__)) from None
     if r.returncode != 0 or "-----BEGIN CERTIFICATE-----" not in r.stdout:
@@ -432,6 +434,10 @@ def make_certificate(cn: str) -> str:
 def materialize(scenario: dict) -> dict:
     """The scenario to give the simulator: the certificate placeholder replaced by a generated certificate."""
     tls = scenario.get("tls")
+    # Every shipped TP that has a "tls" section must say "server_cert": GENERATE_CERT: without a server_cert the simulator
+    # trusts any well-formed certificate, so a TP would accept a wrong one.
+    if isinstance(tls, dict) and "server_cert" not in tls:
+        raise _not_learner(MSG_NO_OPENSSL.format(cause='section "tls" sans "server_cert": "@generate"'))
     if not isinstance(tls, dict) or tls.get("server_cert") != GENERATE_CERT:
         return scenario
     cn = tls.get("server_cn", CERT_CN)
@@ -440,10 +446,13 @@ def materialize(scenario: dict) -> dict:
 
 def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: str, cap: int) -> tuple[Trace, str]:
     sim = build.build_sim()
+    started = time.monotonic()
+    scenario = materialize(scenario)
+    wall_s -= time.monotonic() - started  # making the certificate counts in the time budget
     with tempfile.TemporaryDirectory(prefix="espcheck-") as d:
         work = Path(d)
         (work / SOURCE).write_bytes(source.encode("utf-8"))
-        (work / "scenario.json").write_text(json.dumps(materialize(scenario)), encoding="utf-8")
+        (work / "scenario.json").write_text(json.dumps(scenario), encoding="utf-8")
         try:
             r = sandbox.compile_and_run(["g++", *GXX_FLAGS, "-I", f"{sim}/include", SOURCE, f"{sim}/libespsim.a"],
                                         ["--max-ms", str(max_ms), "--scenario", "scenario.json"],

@@ -22,12 +22,14 @@
 //     handshake still fails on an untrusted or expired certificate, and the trace says "cn_skipped" whenever the
 //     flag is set, whether or not the name would have matched.
 //   - Errors as esp-tls reports them (esp_tls_last_esp_err, esp_tls_stack_err, esp_tls_cert_verify_flags):
-//       verification failed: ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED, MBEDTLS_ERR_X509_CERT_VERIFY_FAILED (-0x2700),
+//       verification failed: ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED, MBEDTLS_ERR_X509_CERT_VERIFY_FAILED (0x2700),
 //       flags BADCERT_EXPIRED 0x01 | BADCERT_CN_MISMATCH 0x04 | BADCERT_NOT_TRUSTED 0x08 (the mbedTLS values);
-//       server closes: ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED, MBEDTLS_ERR_SSL_CONN_EOF (-0x7280);
-//       unparsable certificate: ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED, MBEDTLS_ERR_PEM_NO_HEADER_FOOTER_PRESENT (-0x1080).
-//     The docs name the three fields and not these values: they are the mbedTLS constants esp-tls forwards
-//     (sign of esp_tls_stack_err: the mbedTLS return value, negative).
+//       server closes: ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED, MBEDTLS_ERR_SSL_CONN_EOF (0x7280);
+//       unparsable certificate (not PEM, or a PEM whose body is not a DER certificate):
+//       ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED, MBEDTLS_ERR_PEM_NO_HEADER_FOOTER_PRESENT (0x1080) for a text without
+//       PEM markers (a delimited but invalid body gets the same code here, a simplification).
+//     The docs name the three fields and not these values: esp_tls_mbedtls.c stores the mbedTLS return value negated
+//     (ESP_INT_EVENT_TRACKER_CAPTURE(..., -ret)), so esp_tls_stack_err is positive (esp-mqtt copies it).
 // Trace: "tls_handshake" {host, ok, verify}; verify = ok | cn_skipped | failed:no_verification | failed:parse |
 // failed:handshake | failed:not_trusted | failed:expired | failed:cn_mismatch (the first failing check).
 //
@@ -50,7 +52,7 @@ char _binary_server_cert_pem_start[8192];
 
 namespace {
 
-constexpr int kVerifyFailed = -0x2700, kConnEof = -0x7280, kPemNoHeader = -0x1080;
+constexpr int kVerifyFailed = 0x2700, kConnEof = 0x7280, kPemNoHeader = 0x1080;  // mbedTLS codes, as esp-tls stores them (-ret)
 constexpr int kBadExpired = 0x01, kBadCnMismatch = 0x04, kBadNotTrusted = 0x08;
 
 bool server_valid = true, public_ca = false;
@@ -63,9 +65,21 @@ std::string squash(const std::string &s) {
     return out;
 }
 
+// PEM markers around a base64 body that decodes to an ASN.1 SEQUENCE (0x30), what a DER certificate starts with.
 bool well_formed(const std::string &pem) {
-    size_t b = pem.find("-----BEGIN CERTIFICATE-----");
-    return b != std::string::npos && pem.find("-----END CERTIFICATE-----", b) != std::string::npos;
+    const std::string begin = "-----BEGIN CERTIFICATE-----";
+    size_t b = pem.find(begin);
+    size_t e = b == std::string::npos ? b : pem.find("-----END CERTIFICATE-----", b);
+    if (e == std::string::npos) return false;
+    std::string body = squash(pem.substr(b + begin.size(), e - b - begin.size()));
+    if (body.size() < 8 || body.size() % 4) return false;
+    int v[2] = {0, 0};
+    for (int i = 0; i < 2; ++i) {
+        const char *p = std::strchr("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/", body[i]);
+        if (!p || !body[i]) return false;
+        v[i] = static_cast<int>(p - "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+    }
+    return ((v[0] << 2) | (v[1] >> 4)) == 0x30;
 }
 
 }  // namespace

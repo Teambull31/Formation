@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+import shutil
 
 SIM = Path(__file__).resolve().parents[2] / "content" / "esp" / "sim"
 
@@ -1705,12 +1706,27 @@ BAD_CERT = "-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n"
 
 @pytest.fixture(scope="module")
 def cert_pem(tmp_path_factory):
+    if shutil.which("openssl") is None:
+        pytest.skip("openssl est introuvable : pas de certificat de test")
     """A throw-away self-signed certificate, made at test time (never stored in the repository)."""
     d = tmp_path_factory.mktemp("cert")
     subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes",
                     "-keyout", str(d / "k.pem"), "-out", str(d / "c.pem"), "-days", "2", "-subj", "/CN=broker.local"],
                    check=True, capture_output=True)
     return (d / "c.pem").read_text()
+
+
+@pytest.fixture(scope="module")
+def other_cert_pem(tmp_path_factory):
+    d = tmp_path_factory.mktemp("cert2")
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes",
+                    "-keyout", "/dev/null", "-out", str(d / "c.pem"), "-days", "2", "-subj", "/CN=elsewhere.local"],
+                   check=True, capture_output=True)
+    return (d / "c.pem").read_text()
+
+
+def c_str(pem):
+    return '"' + pem.replace("\n", "\\n") + '"'
 
 
 def tls_scenario(cert, tls=None, **extra):
@@ -1764,7 +1780,7 @@ def test_mqtts_refuses_unverified_when_cert_invalid(lib, tmp_path, cert_pem):
     assert "connected" not in msgs(trace, "m")
     # MQTT_ERROR_TYPE_ESP_TLS (1), ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED, MBEDTLS_ERR_X509_CERT_VERIFY_FAILED,
     # MBEDTLS_X509_BADCERT_EXPIRED
-    assert msgs(trace, "m") == ["error type=1 tls=0x801a stack=-9984 flags=0x1"]
+    assert msgs(trace, "m") == ["error type=1 tls=0x801a stack=9984 flags=0x1"]
     assert handshakes(trace) == [(False, "failed:expired")]
     assert [e["event"] for e in trace if e["ev"] == "mqtt"][-2:] == ["error", "disconnected"]
 
@@ -1775,12 +1791,15 @@ def test_mqtts_without_any_verification_option_fails_at_setup(lib, tmp_path, cer
     assert handshakes(trace)[0] == (False, "failed:no_verification")
 
 
-def test_mqtts_wrong_or_malformed_certificate_is_refused(lib, tmp_path, cert_pem):
-    other = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=f'"{BAD_CERT}"')
-    assert msgs(other, "m")[0] == "error type=1 tls=0x801a stack=-9984 flags=0x8"  # BADCERT_NOT_TRUSTED
+def test_mqtts_wrong_or_malformed_certificate_is_refused(lib, tmp_path, cert_pem, other_cert_pem):
+    other = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=c_str(other_cert_pem))  # a real certificate, not the broker's
+    assert msgs(other, "m")[0] == "error type=1 tls=0x801a stack=9984 flags=0x8"  # BADCERT_NOT_TRUSTED
     assert handshakes(other)[0] == (False, "failed:not_trusted")
+    delimited = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=f'"{BAD_CERT}"')  # PEM markers around garbage
+    assert msgs(delimited, "m")[0].startswith("error type=1 tls=0x8015 stack=4224")
+    assert handshakes(delimited)[0] == (False, "failed:parse")
     garbage = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert='"not a pem"')
-    assert msgs(garbage, "m")[0] == "error type=1 tls=0x8015 stack=-4224 flags=0x0"  # X509_CRT_PARSE_FAILED, PEM_NO_HEADER_FOOTER_PRESENT
+    assert msgs(garbage, "m")[0] == "error type=1 tls=0x8015 stack=4224 flags=0x0"  # X509_CRT_PARSE_FAILED, PEM_NO_HEADER_FOOTER_PRESENT (0x1080)
     assert handshakes(garbage)[0] == (False, "failed:parse")
 
 
@@ -1797,18 +1816,18 @@ def test_mqtts_public_ca_store_does_not_trust_a_private_broker(lib, tmp_path, ce
 def test_mqtts_common_name_is_checked(lib, tmp_path, cert_pem):
     sc = tls_scenario(cert_pem, {"server_cn": "other.local"})
     bad = mqtts_run(lib, tmp_path, sc)
-    assert msgs(bad, "m")[0] == "error type=1 tls=0x801a stack=-9984 flags=0x4"  # BADCERT_CN_MISMATCH
+    assert msgs(bad, "m")[0] == "error type=1 tls=0x801a stack=9984 flags=0x4"  # BADCERT_CN_MISMATCH
     assert handshakes(bad)[0] == (False, "failed:cn_mismatch")
     named = mqtts_run(lib, tmp_path, sc, cn='"other.local"')  # broker.verification.common_name replaces the host name
     assert msgs(named, "m") == ["connected"] and handshakes(named) == [(True, "ok")]
 
 
-def test_skip_cn_check_flagged_in_trace(lib, tmp_path, cert_pem):
+def test_skip_cn_check_flagged_in_trace(lib, tmp_path, cert_pem, other_cert_pem):
     trace = mqtts_run(lib, tmp_path, tls_scenario(cert_pem, {"server_cn": "other.local"}), skip="true")
     assert msgs(trace, "m") == ["connected"]  # it works...
     assert handshakes(trace) == [(True, "cn_skipped")]  # ...and the trace says the CN was not checked
     # skipping the CN does not skip the certificate: an untrusted certificate is still refused
-    still = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=f'"{BAD_CERT}"', skip="true")
+    still = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=c_str(other_cert_pem), skip="true")
     assert handshakes(still)[0] == (False, "failed:not_trusted")
     # the flag alone is traced, even when the CN would have matched
     plain = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), skip="true")
@@ -1819,7 +1838,7 @@ def test_mqtts_handshake_fail_window_then_connects(lib, tmp_path, cert_pem):
     sc = tls_scenario(cert_pem, {"handshake_fail": [{"from_ms": 0, "to_ms": 500}]})
     trace = mqtts_run(lib, tmp_path, sc, max_ms=15000)
     # MBEDTLS_ERR_SSL_CONN_EOF (-0x7280): the server closes during the handshake; the retry comes 10 s later
-    assert msgs(trace, "m") == ["error type=1 tls=0x801a stack=-29312 flags=0x0", "connected"]
+    assert msgs(trace, "m") == ["error type=1 tls=0x801a stack=29312 flags=0x0", "connected"]
     assert handshakes(trace) == [(False, "failed:handshake"), (True, "ok")]
 
 
@@ -1891,10 +1910,10 @@ def update_main(mark=""):
 def test_ota_valid_image_reboots(lib, tmp_path, cert_pem):
     mark = 'report("early"); ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback()); report("marked");'
     trace = ota_run(lib, tmp_path, update_main(mark), ota_scenario(cert_pem, [image()]))
-    assert msgs(trace, "boot") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)",
+    assert msgs(trace, "boot") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)",
                                    f"slot=ota_1 version=1.1.0 state={PENDING} (ESP_OK)"]
     assert msgs(trace, "ota") == ["ESP_OK"]
-    assert msgs(trace, "after") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"]  # still running the old one
+    assert msgs(trace, "after") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)"]  # still running the old one
     assert msgs(trace, "early") == [f"slot=ota_1 version=1.1.0 state={PENDING} (ESP_OK)"]
     assert msgs(trace, "marked") == [f"slot=ota_1 version=1.1.0 state={VALID} (ESP_OK)"]
     begin = next(e for e in trace if e["ev"] == "ota_begin")
@@ -1912,8 +1931,8 @@ def test_ota_corrupt_returns_validate_failed(lib, tmp_path, cert_pem):
     end = next(e for e in trace if e["ev"] == "ota_end")
     assert end["ok"] is False and end["err"] == "ESP_ERR_OTA_VALIDATE_FAILED"
     # the current slot is intact before and after the restart: the boot partition did not change
-    assert msgs(trace, "after") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"]
-    assert msgs(trace, "boot")[-1] == f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"
+    assert msgs(trace, "after") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)"]
+    assert msgs(trace, "boot")[-1] == f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)"
     assert len(msgs(trace, "boot")) == 2
 
 
@@ -1923,7 +1942,7 @@ def test_ota_dropped_connection_keeps_running_slot(lib, tmp_path, cert_pem):
     begin = next(e for e in trace if e["ev"] == "ota_begin")
     end = next(e for e in trace if e["ev"] == "ota_end")
     assert end["ok"] is False and end["err"] == "ESP_FAIL" and end["t_ms"] - begin["t_ms"] == 100 + 40 * 20
-    assert msgs(trace, "boot")[-1] == f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"
+    assert msgs(trace, "boot")[-1] == f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)"
     assert not [e for e in trace if e["ev"] == "rollback"]
 
 
@@ -1946,9 +1965,9 @@ extern "C" void app_main(void) {
 }
 """
     trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image()]))
-    assert msgs(trace, "boot") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)",
+    assert msgs(trace, "boot") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)",
                                    f"slot=ota_1 version=1.1.0 state={PENDING} (ESP_OK)",
-                                   f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"]
+                                   f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_ERR_NOT_FOUND)"]
     rb = [e for e in trace if e["ev"] == "rollback"]
     assert len(rb) == 1 and rb[0]["why"] == "not_validated" and rb[0]["from"] == "1.1.0" and rb[0]["to"] == "1.0.0"
     assert [e["reason"] for e in trace if e["ev"] == "reboot"] == ["sw", "sw"]
@@ -2021,22 +2040,25 @@ extern "C" void app_main(void) {
     esp_http_client_config_t http = {};
     cfg.http_config = &http;
     R(esp_https_ota(&cfg));                                    // no url
-    http.url = "http://fw.local/app.bin";
+    http.url = FW_URL;
+    R(esp_https_ota(&cfg));                                    // no verification option at all: refused before connecting
+    http.skip_cert_common_name_check = true;
+    R(esp_https_ota(&cfg));                                    // only the CN skip: accepted by the check, TLS cannot be set up
+    http.skip_cert_common_name_check = false;
+    http.cert_pem = "-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n";
+    R(esp_https_ota(&cfg));                                    // certificate that does not parse
     http.cert_pem = _binary_server_cert_pem_start;
-    R(esp_https_ota(&cfg));                                    // plain http refused
     http.url = "https://fw.local/missing.bin";
     R(esp_https_ota(&cfg));                                    // 404
     http.url = FW_URL;
-    http.cert_pem = NULL;
-    R(esp_https_ota(&cfg));                                    // no verification option
-    http.cert_pem = _binary_server_cert_pem_start;
     ESP_LOGI("r", "possible=%d", (int)esp_ota_check_rollback_is_possible());
     R(esp_ota_mark_app_invalid_rollback_and_reboot());         // nothing to go back to
-    R(esp_ota_mark_app_valid_cancel_rollback());               // already confirmed: ok
+    R(esp_ota_mark_app_valid_cancel_rollback());               // flashed by cable: "Running firmware is factory"
     R(esp_ota_get_state_partition(NULL, NULL));
     esp_ota_img_states_t st;
     R(esp_ota_get_state_partition(esp_ota_get_running_partition(), NULL));
-    R(esp_ota_get_state_partition((const esp_partition_t *)&st, &st));
+    R(esp_ota_get_state_partition((const esp_partition_t *)&st, &st));   // not an OTA slot
+    R(esp_ota_get_state_partition(esp_ota_get_running_partition(), &st)); // no otadata entry yet
     ESP_LOGI("r", "invalid=%d", esp_ota_get_last_invalid_partition() == NULL);
     R(esp_https_ota(&cfg));
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -2044,10 +2066,42 @@ extern "C" void app_main(void) {
 """
     trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image()]), 10000)
     assert msgs(trace, "r") == [
-        "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_FAIL", "ESP_FAIL",
-        "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED", "ESP_OK", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_NOT_FOUND",
-        "invalid=1", "ESP_OK"]
-    assert [(e["ok"], e["err"]) for e in trace if e["ev"] == "ota_end"][:2] == [(False, "ESP_FAIL"), (False, "ESP_FAIL")]
+        "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_HTTP_CONNECT",
+        "ESP_ERR_HTTP_CONNECT", "ESP_FAIL", "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED", "ESP_FAIL", "ESP_ERR_INVALID_ARG",
+        "ESP_ERR_INVALID_ARG", "ESP_ERR_NOT_SUPPORTED", "ESP_ERR_NOT_FOUND", "invalid=1", "ESP_OK"]
+    # the refused calls (invalid arguments, no verification option) left no trace: only the connections that were tried
+    assert [e["err"] for e in trace if e["ev"] == "ota_end"] == ["ESP_ERR_HTTP_CONNECT", "ESP_ERR_HTTP_CONNECT", "ESP_FAIL", "ESP_OK"]
+    assert handshakes(trace)[0] == (False, "failed:no_verification") and handshakes(trace)[1] == (False, "failed:parse")
+
+
+def test_ota_over_http_is_fetched_in_clear_and_flagged(lib, tmp_path, cert_pem):
+    # esp_https_ota never reads the scheme: with a cert_pem an http:// URL downloads, unencrypted; the trace says so
+    main = """
+extern "C" void app_main(void) {
+    ESP_LOGI("r", "%s", esp_err_to_name(fetch("http://fw.local/app.bin")));
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image(url="http://fw.local/app.bin")]))
+    assert msgs(trace, "r") == ["ESP_OK"] and handshakes(trace) == []
+    assert [e["cleartext"] for e in trace if e["ev"] == "ota_begin"] == [True]
+    secure = ota_run(lib, tmp_path, main.replace("http://fw.local/app.bin", "https://fw.local/app.bin"), ota_scenario(cert_pem, [image()]))
+    assert [e["cleartext"] for e in secure if e["ev"] == "ota_begin"] == [False] and handshakes(secure) == [(True, "ok")]
+
+
+def test_ota_without_wifi_ip_is_a_connection_error(lib, tmp_path, cert_pem):
+    main = 'extern "C" void app_main(void) { wifi_up(); ESP_LOGI("r", "%s", esp_err_to_name(fetch(FW_URL))); vTaskDelay(pdMS_TO_TICKS(100)); }\n'
+    sc = json.loads(ota_scenario(cert_pem, [image()]))
+    sc["wifi"] = {"up_from_ms": 5000}
+    trace = compile_and_run(SYS + OTA_HEADERS + WIFI_APP + OTA_APP + main, 3000, lib, tmp_path, json.dumps(sc))
+    assert msgs(trace, "r") == ["ESP_ERR_HTTP_CONNECT"]
+
+
+def test_ota_mark_valid_on_an_image_with_otadata_confirms_it(lib, tmp_path, cert_pem):
+    # the state read works once the OTA process chose the slot, and a second confirmation is harmless
+    mark = "ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback()); ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback()); report(\"marked\");"
+    trace = ota_run(lib, tmp_path, update_main(mark), ota_scenario(cert_pem, [image()]))
+    assert msgs(trace, "marked") == [f"slot=ota_1 version=1.1.0 state={VALID} (ESP_OK)"]
 
 
 def test_ota_refused_while_new_image_is_unconfirmed(lib, tmp_path, cert_pem):
@@ -2123,6 +2177,7 @@ def test_new_ota_tls_fields_are_known_to_the_trace_reader():
     lines = [
         '{"t_ms": 1, "ev": "tls_handshake", "host": "h", "ok": true, "verify": "ok"}',
         '{"t_ms": 1, "ev": "tls_handshake", "host": "h", "ok": 1, "verify": "ok"}',
+        '{"t_ms": 2, "ev": "ota_begin", "url": "u", "cleartext": false}',
         '{"t_ms": 2, "ev": "ota_begin", "url": "u"}',
         '{"t_ms": 3, "ev": "ota_end", "url": "u", "ok": false, "err": "ESP_FAIL"}',
         '{"t_ms": 3, "ev": "ota_end", "url": "u", "ok": "no", "err": "ESP_FAIL"}',
@@ -2133,7 +2188,7 @@ def test_new_ota_tls_fields_are_known_to_the_trace_reader():
     ]
     t = esp_trace.Trace("\n".join(lines))
     assert [len(t.events(n)) for n in ("tls_handshake", "ota_begin", "ota_end", "ota_mark", "rollback")] == [1, 1, 1, 1, 1]
-    assert t.bad_lines == 4
+    assert t.bad_lines == 5
 
 
 @pytest.mark.parametrize("scenario", [
