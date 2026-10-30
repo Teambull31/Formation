@@ -1821,3 +1821,50 @@ def test_es9_reconnection_instant_matches_the_simulator_constants():
     assert connected == 110_600, connected
     for path in (ES9.parent / "es9.md", ES9 / "tp.json", ESP / "checks" / "es9-tp.py"):
         assert "110,6 s" in path.read_text(encoding="utf-8"), path
+
+
+# ---- Task 19: the test certificate is made at run time by the driver ----
+
+TLS_CLIENT = '#include "esp_log.h"\n#include "mqtt_client.h"\n#include "freertos/FreeRTOS.h"\n#include "freertos/task.h"\n' + r'''
+extern "C" const char _binary_server_cert_pem_start[];
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtts://broker.local";
+    cfg.broker.verification.certificate = %s;
+    esp_mqtt_client_handle_t c = esp_mqtt_client_init(&cfg);
+    esp_mqtt_client_start(c);
+    vTaskDelay(pdMS_TO_TICKS(1500));
+}
+'''
+
+
+def test_generated_certificate_reaches_the_simulator_and_the_program(tmp_path, bwrap_ok):
+    code, out = run(tmp_path, TLS_CLIENT % "_binary_server_cert_pem_start", tp="_selftest_tls")
+    assert code == 0 and out.startswith("OK"), out
+    code, out = run(tmp_path, TLS_CLIENT % "NULL", tp="_selftest_tls")  # no verification option: refused at setup
+    assert failed(code, out) and "poignée de main TLS" in out, out
+    code, out = run(tmp_path, TLS_CLIENT % '"-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n"', tp="_selftest_tls")
+    assert failed(code, out) and "poignée de main TLS" in out, out  # another certificate than the broker's
+
+
+def test_materialize_makes_a_fresh_public_certificate_only():
+    driver = _load("esp_check_materialize", ESP / "esp_check.py")
+    base = {"tls": {"server_cert": "@generate", "server_cn": "mqtt.local", "public_ca": False}, "mqtt": {}}
+    a, b = driver.materialize(base), driver.materialize(base)
+    assert base["tls"]["server_cert"] == "@generate"  # the check module's own dict is left alone
+    for s in (a, b):
+        pem = s["tls"]["server_cert"]
+        assert pem.startswith("-----BEGIN CERTIFICATE-----") and "PRIVATE" not in pem and s["tls"]["server_cn"] == "mqtt.local"
+        assert s["mqtt"] == {} and s["tls"]["public_ca"] is False
+    assert a["tls"]["server_cert"] != b["tls"]["server_cert"]  # fresh at each run
+    assert driver.materialize({"tls": {"server_cert": "x"}}) == {"tls": {"server_cert": "x"}}
+    assert driver.materialize({}) == {}
+    assert driver.materialize({"tls": {"server_cert": "@generate"}})["tls"]["server_cn"] == "broker.local"
+
+
+def test_no_certificate_or_key_is_stored_in_content():
+    stored = [p for p in ESP.rglob("*") if p.is_file() and p.suffix in {".pem", ".key", ".crt", ".cer", ".der", ".p12"}]
+    assert not stored
+    for p in ESP.rglob("*"):
+        if p.is_file() and "__pycache__" not in p.parts and p.suffix in {".py", ".json", ".h", ".cpp", ".md"}:
+            assert "PRIVATE KEY-----\n" not in p.read_text(encoding="utf-8", errors="replace"), p

@@ -6,3 +6,7 @@
 
 #define CONFIG_ESP_WIFI_SSID "reseau-exemple"
 #define CONFIG_ESP_WIFI_PASSWORD "exemple-motdepasse"
+
+/* The bootloader rolls an OTA image back when it was not confirmed before the next reset (see esp_ota_ops.h).
+ * Always on in the simulator. */
+#define CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE 1

@@ -26,7 +26,14 @@
 // read past their end, as on the board. Use topic_len / data_len (strncmp, "%.*s", cJSON_ParseWithLength).
 // topic and data are NULL (lengths 0) for the other events.
 //
-// Simplifications: one broker, no keep-alive, no authentication or TLS, no Last Will delivery (the will of
+// TLS (mqtts://, or transport MQTT_TRANSPORT_OVER_SSL without a scheme; wss:// is taken for mqtts, WebSocket framing
+// is not simulated): after the TCP checks above, the handshake of tls.cpp decides; a failure is MQTT_EVENT_ERROR with
+// error_type MQTT_ERROR_TYPE_ESP_TLS (an alias of MQTT_ERROR_TYPE_TCP_TRANSPORT in esp-mqtt) and the esp_tls_* fields
+// of esp_mqtt_error_codes_t, then MQTT_EVENT_DISCONNECTED. The certificate pointer is copied at init (the real client
+// keeps the pointer: the application must keep the buffer alive). Trace: "error" then carries error_type,
+// esp_tls_last_esp_err, esp_tls_stack_err and esp_tls_cert_verify_flags, and "tls_handshake" is traced by tls.cpp.
+//
+// Simplifications: one broker, no keep-alive, no authentication, no Last Will delivery (the will of
 // the configuration is traced with "connected" as lwt_topic, lwt_msg, lwt_retain and lwt_qos), no retained-message store (a retained publish
 // is only traced), no MQTT_EVENT_DISCONNECTED on esp_mqtt_client_stop, no fragmented DATA events, no outbox
 // limit, QoS 1/2 handshakes reduced to one MQTT_EVENT_PUBLISHED, the subscription qos in a DATA event is the
@@ -55,6 +62,8 @@ struct Ev {
     bool retain = false;
     int session_present = 0;
     int error_type = 0, sock_errno = 0;
+    esp_err_t tls_err = 0;
+    int tls_stack_err = 0, tls_flags = 0;
 };
 
 struct Handler {
@@ -79,6 +88,8 @@ struct esp_mqtt_client {
     int reconnect_ms = kDefaultReconnectMs;
     bool auto_reconnect = true, clean = true;
     bool started = false, connected = false, destroyed = false, had_session = false;
+    bool tls = false;  // mqtts:// or wss://, or transport OVER_SSL/OVER_WSS without a scheme
+    sim::TlsPeer peer;
     uint64_t gen = 0;  // timers of an earlier start/stop cycle die when it changes
     std::vector<Handler> handlers;
     std::deque<Ev> events;
@@ -153,6 +164,9 @@ void emit(esp_mqtt_client *c, Ev ev) {
         t.str("topic", sim::utf8(ev.topic));
     } else if (ev.id == MQTT_EVENT_ERROR) {
         t.num("sock_errno", ev.sock_errno);
+        if (ev.error_type == MQTT_ERROR_TYPE_ESP_TLS && ev.tls_err)
+            t.num("error_type", ev.error_type).num("esp_tls_last_esp_err", ev.tls_err).num("esp_tls_stack_err", ev.tls_stack_err)
+                .num("esp_tls_cert_verify_flags", ev.tls_flags);
     }
     if (!c->task) return;  // stopped: nobody to deliver to
     c->events.push_back(std::move(ev));
@@ -163,6 +177,9 @@ void dispatch(esp_mqtt_client *c, Ev &ev) {
     esp_mqtt_error_codes_t err = {};
     err.error_type = static_cast<esp_mqtt_error_type_t>(ev.error_type);
     err.esp_transport_sock_errno = ev.sock_errno;
+    err.esp_tls_last_esp_err = ev.tls_err;
+    err.esp_tls_stack_err = ev.tls_stack_err;
+    err.esp_tls_cert_verify_flags = ev.tls_flags;
     esp_mqtt_event_t e = {};
     e.event_id = static_cast<esp_mqtt_event_id_t>(ev.id);
     e.client = c;
@@ -213,16 +230,35 @@ void schedule_retry(esp_mqtt_client *c) {
     sim::at(sim::now_ms() + c->reconnect_ms, [c, gen] { if (gen == c->gen && c->started && !c->connected) begin_attempt(c); });
 }
 
+// A failed attempt: MQTT_EVENT_ERROR, then MQTT_EVENT_DISCONNECTED (esp-mqtt v5.5.3: esp_mqtt_abort_connection posts it
+// after a failed attempt too), then the next attempt.
+void abort_attempt(esp_mqtt_client *c, Ev error) {
+    emit(c, std::move(error));
+    emit(c, Ev{MQTT_EVENT_DISCONNECTED});
+    schedule_retry(c);
+}
+
 void finish_attempt(esp_mqtt_client *c, uint64_t gen) {
     if (gen != c->gen || !c->started || c->connected) return;
-    if (!network_ok() || !broker_up(sim::now_ms())) {
+    // A PENDING_VERIFY image whose self-test fails (scenario "boot") cannot reach the broker.
+    if (!network_ok() || !broker_up(sim::now_ms()) || sim::ota_self_test_broken()) {
         Ev ev{MQTT_EVENT_ERROR};
         ev.error_type = MQTT_ERROR_TYPE_TCP_TRANSPORT;
         ev.sock_errno = network_ok() ? ECONNREFUSED : EHOSTUNREACH;
-        emit(c, std::move(ev));
-        emit(c, Ev{MQTT_EVENT_DISCONNECTED});  // esp-mqtt (v5.5.3): esp_mqtt_abort_connection posts it after a failed attempt too
-        schedule_retry(c);
+        abort_attempt(c, std::move(ev));
         return;
+    }
+    if (c->tls) {
+        sim::TlsResult r = sim::tls_handshake(c->peer, c->hostname.empty() ? sim::uri_host(c->uri) : c->hostname);
+        if (!r.ok) {
+            Ev ev{MQTT_EVENT_ERROR};
+            ev.error_type = MQTT_ERROR_TYPE_ESP_TLS;
+            ev.tls_err = r.err;
+            ev.tls_stack_err = r.stack_err;
+            ev.tls_flags = r.flags;
+            abort_attempt(c, std::move(ev));
+            return;
+        }
     }
     c->connected = true;
     Ev ev{MQTT_EVENT_CONNECTED};
@@ -336,6 +372,12 @@ esp_mqtt_client_handle_t esp_mqtt_client_init(const esp_mqtt_client_config_t *co
     }
     if (config->network.reconnect_timeout_ms > 0) c->reconnect_ms = config->network.reconnect_timeout_ms;
     c->auto_reconnect = !config->network.disable_auto_reconnect;
+    const auto &tls = config->broker.verification;
+    const auto &addr = config->broker.address;
+    c->tls = addr.uri ? c->uri.compare(0, 8, "mqtts://") == 0 || c->uri.compare(0, 6, "wss://") == 0
+                      : addr.transport == MQTT_TRANSPORT_OVER_SSL || addr.transport == MQTT_TRANSPORT_OVER_WSS;
+    c->peer = sim::tls_peer(tls.certificate, tls.certificate_len, tls.crt_bundle_attach != nullptr, tls.use_global_ca_store,
+                            tls.skip_cert_common_name_check, tls.common_name);
     c->clean = !config->session.disable_clean_session;
     clients.push_back(std::move(c));
     return clients.back().get();

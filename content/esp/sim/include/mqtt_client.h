@@ -1,5 +1,6 @@
-/* Fake ESP-IDF v5.x: mqtt_client.h (esp-mqtt, subset). Reduced: no TLS fields (broker.verification and
- * the certificate/key credentials), no MQTT 5 properties, no esp_mqtt_client_subscribe_multiple/enqueue. */
+/* Fake ESP-IDF v5.x: mqtt_client.h (esp-mqtt, subset). Reduced: broker.verification is complete except for the
+ * PSK and the cipher-suite list in use, but there are no client certificate/key credentials, no MQTT 5
+ * properties, no esp_mqtt_client_subscribe_multiple/enqueue. */
 #pragma once
 
 #include <stdbool.h>
@@ -53,6 +54,8 @@ typedef enum {
     MQTT_ERROR_TYPE_SUBSCRIBE_FAILED
 } esp_mqtt_error_type_t;
 
+#define MQTT_ERROR_TYPE_ESP_TLS MQTT_ERROR_TYPE_TCP_TRANSPORT
+
 typedef enum {
     MQTT_CONNECTION_ACCEPTED = 0,
     MQTT_CONNECTION_REFUSE_PROTOCOL,
@@ -100,6 +103,17 @@ typedef struct esp_mqtt_client_config_t {
             const char *path;
             uint32_t port;
         } address;
+        struct verification_t {
+            bool use_global_ca_store;
+            esp_err_t (*crt_bundle_attach)(void *conf);
+            const char *certificate;
+            size_t certificate_len;
+            const struct psk_key_hint *psk_hint_key;
+            bool skip_cert_common_name_check;
+            const char **alpn_protos;
+            const char *common_name;
+            const int *ciphersuites_list;
+        } verification;
     } broker;
     struct credentials_t {
         const char *username;

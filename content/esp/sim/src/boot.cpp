@@ -5,7 +5,8 @@
 // survives is handed over through a memfd (inherited across exec, read once by the next boot):
 //   - the run clock (the trace keeps absolute times; xTaskGetTickCount and esp_timer_get_time restart at 0),
 //   - the reset reason and the index of the next scripted restart,
-//   - the committed NVS content (uncommitted writes are lost), the tank level, the Wi-Fi attempt counter.
+//   - the committed NVS content (uncommitted writes are lost), the tank level, the Wi-Fi attempt counter, the OTA
+//     slots (boot slot, version and image state of each: the flash, see ota.cpp).
 // The scenario is parsed again by the new process. Trace event: "reboot" (reason sw | task_wdt | scripted).
 // Reset reasons: esp_restart gives ESP_RST_SW, the task watchdog with trigger_panic ESP_RST_TASK_WDT, a
 // scripted restart (a power cycle) and the first boot ESP_RST_POWERON.
@@ -94,6 +95,7 @@ int64_t boot_restore() {
         else if (key == "boot.count") in >> reboots;
         else if (key == "plant") plant_restore(in);
         else if (key == "wifi") wifi_restore(in);
+        else if (key == "ota") ota_restore(in);
         else if (key.compare(0, 4, "nvs.") == 0) nvs_restore(key, in);
     }
     return start;
@@ -101,6 +103,7 @@ int64_t boot_restore() {
 
 void boot_begin() {
     if (next_scripted < scripted.size()) at(scripted[next_scripted], [] { reboot("scripted"); });
+    ota_boot();
     wifi_boot();
     mqtt_boot();
 }
@@ -117,6 +120,7 @@ void reboot(const char *why) {
     out << "boot.ms " << now << "\nboot.reason " << next_reason << "\nboot.next " << next_scripted << "\nboot.streak " << next_streak << "\nboot.count " << reboots + 1 << "\n";
     plant_save(out);
     wifi_save(out);
+    ota_save(out);
     nvs_save(out);
     std::string state = out.str();
     int fd = ::memfd_create("espsim", 0);

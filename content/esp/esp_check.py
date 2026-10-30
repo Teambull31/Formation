@@ -17,7 +17,9 @@ import json
 import os
 import re
 import signal
+import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import time
@@ -85,7 +87,8 @@ MSG_TIMEOUT = "le programme a dépassé le temps d'exécution autorisé"
 MSG_SCENARIO = "erreur interne du TP (scénario refusé par le simulateur) : {err}"
 MSG_NO_END = "le programme s'est arrêté avant la fin de la simulation (code {rc})"
 MSG_STDERR = "\nSortie d'erreur du programme (extrait) :\n{err}"
-MSG_INTERNAL = "erreur interne du contrôle ({cause})"
+MSG_NO_OPENSSL = "le contrôle ne peut pas fabriquer le certificat de test (openssl : {cause})"
+MSG_INTERNAL ="erreur interne du contrôle ({cause})"
 HINT = " (relire : les « Pièges » de la leçon)"
 OK = "OK : le programme se comporte comme attendu dans le simulateur."
 
@@ -403,12 +406,44 @@ def run_program(source: str, check) -> tuple[Trace | dict[str, Trace], str]:
     return traces, ""
 
 
+# A scenario's "tls": {"server_cert": GENERATE_CERT} is replaced by a fresh self-signed certificate (PEM) at each run:
+# made here, on the host, never inside the sandbox (which gets no new right), and never stored in content/. The private
+# key goes to /dev/null: the simulator only compares certificates, so nothing ever needs the key. The common name is
+# "server_cn" (default CERT_CN) and is written back into the scenario, so the simulator and the certificate agree.
+GENERATE_CERT = "@generate"
+CERT_CN = "broker.local"
+
+
+def make_certificate(cn: str) -> str:
+    openssl = shutil.which("openssl")
+    if openssl is None:
+        raise _not_learner(MSG_NO_OPENSSL.format(cause="introuvable"))
+    try:
+        r = subprocess.run([openssl, "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes",
+                            "-keyout", os.devnull, "-days", "2", "-subj", f"/CN={cn}"],
+                           capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise _not_learner(MSG_NO_OPENSSL.format(cause=type(e).__name__)) from None
+    if r.returncode != 0 or "-----BEGIN CERTIFICATE-----" not in r.stdout:
+        raise _not_learner(MSG_NO_OPENSSL.format(cause=f"code {r.returncode}"))
+    return r.stdout
+
+
+def materialize(scenario: dict) -> dict:
+    """The scenario to give the simulator: the certificate placeholder replaced by a generated certificate."""
+    tls = scenario.get("tls")
+    if not isinstance(tls, dict) or tls.get("server_cert") != GENERATE_CERT:
+        return scenario
+    cn = tls.get("server_cn", CERT_CN)
+    return {**scenario, "tls": {**tls, "server_cert": make_certificate(cn), "server_cn": cn}}
+
+
 def _run_once(source: str, scenario: dict, max_ms: int, wall_s: float, label: str, cap: int) -> tuple[Trace, str]:
     sim = build.build_sim()
     with tempfile.TemporaryDirectory(prefix="espcheck-") as d:
         work = Path(d)
         (work / SOURCE).write_bytes(source.encode("utf-8"))
-        (work / "scenario.json").write_text(json.dumps(scenario), encoding="utf-8")
+        (work / "scenario.json").write_text(json.dumps(materialize(scenario)), encoding="utf-8")
         try:
             r = sandbox.compile_and_run(["g++", *GXX_FLAGS, "-I", f"{sim}/include", SOURCE, f"{sim}/libespsim.a"],
                                         ["--max-ms", str(max_ms), "--scenario", "scenario.json"],

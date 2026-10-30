@@ -33,6 +33,11 @@ FIELDS = {
     "mqtt_subscribe": {"topic": str, "qos": int},
     "wdt_reset": {"tasks": str, "panic": bool},  # task watchdog expiry; "tasks" = the names that did not reset it
     "reboot": {"reason": str},  # sw | task_wdt | scripted; the program starts again from app_main
+    "tls_handshake": {"host": str, "ok": bool, "verify": str},  # mqtts:// or https:// handshake; verify = ok | cn_skipped (skip_cert_common_name_check set) | failed:<no_verification|parse|handshake|not_trusted|expired|cn_mismatch>
+    "ota_begin": {"url": str},  # esp_https_ota started (arguments valid)
+    "ota_end": {"url": str, "ok": bool, "err": str},  # err = esp_err_to_name of the result (ESP_OK, ESP_FAIL, ESP_ERR_OTA_VALIDATE_FAILED, ...)
+    "ota_mark": {"valid": bool},  # esp_ota_mark_app_valid_cancel_rollback (True) / esp_ota_mark_app_invalid_rollback_and_reboot (False)
+    "rollback": {"why": str, "from": str, "to": str},  # why = not_validated (reset while PENDING_VERIFY) | marked_invalid; versions of the slots
     "end": {"reason": str},
 }
 

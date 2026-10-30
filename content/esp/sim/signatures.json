@@ -1706,5 +1706,467 @@
     "decl": "void vEventGroupDelete( EventGroupHandle_t xEventGroup );",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
     "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_BASE",
+    "decl": "#define ESP_ERR_ESP_TLS_BASE 0x8000",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_CANNOT_RESOLVE_HOSTNAME",
+    "decl": "#define ESP_ERR_ESP_TLS_CANNOT_RESOLVE_HOSTNAME (ESP_ERR_ESP_TLS_BASE + 0x01)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_CANNOT_CREATE_SOCKET",
+    "decl": "#define ESP_ERR_ESP_TLS_CANNOT_CREATE_SOCKET (ESP_ERR_ESP_TLS_BASE + 0x02)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_UNSUPPORTED_PROTOCOL_FAMILY",
+    "decl": "#define ESP_ERR_ESP_TLS_UNSUPPORTED_PROTOCOL_FAMILY (ESP_ERR_ESP_TLS_BASE + 0x03)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_FAILED_CONNECT_TO_HOST",
+    "decl": "#define ESP_ERR_ESP_TLS_FAILED_CONNECT_TO_HOST (ESP_ERR_ESP_TLS_BASE + 0x04)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_SOCKET_SETOPT_FAILED",
+    "decl": "#define ESP_ERR_ESP_TLS_SOCKET_SETOPT_FAILED (ESP_ERR_ESP_TLS_BASE + 0x05)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_CONNECTION_TIMEOUT",
+    "decl": "#define ESP_ERR_ESP_TLS_CONNECTION_TIMEOUT (ESP_ERR_ESP_TLS_BASE + 0x06)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_SE_FAILED",
+    "decl": "#define ESP_ERR_ESP_TLS_SE_FAILED (ESP_ERR_ESP_TLS_BASE + 0x07)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_TCP_CLOSED_FIN",
+    "decl": "#define ESP_ERR_ESP_TLS_TCP_CLOSED_FIN (ESP_ERR_ESP_TLS_BASE + 0x08)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_ESP_TLS_SERVER_HANDSHAKE_TIMEOUT",
+    "decl": "#define ESP_ERR_ESP_TLS_SERVER_HANDSHAKE_TIMEOUT (ESP_ERR_ESP_TLS_BASE + 0x09)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_CERT_PARTLY_OK",
+    "decl": "#define ESP_ERR_MBEDTLS_CERT_PARTLY_OK (ESP_ERR_ESP_TLS_BASE + 0x10)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_CTR_DRBG_SEED_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_CTR_DRBG_SEED_FAILED (ESP_ERR_ESP_TLS_BASE + 0x11)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_SET_HOSTNAME_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_SET_HOSTNAME_FAILED (ESP_ERR_ESP_TLS_BASE + 0x12)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_CONFIG_DEFAULTS_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_CONFIG_DEFAULTS_FAILED (ESP_ERR_ESP_TLS_BASE + 0x13)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_CONF_ALPN_PROTOCOLS_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_CONF_ALPN_PROTOCOLS_FAILED (ESP_ERR_ESP_TLS_BASE + 0x14)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED (ESP_ERR_ESP_TLS_BASE + 0x15)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_CONF_OWN_CERT_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_CONF_OWN_CERT_FAILED (ESP_ERR_ESP_TLS_BASE + 0x16)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_SETUP_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_SETUP_FAILED (ESP_ERR_ESP_TLS_BASE + 0x17)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_WRITE_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_WRITE_FAILED (ESP_ERR_ESP_TLS_BASE + 0x18)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_PK_PARSE_KEY_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_PK_PARSE_KEY_FAILED (ESP_ERR_ESP_TLS_BASE + 0x19)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED (ESP_ERR_ESP_TLS_BASE + 0x1A)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_CONF_PSK_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_CONF_PSK_FAILED (ESP_ERR_ESP_TLS_BASE + 0x1B)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_TICKET_SETUP_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_TICKET_SETUP_FAILED (ESP_ERR_ESP_TLS_BASE + 0x1C)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "ESP_ERR_MBEDTLS_SSL_READ_FAILED",
+    "decl": "#define ESP_ERR_MBEDTLS_SSL_READ_FAILED (ESP_ERR_ESP_TLS_BASE + 0x1D)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "esp_tls_error_type_t",
+    "decl": "typedef enum {\n    ESP_TLS_ERR_TYPE_UNKNOWN = 0,\n    ESP_TLS_ERR_TYPE_SYSTEM,\n    ESP_TLS_ERR_TYPE_MBEDTLS,\n    ESP_TLS_ERR_TYPE_MBEDTLS_CERT_FLAGS,\n    ESP_TLS_ERR_TYPE_ESP,\n    ESP_TLS_ERR_TYPE_WOLFSSL,\n    ESP_TLS_ERR_TYPE_WOLFSSL_CERT_FLAGS,\n    ESP_TLS_ERR_TYPE_MAX,\n} esp_tls_error_type_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_tls_errors.h",
+    "name": "esp_tls_last_error_t",
+    "decl": "typedef struct esp_tls_last_error {\n    esp_err_t last_error;\n    int esp_tls_error_code;\n    int esp_tls_flags;\n} esp_tls_last_error_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_tls.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_crt_bundle.h",
+    "name": "esp_crt_bundle_attach",
+    "decl": "esp_err_t esp_crt_bundle_attach(void *conf);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_crt_bundle.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_flash.h",
+    "name": "esp_flash_t",
+    "decl": "typedef struct esp_flash_t esp_flash_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/spi_flash/index.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_partition.h",
+    "name": "esp_partition_type_t",
+    "decl": "typedef enum {\n    ESP_PARTITION_TYPE_APP = 0x00,\n    ESP_PARTITION_TYPE_DATA = 0x01,\n    ESP_PARTITION_TYPE_BOOTLOADER = 0x02,\n    ESP_PARTITION_TYPE_PARTITION_TABLE = 0x03,\n    ESP_PARTITION_TYPE_ANY = 0xff,\n} esp_partition_type_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/partition.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_partition.h",
+    "name": "esp_partition_t",
+    "decl": "typedef struct {\n    esp_flash_t *flash_chip;\n    esp_partition_type_t type;\n    esp_partition_subtype_t subtype;\n    uint32_t address;\n    uint32_t size;\n    uint32_t erase_size;\n    char label[17];\n    bool encrypted;\n    bool readonly;\n} esp_partition_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/storage/partition.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_flash_partitions.h",
+    "name": "esp_ota_img_states_t",
+    "decl": "typedef enum {\n    ESP_OTA_IMG_NEW = 0x0U,\n    ESP_OTA_IMG_PENDING_VERIFY = 0x1U,\n    ESP_OTA_IMG_VALID = 0x2U,\n    ESP_OTA_IMG_INVALID = 0x3U,\n    ESP_OTA_IMG_ABORTED = 0x4U,\n    ESP_OTA_IMG_UNDEFINED = 0xFFFFFFFFU,\n} esp_ota_img_states_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_app_desc.h",
+    "name": "ESP_APP_DESC_MAGIC_WORD",
+    "decl": "#define ESP_APP_DESC_MAGIC_WORD (0xABCD5432)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/misc_system_api.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_app_desc.h",
+    "name": "esp_app_desc_t",
+    "decl": "typedef struct {\n    uint32_t magic_word;\n    uint32_t secure_version;\n    uint32_t reserv1[2];\n    char version[32];\n    char project_name[32];\n    char time[16];\n    char date[16];\n    char idf_ver[32];\n    uint8_t app_elf_sha256[32];\n    uint16_t min_efuse_blk_rev_full;\n    uint16_t max_efuse_blk_rev_full;\n    uint8_t mmu_page_size;\n    uint8_t reserv3[3];\n    uint32_t reserv2[18];\n} esp_app_desc_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/misc_system_api.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_app_desc.h",
+    "name": "esp_app_get_description",
+    "decl": "const esp_app_desc_t *esp_app_get_description(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/misc_system_api.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_BASE",
+    "decl": "#define ESP_ERR_OTA_BASE 0x1500",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_PARTITION_CONFLICT",
+    "decl": "#define ESP_ERR_OTA_PARTITION_CONFLICT (ESP_ERR_OTA_BASE + 0x01)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_SELECT_INFO_INVALID",
+    "decl": "#define ESP_ERR_OTA_SELECT_INFO_INVALID (ESP_ERR_OTA_BASE + 0x02)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_VALIDATE_FAILED",
+    "decl": "#define ESP_ERR_OTA_VALIDATE_FAILED (ESP_ERR_OTA_BASE + 0x03)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_SMALL_SEC_VER",
+    "decl": "#define ESP_ERR_OTA_SMALL_SEC_VER (ESP_ERR_OTA_BASE + 0x04)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_ROLLBACK_FAILED",
+    "decl": "#define ESP_ERR_OTA_ROLLBACK_FAILED (ESP_ERR_OTA_BASE + 0x05)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "ESP_ERR_OTA_ROLLBACK_INVALID_STATE",
+    "decl": "#define ESP_ERR_OTA_ROLLBACK_INVALID_STATE (ESP_ERR_OTA_BASE + 0x06)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_get_running_partition",
+    "decl": "const esp_partition_t *esp_ota_get_running_partition(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_get_state_partition",
+    "decl": "esp_err_t esp_ota_get_state_partition(const esp_partition_t *partition, esp_ota_img_states_t *ota_state);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_mark_app_valid_cancel_rollback",
+    "decl": "esp_err_t esp_ota_mark_app_valid_cancel_rollback(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_mark_app_invalid_rollback_and_reboot",
+    "decl": "esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_get_last_invalid_partition",
+    "decl": "const esp_partition_t *esp_ota_get_last_invalid_partition(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_check_rollback_is_possible",
+    "decl": "bool esp_ota_check_rollback_is_possible(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_BASE",
+    "decl": "#define ESP_ERR_HTTP_BASE (0x7000)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_MAX_REDIRECT",
+    "decl": "#define ESP_ERR_HTTP_MAX_REDIRECT (ESP_ERR_HTTP_BASE + 1)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_CONNECT",
+    "decl": "#define ESP_ERR_HTTP_CONNECT (ESP_ERR_HTTP_BASE + 2)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_WRITE_DATA",
+    "decl": "#define ESP_ERR_HTTP_WRITE_DATA (ESP_ERR_HTTP_BASE + 3)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_FETCH_HEADER",
+    "decl": "#define ESP_ERR_HTTP_FETCH_HEADER (ESP_ERR_HTTP_BASE + 4)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_INVALID_TRANSPORT",
+    "decl": "#define ESP_ERR_HTTP_INVALID_TRANSPORT (ESP_ERR_HTTP_BASE + 5)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_CONNECTING",
+    "decl": "#define ESP_ERR_HTTP_CONNECTING (ESP_ERR_HTTP_BASE + 6)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_EAGAIN",
+    "decl": "#define ESP_ERR_HTTP_EAGAIN (ESP_ERR_HTTP_BASE + 7)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_CONNECTION_CLOSED",
+    "decl": "#define ESP_ERR_HTTP_CONNECTION_CLOSED (ESP_ERR_HTTP_BASE + 8)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_NOT_MODIFIED",
+    "decl": "#define ESP_ERR_HTTP_NOT_MODIFIED (ESP_ERR_HTTP_BASE + 9)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_RANGE_NOT_SATISFIABLE",
+    "decl": "#define ESP_ERR_HTTP_RANGE_NOT_SATISFIABLE (ESP_ERR_HTTP_BASE + 10)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_READ_TIMEOUT",
+    "decl": "#define ESP_ERR_HTTP_READ_TIMEOUT (ESP_ERR_HTTP_BASE + 11)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "ESP_ERR_HTTP_INCOMPLETE_DATA",
+    "decl": "#define ESP_ERR_HTTP_INCOMPLETE_DATA (ESP_ERR_HTTP_BASE + 12)",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "esp_http_client_handle_t",
+    "decl": "typedef struct esp_http_client *esp_http_client_handle_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "esp_http_client_transport_t",
+    "decl": "typedef enum {\n    HTTP_TRANSPORT_UNKNOWN = 0x0,\n    HTTP_TRANSPORT_OVER_TCP,\n    HTTP_TRANSPORT_OVER_SSL,\n} esp_http_client_transport_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_http_client.h",
+    "name": "esp_http_client_auth_type_t",
+    "decl": "typedef enum {\n    HTTP_AUTH_TYPE_NONE = 0,\n    HTTP_AUTH_TYPE_BASIC,\n    HTTP_AUTH_TYPE_DIGEST,\n} esp_http_client_auth_type_t;",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/esp_http_client.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_https_ota.h",
+    "name": "http_client_init_cb_t",
+    "decl": "typedef esp_err_t (*http_client_init_cb_t)(esp_http_client_handle_t);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_https_ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_https_ota.h",
+    "name": "esp_https_ota",
+    "decl": "esp_err_t esp_https_ota(const esp_https_ota_config_t *ota_config);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/esp_https_ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "mqtt_client.h",
+    "name": "MQTT_ERROR_TYPE_ESP_TLS",
+    "decl": "#define MQTT_ERROR_TYPE_ESP_TLS MQTT_ERROR_TYPE_TCP_TRANSPORT",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/protocols/mqtt.html",
+    "idf": "5.5.3"
   }
 ]

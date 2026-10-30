@@ -11,7 +11,10 @@
 #include <iterator>
 
 #include "esp_err.h"
+#include "esp_http_client.h"
 #include "esp_log.h"
+#include "esp_ota_ops.h"
+#include "esp_tls.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
 #include "nvs.h"
@@ -62,6 +65,17 @@ const char *esp_err_to_name(esp_err_t code) {
         case ESP_ERR_WIFI_WAKE_FAIL: return "ESP_ERR_WIFI_WAKE_FAIL";
         case ESP_ERR_WIFI_WOULD_BLOCK: return "ESP_ERR_WIFI_WOULD_BLOCK";
         case ESP_ERR_WIFI_NOT_CONNECT: return "ESP_ERR_WIFI_NOT_CONNECT";
+        case ESP_ERR_OTA_PARTITION_CONFLICT: return "ESP_ERR_OTA_PARTITION_CONFLICT";
+        case ESP_ERR_OTA_SELECT_INFO_INVALID: return "ESP_ERR_OTA_SELECT_INFO_INVALID";
+        case ESP_ERR_OTA_VALIDATE_FAILED: return "ESP_ERR_OTA_VALIDATE_FAILED";
+        case ESP_ERR_OTA_SMALL_SEC_VER: return "ESP_ERR_OTA_SMALL_SEC_VER";
+        case ESP_ERR_OTA_ROLLBACK_FAILED: return "ESP_ERR_OTA_ROLLBACK_FAILED";
+        case ESP_ERR_OTA_ROLLBACK_INVALID_STATE: return "ESP_ERR_OTA_ROLLBACK_INVALID_STATE";
+        case ESP_ERR_HTTP_CONNECT: return "ESP_ERR_HTTP_CONNECT";
+        case ESP_ERR_HTTP_NOT_MODIFIED: return "ESP_ERR_HTTP_NOT_MODIFIED";
+        case ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED: return "ESP_ERR_MBEDTLS_X509_CRT_PARSE_FAILED";
+        case ESP_ERR_MBEDTLS_SSL_SETUP_FAILED: return "ESP_ERR_MBEDTLS_SSL_SETUP_FAILED";
+        case ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED: return "ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED";
         default: return "UNKNOWN ERROR";
     }
 }
@@ -147,7 +161,8 @@ bool load_scenario(const char *path, std::string &err) {
     if (root.type != sim::Json::Object) { err = "un objet JSON est attendu à la racine"; return false; }
     return sim::gpio_load_scenario(root, err) && sim::adc_load_scenario(root, err) &&
            sim::i2c_load_scenario(root, err) && sim::plant_load_scenario(root, err) &&
-           sim::wifi_load_scenario(root, err) && sim::mqtt_load_scenario(root, err) && sim::boot_load_scenario(root, err);
+           sim::wifi_load_scenario(root, err) && sim::mqtt_load_scenario(root, err) && sim::boot_load_scenario(root, err) &&
+           sim::tls_load_scenario(root, err) && sim::ota_load_scenario(root, err);
 }
 
 }  // namespace

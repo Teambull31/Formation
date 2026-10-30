@@ -673,7 +673,11 @@ SKIPPED_MACROS = {
     "wifi_ap_config_t": "AP mode is not simulated: shortened field list",
     "wifi_event_t": "enum prefix: values of the listed constants are the real ones, later events are not simulated",
     "wifi_err_reason_t": "subset of the constants (real values); the 802.11 reason codes the sim never raises are left out",
-    "esp_mqtt_client_config_t": "no TLS, certificate, ds, ecdsa or tcp_keep_alive fields; the fields present keep the real names and order",
+    "esp_mqtt_client_config_t": "no client certificate/key, ds, ecdsa, outbox or tcp_keep_alive fields; the fields present keep the real names and order",
+    "esp_partition_subtype_t": "only the application, OTA and data-OTA subtypes (real values); the data and TEE subtypes are not simulated",
+    "esp_http_client_config_t": "shortened field list (no client certificate/key, user_agent, method, event_handler, tls_version, ...); the fields present keep the real names and order",
+    "esp_https_ota_config_t": "no buffer_caps, ota_resumption, decrypt_cb, staging/final/finalize_with_copy fields; the fields present keep the real names and order",
+    "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE": "sdkconfig (Kconfig) symbol: rollback is always enabled in the simulator",
     "esp_mqtt_event_t": "no MQTT 5 properties; the fields present keep the real names and order",
     "esp_mqtt_client_subscribe": "real macro dispatches with _Generic between the single and multiple variants",
 }
@@ -710,7 +714,8 @@ def parse_header(text: str) -> dict[str, str]:
             stmt = code[start:i + 1].strip()
             start = i + 1
             if stmt.startswith("typedef"):
-                m = re.search(r"\(\s*\*\s*(\w+)\s*\)", stmt) or re.search(r"(\w+)\s*;$", stmt)
+                # `typedef struct {...} name;` is named after its closing brace, not after a function-pointer field inside
+                m = re.search(r"\}\s*(\w+)\s*;$", stmt) or re.search(r"\(\s*\*\s*(\w+)\s*\)", stmt) or re.search(r"(\w+)\s*;$", stmt)
             else:
                 m = re.search(r"(\w+)\s*\(", stmt)
             assert m, f"unparsable statement: {stmt!r}"
@@ -1688,3 +1693,483 @@ def test_mqtt_failed_attempt_is_followed_by_disconnected(lib, tmp_path):
     m = [(e["t_ms"], e["event"]) for e in trace if e["ev"] == "mqtt" and e["event"] in ("before_connect", "error", "disconnected", "connected")]
     assert [n for _, n in m][:6] == ["before_connect", "error", "disconnected", "before_connect", "error", "disconnected"]
     assert m[1][0] == m[2][0]
+
+
+# ---------------------------------------------------------------- Task 19: TLS (mqtts://) and OTA
+
+TLS_HEADERS = '#include "esp_tls.h"\n#include "esp_crt_bundle.h"\n#include "esp_http_client.h"\n'
+OTA_HEADERS = TLS_HEADERS + '#include "esp_https_ota.h"\n#include "esp_ota_ops.h"\n#include "esp_app_format.h"\n'
+CERT_SYMBOL = 'extern "C" const char _binary_server_cert_pem_start[];\n'
+BAD_CERT = "-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n"
+
+
+@pytest.fixture(scope="module")
+def cert_pem(tmp_path_factory):
+    """A throw-away self-signed certificate, made at test time (never stored in the repository)."""
+    d = tmp_path_factory.mktemp("cert")
+    subprocess.run(["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes",
+                    "-keyout", str(d / "k.pem"), "-out", str(d / "c.pem"), "-days", "2", "-subj", "/CN=broker.local"],
+                   check=True, capture_output=True)
+    return (d / "c.pem").read_text()
+
+
+def tls_scenario(cert, tls=None, **extra):
+    return json.dumps({"tls": {"server_cert": cert, **(tls or {})}, **extra})
+
+
+MQTTS_APP = CERT_SYMBOL + """
+static esp_mqtt_client_handle_t client;
+static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data) {
+    esp_mqtt_event_handle_t ev = (esp_mqtt_event_handle_t)data;
+    if (id == MQTT_EVENT_CONNECTED) ESP_LOGI("m", "connected");
+    else if (id == MQTT_EVENT_ERROR)
+        ESP_LOGI("m", "error type=%d tls=0x%x stack=%d flags=0x%x", (int)ev->error_handle->error_type,
+                 (unsigned)ev->error_handle->esp_tls_last_esp_err, ev->error_handle->esp_tls_stack_err,
+                 ev->error_handle->esp_tls_cert_verify_flags);
+}
+static void mqtts_up(const char *cert, bool skip, const char *cn, const char *uri) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = uri;
+    cfg.broker.verification.certificate = cert;
+    cfg.broker.verification.skip_cert_common_name_check = skip;
+    cfg.broker.verification.common_name = cn;
+    cfg.credentials.client_id = "d1";
+    client = esp_mqtt_client_init(&cfg);
+    ESP_ERROR_CHECK(esp_mqtt_client_register_event(client, MQTT_EVENT_ANY, on_mqtt, NULL));
+    ESP_ERROR_CHECK(esp_mqtt_client_start(client));
+}
+"""
+
+
+def mqtts_main(cert="_binary_server_cert_pem_start", skip="false", cn="NULL", uri='"mqtts://broker.local"'):
+    return f'extern "C" void app_main(void) {{ mqtts_up({cert}, {skip}, {cn}, {uri}); vTaskDelay(pdMS_TO_TICKS(3000)); }}\n'
+
+
+def mqtts_run(lib, tmp_path, scenario, max_ms=3000, **kw):
+    return compile_and_run(SYS + TLS_HEADERS + MQTTS_APP + mqtts_main(**kw), max_ms, lib, tmp_path, scenario)
+
+
+def handshakes(trace):
+    return [(e["ok"], e["verify"]) for e in trace if e["ev"] == "tls_handshake"]
+
+
+def test_mqtts_connects_with_the_scenario_certificate(lib, tmp_path, cert_pem):
+    trace = mqtts_run(lib, tmp_path, tls_scenario(cert_pem))
+    assert msgs(trace, "m") == ["connected"]
+    assert handshakes(trace) == [(True, "ok")]
+
+
+def test_mqtts_refuses_unverified_when_cert_invalid(lib, tmp_path, cert_pem):
+    trace = mqtts_run(lib, tmp_path, tls_scenario(cert_pem, {"server_cert_valid": False}))
+    assert "connected" not in msgs(trace, "m")
+    # MQTT_ERROR_TYPE_ESP_TLS (1), ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED, MBEDTLS_ERR_X509_CERT_VERIFY_FAILED,
+    # MBEDTLS_X509_BADCERT_EXPIRED
+    assert msgs(trace, "m") == ["error type=1 tls=0x801a stack=-9984 flags=0x1"]
+    assert handshakes(trace) == [(False, "failed:expired")]
+    assert [e["event"] for e in trace if e["ev"] == "mqtt"][-2:] == ["error", "disconnected"]
+
+
+def test_mqtts_without_any_verification_option_fails_at_setup(lib, tmp_path, cert_pem):
+    trace = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert="NULL")
+    assert msgs(trace, "m")[0] == "error type=1 tls=0x8017 stack=0 flags=0x0"  # ESP_ERR_MBEDTLS_SSL_SETUP_FAILED
+    assert handshakes(trace)[0] == (False, "failed:no_verification")
+
+
+def test_mqtts_wrong_or_malformed_certificate_is_refused(lib, tmp_path, cert_pem):
+    other = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=f'"{BAD_CERT}"')
+    assert msgs(other, "m")[0] == "error type=1 tls=0x801a stack=-9984 flags=0x8"  # BADCERT_NOT_TRUSTED
+    assert handshakes(other)[0] == (False, "failed:not_trusted")
+    garbage = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert='"not a pem"')
+    assert msgs(garbage, "m")[0] == "error type=1 tls=0x8015 stack=-4224 flags=0x0"  # X509_CRT_PARSE_FAILED, PEM_NO_HEADER_FOOTER_PRESENT
+    assert handshakes(garbage)[0] == (False, "failed:parse")
+
+
+def test_mqtts_public_ca_store_does_not_trust_a_private_broker(lib, tmp_path, cert_pem):
+    src = SYS + TLS_HEADERS + MQTTS_APP.replace(
+        "cfg.broker.verification.certificate = cert;",
+        "cfg.broker.verification.crt_bundle_attach = esp_crt_bundle_attach;") + mqtts_main(cert="NULL")
+    trace = compile_and_run(src, 3000, lib, tmp_path, tls_scenario(cert_pem))
+    assert handshakes(trace)[0] == (False, "failed:not_trusted")
+    trace = compile_and_run(src, 3000, lib, tmp_path, tls_scenario(cert_pem, {"public_ca": True}))
+    assert msgs(trace, "m") == ["connected"]
+
+
+def test_mqtts_common_name_is_checked(lib, tmp_path, cert_pem):
+    sc = tls_scenario(cert_pem, {"server_cn": "other.local"})
+    bad = mqtts_run(lib, tmp_path, sc)
+    assert msgs(bad, "m")[0] == "error type=1 tls=0x801a stack=-9984 flags=0x4"  # BADCERT_CN_MISMATCH
+    assert handshakes(bad)[0] == (False, "failed:cn_mismatch")
+    named = mqtts_run(lib, tmp_path, sc, cn='"other.local"')  # broker.verification.common_name replaces the host name
+    assert msgs(named, "m") == ["connected"] and handshakes(named) == [(True, "ok")]
+
+
+def test_skip_cn_check_flagged_in_trace(lib, tmp_path, cert_pem):
+    trace = mqtts_run(lib, tmp_path, tls_scenario(cert_pem, {"server_cn": "other.local"}), skip="true")
+    assert msgs(trace, "m") == ["connected"]  # it works...
+    assert handshakes(trace) == [(True, "cn_skipped")]  # ...and the trace says the CN was not checked
+    # skipping the CN does not skip the certificate: an untrusted certificate is still refused
+    still = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), cert=f'"{BAD_CERT}"', skip="true")
+    assert handshakes(still)[0] == (False, "failed:not_trusted")
+    # the flag alone is traced, even when the CN would have matched
+    plain = mqtts_run(lib, tmp_path, tls_scenario(cert_pem), skip="true")
+    assert handshakes(plain) == [(True, "cn_skipped")]
+
+
+def test_mqtts_handshake_fail_window_then_connects(lib, tmp_path, cert_pem):
+    sc = tls_scenario(cert_pem, {"handshake_fail": [{"from_ms": 0, "to_ms": 500}]})
+    trace = mqtts_run(lib, tmp_path, sc, max_ms=15000)
+    # MBEDTLS_ERR_SSL_CONN_EOF (-0x7280): the server closes during the handshake; the retry comes 10 s later
+    assert msgs(trace, "m") == ["error type=1 tls=0x801a stack=-29312 flags=0x0", "connected"]
+    assert handshakes(trace) == [(False, "failed:handshake"), (True, "ok")]
+
+
+def test_plain_mqtt_is_unaffected_by_tls_section(lib, tmp_path, cert_pem):
+    trace = mqtts_run(lib, tmp_path, tls_scenario(cert_pem, {"server_cert_valid": False}), uri='"mqtt://broker.local"')
+    assert msgs(trace, "m") == ["connected"] and handshakes(trace) == []
+
+
+def test_mqtts_transport_field_selects_tls_without_scheme(lib, tmp_path, cert_pem):
+    src = SYS + TLS_HEADERS + MQTTS_APP.replace(
+        "cfg.broker.address.uri = uri;",
+        'cfg.broker.address.hostname = "broker.local"; cfg.broker.address.transport = MQTT_TRANSPORT_OVER_SSL;') + mqtts_main(cert="NULL")
+    trace = compile_and_run(src, 3000, lib, tmp_path, tls_scenario(cert_pem))
+    assert handshakes(trace)[0] == (False, "failed:no_verification")
+
+
+OTA_APP = CERT_SYMBOL + """
+static esp_err_t fetch(const char *url) {
+    esp_http_client_config_t http = {};
+    http.url = url;
+    http.cert_pem = _binary_server_cert_pem_start;
+    esp_https_ota_config_t cfg = {};
+    cfg.http_config = &http;
+    return esp_https_ota(&cfg);
+}
+static void report(const char *tag) {
+    const esp_partition_t *p = esp_ota_get_running_partition();
+    esp_ota_img_states_t st = ESP_OTA_IMG_UNDEFINED;
+    esp_err_t e = esp_ota_get_state_partition(p, &st);
+    ESP_LOGI(tag, "slot=%s version=%s state=%u (%s)", p->label, esp_app_get_description()->version, (unsigned)st, esp_err_to_name(e));
+}
+#define FW_URL "https://fw.local/app.bin"
+"""
+PENDING, VALID, UNDEFINED = 1, 2, 4294967295
+
+
+def ota_scenario(cert, images, **extra):
+    return json.dumps({"tls": {"server_cert": cert}, "ota": {"images": images}, **extra})
+
+
+def image(version="1.1.0", valid=True, drop=None, url="https://fw.local/app.bin"):
+    return {"url": url, "version": version, "valid": valid, "drop_at_pct": drop}
+
+
+def ota_run(lib, tmp_path, main, scenario, max_ms=20000):
+    return compile_and_run(SYS + OTA_HEADERS + OTA_APP + main, max_ms, lib, tmp_path, scenario)
+
+
+UPDATE_AND_RESTART = """
+extern "C" void app_main(void) {
+    report("boot");
+    if (esp_reset_reason() == ESP_RST_POWERON) {
+        esp_err_t e = fetch(FW_URL);
+        ESP_LOGI("ota", "%s", esp_err_to_name(e));
+        report("after");
+        vTaskDelay(pdMS_TO_TICKS(500));
+        esp_restart();
+    }
+    MARK
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+
+
+def update_main(mark=""):
+    return UPDATE_AND_RESTART.replace("MARK", mark)
+
+
+def test_ota_valid_image_reboots(lib, tmp_path, cert_pem):
+    mark = 'report("early"); ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback()); report("marked");'
+    trace = ota_run(lib, tmp_path, update_main(mark), ota_scenario(cert_pem, [image()]))
+    assert msgs(trace, "boot") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)",
+                                   f"slot=ota_1 version=1.1.0 state={PENDING} (ESP_OK)"]
+    assert msgs(trace, "ota") == ["ESP_OK"]
+    assert msgs(trace, "after") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"]  # still running the old one
+    assert msgs(trace, "early") == [f"slot=ota_1 version=1.1.0 state={PENDING} (ESP_OK)"]
+    assert msgs(trace, "marked") == [f"slot=ota_1 version=1.1.0 state={VALID} (ESP_OK)"]
+    begin = next(e for e in trace if e["ev"] == "ota_begin")
+    end = next(e for e in trace if e["ev"] == "ota_end")
+    assert begin["url"] == end["url"] == "https://fw.local/app.bin" and end["ok"] is True and end["err"] == "ESP_OK"
+    assert end["t_ms"] - begin["t_ms"] == 2100  # 100 ms to connect, 20 ms per percent
+    assert [e["reason"] for e in trace if e["ev"] == "reboot"] == ["sw"]
+    assert [e["valid"] for e in trace if e["ev"] == "ota_mark"] == [True]
+    assert not [e for e in trace if e["ev"] == "rollback"]
+
+
+def test_ota_corrupt_returns_validate_failed(lib, tmp_path, cert_pem):
+    trace = ota_run(lib, tmp_path, update_main(), ota_scenario(cert_pem, [image(valid=False)]))
+    assert msgs(trace, "ota") == ["ESP_ERR_OTA_VALIDATE_FAILED"]
+    end = next(e for e in trace if e["ev"] == "ota_end")
+    assert end["ok"] is False and end["err"] == "ESP_ERR_OTA_VALIDATE_FAILED"
+    # the current slot is intact before and after the restart: the boot partition did not change
+    assert msgs(trace, "after") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"]
+    assert msgs(trace, "boot")[-1] == f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"
+    assert len(msgs(trace, "boot")) == 2
+
+
+def test_ota_dropped_connection_keeps_running_slot(lib, tmp_path, cert_pem):
+    trace = ota_run(lib, tmp_path, update_main(), ota_scenario(cert_pem, [image(drop=40)]))
+    assert msgs(trace, "ota") == ["ESP_FAIL"]
+    begin = next(e for e in trace if e["ev"] == "ota_begin")
+    end = next(e for e in trace if e["ev"] == "ota_end")
+    assert end["ok"] is False and end["err"] == "ESP_FAIL" and end["t_ms"] - begin["t_ms"] == 100 + 40 * 20
+    assert msgs(trace, "boot")[-1] == f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"
+    assert not [e for e in trace if e["ev"] == "rollback"]
+
+
+def test_rollback_when_not_marked_valid(lib, tmp_path, cert_pem):
+    # boot 2 runs the new image and restarts without validating it: the bootloader aborts it (boot 3 = old version)
+    main = """
+extern "C" void app_main(void) {
+    report("boot");
+    if (esp_reset_reason() == ESP_RST_POWERON) {
+        ESP_LOGI("ota", "%s", esp_err_to_name(fetch(FW_URL)));
+        esp_restart();
+    } else if (esp_app_get_description()->version[2] == '1') {   // "1.1.0": no mark, no luck
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        esp_restart();
+    }
+    const esp_partition_t *bad = esp_ota_get_last_invalid_partition();
+    ESP_LOGI("last", "%s", bad ? bad->label : "none");
+    ESP_LOGI("last", "rollback possible: %d", (int)esp_ota_check_rollback_is_possible());
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image()]))
+    assert msgs(trace, "boot") == [f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)",
+                                   f"slot=ota_1 version=1.1.0 state={PENDING} (ESP_OK)",
+                                   f"slot=ota_0 version=1.0.0 state={UNDEFINED} (ESP_OK)"]
+    rb = [e for e in trace if e["ev"] == "rollback"]
+    assert len(rb) == 1 and rb[0]["why"] == "not_validated" and rb[0]["from"] == "1.1.0" and rb[0]["to"] == "1.0.0"
+    assert [e["reason"] for e in trace if e["ev"] == "reboot"] == ["sw", "sw"]
+    assert msgs(trace, "last") == ["ota_1", "rollback possible: 0"]  # the aborted slot is the last invalid one
+
+
+def test_mark_invalid_rolls_back_and_reboots(lib, tmp_path, cert_pem):
+    sc = json.dumps({"ota": {"images": [], "running_version": "2.0.0", "previous_version": "1.5.0"},
+                     "boot": {"first_boot_after_ota": True, "self_test_fails": False}})
+    main = """
+extern "C" void app_main(void) {
+    report("boot");
+    ESP_LOGI("c", "possible=%d", (int)esp_ota_check_rollback_is_possible());
+    if (esp_reset_reason() == ESP_RST_POWERON) {
+        ESP_LOGI("c", "%s", esp_err_to_name(esp_ota_mark_app_invalid_rollback_and_reboot()));  // never returns
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, sc)
+    assert msgs(trace, "boot") == [f"slot=ota_1 version=2.0.0 state={PENDING} (ESP_OK)",
+                                   f"slot=ota_0 version=1.5.0 state={VALID} (ESP_OK)"]
+    assert msgs(trace, "c") == ["possible=1", "possible=0"]
+    assert [e["valid"] for e in trace if e["ev"] == "ota_mark"] == [False]
+    rb = [e for e in trace if e["ev"] == "rollback"]
+    assert [(e["why"], e["from"], e["to"]) for e in rb] == [("marked_invalid", "2.0.0", "1.5.0")]
+    assert [e["reason"] for e in trace if e["ev"] == "reboot"] == ["sw"]
+
+
+SELF_TEST = CERT_SYMBOL + """
+static volatile bool up = false;
+static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data) { if (id == MQTT_EVENT_CONNECTED) up = true; }
+extern "C" void app_main(void) {
+    esp_mqtt_client_config_t cfg = {};
+    cfg.broker.address.uri = "mqtts://broker.local";
+    cfg.broker.verification.certificate = _binary_server_cert_pem_start;
+    esp_mqtt_client_handle_t c = esp_mqtt_client_init(&cfg);
+    esp_mqtt_client_register_event(c, MQTT_EVENT_ANY, on_mqtt, NULL);
+    esp_mqtt_client_start(c);
+    ESP_LOGI("v", "start %s", esp_app_get_description()->version);
+    if (esp_reset_reason() != ESP_RST_POWERON) { vTaskDelay(pdMS_TO_TICKS(100)); return; }
+    for (int i = 0; i < 30 && !up; ++i) vTaskDelay(pdMS_TO_TICKS(100));
+    if (up) { ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback()); ESP_LOGI("v", "validated"); }
+    else esp_ota_mark_app_invalid_rollback_and_reboot();
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+
+
+@pytest.mark.parametrize("fails", [False, True])
+def test_self_test_failure_makes_the_new_image_unable_to_connect(lib, tmp_path, cert_pem, fails):
+    sc = json.dumps({"tls": {"server_cert": cert_pem}, "ota": {"images": [], "running_version": "1.1.0", "previous_version": "1.0.0"},
+                     "boot": {"first_boot_after_ota": True, "self_test_fails": fails}})
+    trace = compile_and_run(SYS + OTA_HEADERS + SELF_TEST, 6000, lib, tmp_path, sc)
+    if fails:
+        assert msgs(trace, "v") == ["start 1.1.0", "start 1.0.0"]
+        assert [e["why"] for e in trace if e["ev"] == "rollback"] == ["marked_invalid"]
+    else:
+        assert msgs(trace, "v") == ["start 1.1.0", "validated"]
+        assert not [e for e in trace if e["ev"] == "rollback"]
+
+
+def test_ota_api_errors_and_order(lib, tmp_path, cert_pem):
+    main = """
+#define R(x) ESP_LOGI("r", "%s", esp_err_to_name(x))
+extern "C" void app_main(void) {
+    R(esp_https_ota(NULL));
+    esp_https_ota_config_t cfg = {};
+    R(esp_https_ota(&cfg));                                    // no http_config
+    esp_http_client_config_t http = {};
+    cfg.http_config = &http;
+    R(esp_https_ota(&cfg));                                    // no url
+    http.url = "http://fw.local/app.bin";
+    http.cert_pem = _binary_server_cert_pem_start;
+    R(esp_https_ota(&cfg));                                    // plain http refused
+    http.url = "https://fw.local/missing.bin";
+    R(esp_https_ota(&cfg));                                    // 404
+    http.url = FW_URL;
+    http.cert_pem = NULL;
+    R(esp_https_ota(&cfg));                                    // no verification option
+    http.cert_pem = _binary_server_cert_pem_start;
+    ESP_LOGI("r", "possible=%d", (int)esp_ota_check_rollback_is_possible());
+    R(esp_ota_mark_app_invalid_rollback_and_reboot());         // nothing to go back to
+    R(esp_ota_mark_app_valid_cancel_rollback());               // already confirmed: ok
+    R(esp_ota_get_state_partition(NULL, NULL));
+    esp_ota_img_states_t st;
+    R(esp_ota_get_state_partition(esp_ota_get_running_partition(), NULL));
+    R(esp_ota_get_state_partition((const esp_partition_t *)&st, &st));
+    ESP_LOGI("r", "invalid=%d", esp_ota_get_last_invalid_partition() == NULL);
+    R(esp_https_ota(&cfg));
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image()]), 10000)
+    assert msgs(trace, "r") == [
+        "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_FAIL", "ESP_FAIL",
+        "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED", "ESP_OK", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_NOT_FOUND",
+        "invalid=1", "ESP_OK"]
+    assert [(e["ok"], e["err"]) for e in trace if e["ev"] == "ota_end"][:2] == [(False, "ESP_FAIL"), (False, "ESP_FAIL")]
+
+
+def test_ota_refused_while_new_image_is_unconfirmed(lib, tmp_path, cert_pem):
+    sc = json.loads(ota_scenario(cert_pem, [image()]))
+    sc["boot"] = {"first_boot_after_ota": True, "self_test_fails": False}
+    main = """
+extern "C" void app_main(void) {
+    ESP_LOGI("r", "%s", esp_err_to_name(fetch(FW_URL)));        // documented: not possible while PENDING_VERIFY
+    ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback());
+    ESP_LOGI("r", "%s", esp_err_to_name(fetch(FW_URL)));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, json.dumps(sc))
+    assert msgs(trace, "r") == ["ESP_ERR_OTA_ROLLBACK_INVALID_STATE", "ESP_OK"]
+
+
+def test_ota_download_adds_no_thread_and_blocks_only_the_caller(lib, tmp_path, cert_pem):
+    main = """
+static int threads() {
+    FILE *f = fopen("/proc/self/status", "r"); char line[128]; int n = -1;
+    while (f && fgets(line, sizeof line, f)) if (sscanf(line, "Threads: %d", &n) == 1) break;
+    if (f) fclose(f);
+    return n;
+}
+static void other(void *) { for (;;) { ESP_LOGI("tick", "x"); vTaskDelay(pdMS_TO_TICKS(1000)); } }
+extern "C" void app_main(void) {
+    xTaskCreate(other, "other", 2048, NULL, 5, NULL);
+    vTaskDelay(pdMS_TO_TICKS(10));
+    int before = threads();
+    esp_err_t e = fetch(FW_URL);
+    ESP_LOGI("r", "%s %d %d", esp_err_to_name(e), before, threads());
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image()]))
+    ok, before, after = msgs(trace, "r")[0].split()
+    assert ok == "ESP_OK" and before == after and int(before) > 0
+    assert len(msgs(trace, "tick")) >= 3  # the other task kept running during the 2.1 s download
+
+
+def test_ota_same_scenario_same_trace(lib, tmp_path, cert_pem):
+    sc = ota_scenario(cert_pem, [image()])
+    prog = compile_src(lib, SYS + OTA_HEADERS + OTA_APP + update_main("ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback());"), tmp_path)
+    assert run(prog, 20000, sc) == run(prog, 20000, sc)
+
+
+def test_ota_versions_survive_scripted_power_cycles(lib, tmp_path, cert_pem):
+    # a scripted power cycle (reboots_at_ms) is a restart like any other: the validated version stays
+    main = """
+extern "C" void app_main(void) {
+    report("boot");
+    if (esp_reset_reason() == ESP_RST_POWERON && esp_app_get_description()->version[2] == '0') {
+        ESP_LOGI("ota", "%s", esp_err_to_name(fetch(FW_URL)));
+        esp_restart();
+    }
+    ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback());
+    vTaskDelay(pdMS_TO_TICKS(5000));
+}
+"""
+    sc = json.loads(ota_scenario(cert_pem, [image()]))
+    sc["reboots_at_ms"] = [6000]
+    trace = ota_run(lib, tmp_path, main, json.dumps(sc), 9000)
+    assert [m.split()[1] for m in msgs(trace, "boot")] == ["version=1.0.0", "version=1.1.0", "version=1.1.0"]
+    assert msgs(trace, "boot")[-1] == f"slot=ota_1 version=1.1.0 state={VALID} (ESP_OK)"
+    assert not [e for e in trace if e["ev"] == "rollback"]
+
+
+def test_new_ota_tls_fields_are_known_to_the_trace_reader():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("esp_trace", SIM.parent / "trace.py")
+    esp_trace = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(esp_trace)
+    lines = [
+        '{"t_ms": 1, "ev": "tls_handshake", "host": "h", "ok": true, "verify": "ok"}',
+        '{"t_ms": 1, "ev": "tls_handshake", "host": "h", "ok": 1, "verify": "ok"}',
+        '{"t_ms": 2, "ev": "ota_begin", "url": "u"}',
+        '{"t_ms": 3, "ev": "ota_end", "url": "u", "ok": false, "err": "ESP_FAIL"}',
+        '{"t_ms": 3, "ev": "ota_end", "url": "u", "ok": "no", "err": "ESP_FAIL"}',
+        '{"t_ms": 4, "ev": "ota_mark", "valid": true}',
+        '{"t_ms": 4, "ev": "ota_mark", "valid": 1}',
+        '{"t_ms": 5, "ev": "rollback", "why": "not_validated", "from": "1", "to": "0"}',
+        '{"t_ms": 5, "ev": "rollback", "why": 3, "from": "1", "to": "0"}',
+    ]
+    t = esp_trace.Trace("\n".join(lines))
+    assert [len(t.events(n)) for n in ("tls_handshake", "ota_begin", "ota_end", "ota_mark", "rollback")] == [1, 1, 1, 1, 1]
+    assert t.bad_lines == 4
+
+
+@pytest.mark.parametrize("scenario", [
+    '{"tls": []}', '{"tls": {"server_cert_valid": 1}}', '{"tls": {"server_cert_valid": "yes"}}',
+    '{"tls": {"handshake_fail": [{"from_ms": 5, "to_ms": 1}]}}', '{"tls": {"handshake_fail": [{"from_ms": 1}]}}',
+    '{"tls": {"handshake_fail": [{"from_ms": 0, "to_ms": 2251799813685248}]}}', '{"tls": {"handshake_fail": 3}}',
+    '{"tls": {"server_cert": 3}}', '{"tls": {"server_cert": "' + "A" * 9000 + '"}}', '{"tls": {"server_cn": ""}}',
+    '{"tls": {"server_cn": 3}}', '{"tls": {"public_ca": 1}}',
+    '{"tls": {"server_cert_validity": true}}', '{"tls": {"handshake_fails": []}}',
+    '{"ota": []}', '{"ota": {"image": []}}', '{"ota": {"images": {}}}', '{"ota": {"images": [3]}}',
+    '{"ota": {"images": [{"version": "1", "valid": true}]}}', '{"ota": {"images": [{"url": "u", "valid": true}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "", "valid": true}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "%s", "valid": true}]}}' % ("v" * 32),
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": 1}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": true, "drop_at_pct": 101}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": true, "drop_at_pct": -1}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": true, "drop_at_pct": 1.5}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": true, "drop_at_pct": "x"}]}}',
+    '{"ota": {"images": [{"url": "", "version": "1", "valid": true}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": true, "size": 3}]}}',
+    '{"ota": {"images": [{"url": "u", "version": "1", "valid": true}, {"url": "u", "version": "2", "valid": true}]}}',
+    '{"ota": {"running_version": ""}}', '{"ota": {"previous_version": 3}}',
+    '{"boot": []}', '{"boot": {"first_boot_after_ota": 1}}', '{"boot": {"self_test_fails": "no"}}',
+    '{"boot": {"first_boot": true}}',
+])
+def test_malformed_tls_ota_scenario_fails_cleanly(lib, tmp_path, scenario):
+    prog = compile_src(lib, SYS + 'extern "C" void app_main(void) {}\n', tmp_path)
+    path = tmp_path / "bad.json"
+    path.write_text(scenario)
+    r = subprocess.run([str(prog), "--scenario", str(path)], capture_output=True, text=True, timeout=30)
+    assert r.returncode == 2 and r.stdout == "" and "scénario" in r.stderr
+
+
+def test_ota_and_tls_sections_accept_their_documented_keys(lib, tmp_path):
+    sc = {"tls": {"server_cert_valid": True, "handshake_fail": [], "server_cert": "x", "server_cn": "b", "public_ca": False},
+          "ota": {"images": [image(drop=0), image(url="u2", drop=100)], "running_version": "3", "previous_version": "2"},
+          "boot": {"first_boot_after_ota": False, "self_test_fails": False}}
+    trace = sim_run('extern "C" void app_main(void) { ESP_LOGI("a", "ok"); }\n', 100, lib, tmp_path, json.dumps(sc))
+    assert msgs(trace, "a") == ["ok"]

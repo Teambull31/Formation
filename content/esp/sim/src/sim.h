@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "json.h"
@@ -107,6 +108,29 @@ bool event_loop_ready();
 bool wifi_in_use();   // esp_wifi_init was called in this boot
 bool wifi_has_ip();
 void mqtt_network_lost();
+
+// tls.cpp, ota.cpp: scenario sections "tls", "ota" and "boot", and the TLS handshake that esp-mqtt and
+// esp_https_ota share.
+bool tls_load_scenario(const Json &scenario, std::string &err);
+bool ota_load_scenario(const Json &scenario, std::string &err);
+// What a client brings to the handshake: its verification options (certificate: PEM with its NUL, or DER; the
+// certificate bundle or the global store; the name to check; skip_cert_common_name_check).
+struct TlsPeer {
+    bool has_cert = false, binary = false, public_store = false, skip_cn = false;
+    std::string pem, common_name;
+};
+// verify: the label traced as "verify"; err, stack_err and flags: esp_tls_last_esp_err, esp_tls_stack_err and
+// esp_tls_cert_verify_flags when !ok.
+struct TlsResult { bool ok; esp_err_t err; int stack_err, flags; std::string verify; };
+TlsPeer tls_peer(const char *cert, size_t cert_len, bool bundle, bool global_store, bool skip_cn, const char *common_name);
+TlsResult tls_handshake(const TlsPeer &peer, const std::string &host);  // traces "tls_handshake"
+std::string uri_host(const std::string &uri);
+
+// The flash survives a reset: slots, versions and image states are handed over like the NVS (boot.cpp).
+void ota_save(std::ostream &out);
+void ota_restore(std::istream &in);
+void ota_boot();                // the bootloader's part of a boot, before app_main
+bool ota_self_test_broken();    // the running image is PENDING_VERIFY and the scenario says its self-test fails
 
 // A broker/AP outage or a reconnect timer never needs more precision than a tick.
 inline uint64_t tick_of(int64_t ms) { return static_cast<uint64_t>((ms + portTICK_PERIOD_MS - 1) / portTICK_PERIOD_MS); }
