@@ -2043,7 +2043,7 @@ extern "C" void app_main(void) {
     http.url = FW_URL;
     R(esp_https_ota(&cfg));                                    // no verification option at all: refused before connecting
     http.skip_cert_common_name_check = true;
-    R(esp_https_ota(&cfg));                                    // only the CN skip: accepted by the check, TLS cannot be set up
+    R(esp_https_ota(&cfg));                                    // the CN skip is not a verification option either
     http.skip_cert_common_name_check = false;
     http.cert_pem = "-----BEGIN CERTIFICATE-----\\nAAAA\\n-----END CERTIFICATE-----\\n";
     R(esp_https_ota(&cfg));                                    // certificate that does not parse
@@ -2052,7 +2052,7 @@ extern "C" void app_main(void) {
     R(esp_https_ota(&cfg));                                    // 404
     http.url = FW_URL;
     ESP_LOGI("r", "possible=%d", (int)esp_ota_check_rollback_is_possible());
-    R(esp_ota_mark_app_invalid_rollback_and_reboot());         // nothing to go back to
+    R(esp_ota_mark_app_invalid_rollback_and_reboot());         // flashed by cable: "Running firmware is factory", before any rollback test
     R(esp_ota_mark_app_valid_cancel_rollback());               // flashed by cable: "Running firmware is factory"
     R(esp_ota_get_state_partition(NULL, NULL));
     esp_ota_img_states_t st;
@@ -2066,12 +2066,31 @@ extern "C" void app_main(void) {
 """
     trace = ota_run(lib, tmp_path, main, ota_scenario(cert_pem, [image()]), 10000)
     assert msgs(trace, "r") == [
-        "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_HTTP_CONNECT",
-        "ESP_ERR_HTTP_CONNECT", "ESP_FAIL", "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED", "ESP_FAIL", "ESP_ERR_INVALID_ARG",
+        "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG", "ESP_ERR_INVALID_ARG",
+        "ESP_ERR_HTTP_CONNECT", "ESP_FAIL", "possible=0", "ESP_FAIL", "ESP_FAIL", "ESP_ERR_INVALID_ARG",
         "ESP_ERR_INVALID_ARG", "ESP_ERR_NOT_SUPPORTED", "ESP_ERR_NOT_FOUND", "invalid=1", "ESP_OK"]
     # the refused calls (invalid arguments, no verification option) left no trace: only the connections that were tried
-    assert [e["err"] for e in trace if e["ev"] == "ota_end"] == ["ESP_ERR_HTTP_CONNECT", "ESP_ERR_HTTP_CONNECT", "ESP_FAIL", "ESP_OK"]
-    assert handshakes(trace)[0] == (False, "failed:no_verification") and handshakes(trace)[1] == (False, "failed:parse")
+    assert [e["err"] for e in trace if e["ev"] == "ota_end"] == ["ESP_ERR_HTTP_CONNECT", "ESP_FAIL", "ESP_OK"]
+    assert handshakes(trace)[0] == (False, "failed:parse")
+
+
+def test_mark_invalid_without_a_fallback_slot_is_rollback_failed(lib, tmp_path, cert_pem):
+    # an app with an OTA-data entry but nothing to go back to: a failed OTA erased the other slot
+    sc = json.loads(ota_scenario(cert_pem, [image(drop=10)]))
+    sc["boot"] = {"first_boot_after_ota": True, "self_test_fails": False}
+    main = """
+extern "C" void app_main(void) {
+    ESP_ERROR_CHECK(esp_ota_mark_app_valid_cancel_rollback());
+    ESP_LOGI("r", "possible=%d", (int)esp_ota_check_rollback_is_possible());
+    ESP_LOGI("r", "%s", esp_err_to_name(fetch(FW_URL)));
+    ESP_LOGI("r", "possible=%d", (int)esp_ota_check_rollback_is_possible());
+    ESP_LOGI("r", "%s", esp_err_to_name(esp_ota_mark_app_invalid_rollback_and_reboot()));
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, json.dumps(sc))
+    assert msgs(trace, "r") == ["possible=1", "ESP_FAIL", "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED"]
+    assert not [e for e in trace if e["ev"] in ("rollback", "reboot")]
 
 
 def test_ota_over_http_is_fetched_in_clear_and_flagged(lib, tmp_path, cert_pem):

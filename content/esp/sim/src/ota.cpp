@@ -20,12 +20,12 @@
 //     makes the bootloader abort it (ESP_OTA_IMG_ABORTED) and boot the previous app: event "rollback"
 //     (why "not_validated"). esp_ota_mark_app_valid_cancel_rollback confirms it (ESP_OTA_IMG_VALID, ESP_OK;
 //     also ESP_OK on an app that is already confirmed). esp_ota_mark_app_invalid_rollback_and_reboot marks the
-//     running app ESP_OTA_IMG_INVALID and restarts into the previous one (ESP_ERR_OTA_ROLLBACK_FAILED, and no
-//     restart, when no other slot holds a bootable app); event "rollback" (why "marked_invalid"); restart reason SW.
+//     running app as ESP_OTA_IMG_INVALID and restarts into the previous one (ESP_FAIL, and no restart, on an app with
+//     no OTA-data entry, see below; ESP_ERR_OTA_ROLLBACK_FAILED, and no restart, when no other slot holds a bootable app); event "rollback" (why "marked_invalid"); restart reason SW.
 //   - esp_https_ota writes the image into the other slot, does not restart (the application calls esp_restart) and,
 //     on success, makes that slot the boot slot; ESP_OK. Failures (esp_https_ota.c and esp_http_client.c, v5.5.3):
 //     ESP_ERR_INVALID_ARG (no config, no http_config, no URL, or no server-verification option at all: none of
-//     cert_pem, crt_bundle_attach, use_global_ca_store, skip_cert_common_name_check; refused before any connection, so
+//     cert_pem, crt_bundle_attach, use_global_ca_store (is_server_verification_enabled); refused before any connection, so
 //     no trace event), ESP_ERR_HTTP_CONNECT (Wi-Fi without IP, server unreachable, TLS handshake failure: the error of
 //     esp_http_client_open), ESP_FAIL (404, connection dropped during the download), ESP_ERR_OTA_VALIDATE_FAILED
 //     (invalid image), ESP_ERR_OTA_ROLLBACK_INVALID_STATE (the running app is still PENDING_VERIFY: documented as
@@ -266,6 +266,7 @@ esp_err_t esp_ota_mark_app_valid_cancel_rollback(void) {
 }
 
 esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void) {
+    if (!slots[running].otadata) return ESP_FAIL;  // "Running firmware is factory", tested before the rollback target
     const Slot &previous = slots[1 - running];
     if (!bootable(previous)) return ESP_ERR_OTA_ROLLBACK_FAILED;
     sim::Event(sim::now_ms(), "ota_mark").flag("valid", false);
@@ -289,7 +290,7 @@ esp_err_t esp_https_ota(const esp_https_ota_config_t *config) {
     std::string url = http.url;
     bool cleartext = url.compare(0, 7, "http://") == 0;
     if (!cleartext && url.compare(0, 8, "https://") != 0) return ESP_ERR_INVALID_ARG;
-    if (!http.cert_pem && !http.crt_bundle_attach && !http.use_global_ca_store && !http.skip_cert_common_name_check)
+    if (!http.cert_pem && !http.crt_bundle_attach && !http.use_global_ca_store)
         return ESP_ERR_INVALID_ARG;  // "No option for server verification is enabled in esp_http_client config."
     int64_t begin = sim::now_ms();
     sim::Event(begin, "ota_begin").str("url", sim::utf8(url)).flag("cleartext", cleartext);
