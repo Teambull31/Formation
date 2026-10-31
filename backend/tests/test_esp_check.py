@@ -1961,6 +1961,8 @@ ES10_MUTANTS = {
                                      ["cfg.credentials.authentication.password", "valeur écrite dans le programme"]),
     "username_literal_in_the_code": ([(USER_LINE, '    cfg.credentials.username = "admin";\n')],
                                      ["cfg.credentials.username", "valeur écrite dans le programme"]),
+    "credentials_in_a_designated_initializer": ([("    esp_mqtt_client_config_t cfg = {};\n", '    esp_mqtt_client_config_t cfg = {.credentials = {.username = "admin", .authentication = {.password = "hunter2hunter"}}};\n')],
+                                                ["valeur écrite dans le programme"]),
     "credentials_in_the_uri": ([('"mqtts://broker.local:8883"', '"mqtts://admin:hunter2@broker.local:8883"')], ["URI du courtier", "NVS"]),
     "credentials_copied_from_a_literal": ([("    return true;\n}\n\n// Étape 2", '    strcpy(mot_de_passe, "motdepasse-maison");\n    return true;\n}\n\n// Étape 2')],
                                           ["mot_de_passe", "valeur écrite dans le programme"]),
@@ -2010,6 +2012,8 @@ ES10_VARIANTS = {
          '        nvs_close(h);\n        ESP_LOGE(TAG, "identifiants absents ou trop longs");\n        return false;\n    }\n')],
     "nvs_key_names_in_secret_looking_constants": [('static const char *NVS_CLE_USER = "user";', 'static const char *K_USER = "user";\nstatic const char *NVS_CLE_USER = K_USER;'),
                                                   ('static const char *NVS_CLE_MDP = "pass";', 'static const char *K_PASS = "pass";\nstatic const char *NVS_CLE_MDP = K_PASS;')],
+    "common_name_check_disabled_with_a_cast_to_false": [(CERT_LINE, CERT_LINE + "    cfg.broker.verification.skip_cert_common_name_check = (bool)false;\n")],
+    "variables_named_login_message_and_password_hint": [(CERT_LINE, CERT_LINE + '    const char *login_msg = "connexion sécurisée";\n    const char *password_hint = "lu en NVS";\n    (void)login_msg;\n    (void)password_hint;\n')],
     "doubling_computed_by_a_shift": [("    int attente = attente_ms(n);\n", "    int attente = 1000 << (n < 4 ? n - 1 : 3);\n")],
     "first_wait_of_2_seconds": [("    int attente = attente_ms(n);\n", "    int attente = 2000 << (n < 3 ? n - 1 : 2);\n")],
     "loss_polled_instead_of_waited": [("        EventBits_t bits = xEventGroupWaitBits(groupe_liaison, BIT_PERDU, pdTRUE, pdFALSE, pdMS_TO_TICKS(PAS_MS));\n",
@@ -2049,6 +2053,8 @@ def _es10_check_module():
     'ESP_LOGE(TAG, "mot de passe illisible");',
     'int tokens = 3;',
     'char *p = strstr(msg, "password");',
+    'cfg.broker.verification.skip_cert_common_name_check = (bool)false;',
+    'const char *login_msg = "connexion";\nconst char *password_hint = "lu en NVS";\nconst char *secret_label = "x";',
 ])
 def test_es10_source_scan_does_not_refuse_legitimate_idioms(src):
     _es10_check_module()._check_source(src)
@@ -2062,6 +2068,8 @@ def test_es10_source_scan_does_not_refuse_legitimate_idioms(src):
     "#define SKIP skip_cert_common_name_check",
     "#ifdef CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY\n#endif",
     "cfg.skip_server_cert_verify = true;",
+    'esp_mqtt_client_config_t c = {.credentials = {.username = "admin"}};',
+    'esp_mqtt_client_config_t c = {.credentials = {.authentication = {.password = "hunter2"}}};',
     "cfg.skip_common_name = true;",
     'const char *mdp = "abc";',
     'char *password = "abc";',

@@ -118,13 +118,13 @@ def _code(source: str) -> str:
     return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
 
 
-SKIP_CN = re.compile(r"\bskip_cert_common_name_check\b(?!\s*=\s*(?:false|0)\s*[;,})])")
+SKIP_CN = re.compile(r"\bskip_cert_common_name_check\b(?!\s*=\s*(?:\(\s*bool\s*\)\s*)?(?:false|0)\s*[;,})])")
 BYPASS = re.compile(r"\b(?:CONFIG_ESP_TLS_INSECURE|CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY|skip_server_cert_verify|skip_common_name)\b")
 # Un nom qui désigne une clé NVS, un sujet ou une étiquette n'est pas un identifiant : NVS_CLE_MDP = "pass" est permis.
-KEY_LIKE = re.compile(r"(?:cle|clef|key|nvs|espace|namespace|topic|tag|label)", re.I)
+KEY_LIKE = re.compile(r"(?:cle|clef|key|nvs|espace|namespace|topic|tag|label|hint|msg|message|text)", re.I)
 KEY_NAMES = {"user", "pass"}  # les clés NVS du TP : une chaîne qui ne vaut que ça n'est pas un identifiant
 SECRET_NAME = r"\w*(?:mdp|pass(?:word|wd)?|passe|pwd|secret|token|utilisateur|username|user|login)\w*"
-LITERAL_TO_SECRET = re.compile(rf"(?<![\w.])({SECRET_NAME}|(?:\w+\.)+(?:password|username))\s*(?:\[[^\]\n]*\])?\s*=(?!=)\s*\"([^\"\\\n]+)\"")
+LITERAL_TO_SECRET = re.compile(rf"(?<![\w.])({SECRET_NAME}|(?:\w+\.)+(?:password|username)|\.(?:password|username))\s*(?:\[[^\]\n]*\])?\s*=(?!=)\s*\"([^\"\\\n]+)\"")
 COPY_TO_SECRET = re.compile(rf"\b(?:strcpy|strncpy|strlcpy|memcpy|sprintf|snprintf)\s*\(\s*(?:\(\s*char\s*\*\s*\))?\s*(\w*(?:{SECRET_NAME}))\b[^;]*?\"([^\"\\\n]+)\"")
 URI_USERINFO = re.compile(r"://[^/\s\"@:]+:[^/\s\"@]+@")
 

@@ -29,7 +29,20 @@ from app.portfolio import leak_reason
     ("    cfg.password = pass_buffer.data;", None),
     ('    cfg.credentials.authentication.password = "hunter2222";', "secret en clair"),
     ("    password = hunter2222", "secret en clair"),
-    ("PASSWORD=abcdef123456;", None),  # shortcut: un mot nu suivi de ; passe pour du code
+    ('PGPASSWORD=Sup3rS3cret42; psql -h db', "secret en clair"),
+    ('export GITHUB_TOKEN=ghp_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8;', "secret en clair"),
+    ('environment: [POSTGRES_PASSWORD=Sup3rS3cret42, POSTGRES_USER=app]', "secret en clair"),
+    ('creds: {user: admin, password: Sup3rS3cret42, port: 5432}', "secret en clair"),
+    ('f(api_key=sk-proj-abc123def456ghi789)', "secret en clair"),
+    ('docker run -e MYSQL_ROOT_PASSWORD=r00tP4ss, -d mysql', "secret en clair"),
+    ('secret_key=AKIAIOSFODNN7EXAMPLE2;', "secret en clair"),
+    ('    cfg.password = Sup3rS3cret42;', "secret en clair"),
+    ('PASSWORD=abcdef123456;', "secret en clair"),
+    ('    cfg.password = Hunter;', "secret en clair"),
+    ('    password = motdepasse;', "secret en clair"),
+    ('    cfg.password=mot_de_passe;', "secret en clair"),
+    ("    cfg.credentials.authentication.password = mot_de_passe;", None),
+    ("    p->password = pass_buffer.data;", None),
     ("    cfg.token = lire_jeton(&t);", "secret en clair"),
 ])
 def test_leak_reason(text, why):
