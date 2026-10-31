@@ -35,7 +35,7 @@ Tolérances, annoncées dans l'énoncé :
     après la première lecture (c) ;
   - une seule ligne d'alarme (ESP_LOGE, tag « pool ») : l'alarme est un état, on l'annonce en y entrant.
 """
-from esp_trace import Trace, need
+from esp_trace import need, relay_changes, Trace
 
 PIN = 5
 CHANNEL = 6
@@ -96,20 +96,10 @@ def _dur(ms: float) -> str:
     return f"{s // 60} min {s % 60:02d} s" if s >= 60 else f"{s} s"
 
 
-def _relay_changes(trace: Trace) -> list[tuple[int, int]]:
-    """Changements réels du niveau de la broche 5 (départ à 0 : sortie non commandée) : [(t_ms, niveau)]."""
-    out, level = [], 0
-    for t, lv in trace.gpio_levels(PIN):
-        if lv != level:
-            out.append((t, lv))
-            level = lv
-    return out
-
-
 def _segments(trace: Trace, level0: float, end_ms: int) -> list[tuple[int, int, float, float, int]]:
     """Niveau vrai rejoué : [(t0, t1, niveau en t0, niveau en t1, pompe allumée)] entre deux changements de la broche."""
     segs, t, level, on = [], 0, float(level0), 0
-    for te, lv in [*_relay_changes(trace), (end_ms, None)]:
+    for te, lv in [*relay_changes(trace), (end_ms, None)]:
         te = min(te, end_ms)
         rate = FILL_PER_MIN if on else -LOSS_PER_MIN
         nxt = min(max(level + rate * (te - t) / 60000, 0.0), 100.0)
@@ -177,7 +167,7 @@ def _common(trace: Trace, name: str) -> int:
 
 
 def _end_off(trace: Trace, name: str) -> None:
-    final = _relay_changes(trace)[-1][1] if _relay_changes(trace) else 0
+    final = relay_changes(trace)[-1][1] if relay_changes(trace) else 0
     need(final == 0, f"{LABELS[name]} : la pompe est encore allumée à la fin de l'exécution : la régulation doit la laisser "
          f"éteinte (relire : « {S_SAFE} »)")
 
@@ -196,7 +186,7 @@ def _check_a(trace: Trace) -> None:
             need(dur <= REACT_MS, f"{label} : la pompe est restée allumée {_dur(dur)} avec un niveau de plus de {HIGH + TOL:.0f} % "
                  f"(jusqu'à {seg[3]:.0f} % à {_dur(seg[1])}) : elle doit s'arrêter au-dessus de {HIGH} %, sinon la piscine "
                  f"déborde (relire : « {S_HYST} »)")
-    for t, lv in _relay_changes(trace):
+    for t, lv in relay_changes(trace):
         level = _level_at(segs, t)
         if lv == 1:
             need(level <= LOW + TOL, f"{label} : la pompe s'allume à {_dur(t)} alors que le niveau vrai est de {level:.0f} % "
@@ -213,7 +203,7 @@ def _check_a(trace: Trace) -> None:
         if not seg[4]:
             need(dur <= REACT_MS, f"{label} : le niveau vrai est resté {_dur(dur)} sous {LOW - TOL:.0f} % sans que la pompe "
                  f"démarre (à partir de {_dur(start)}) : elle doit démarrer sous {LOW} % (relire : « {S_HYST} »)")
-    need(any(lv == 1 for _, lv in _relay_changes(trace)),
+    need(any(lv == 1 for _, lv in relay_changes(trace)),
          f"{label} : la pompe ne s'est jamais allumée alors que le niveau est passé sous {LOW} % (relire : « {S_HYST} »)")
     _end_off(trace, "a")
 
@@ -234,7 +224,7 @@ def _alarm_window(trace: Trace, name: str, t_ref: int, what: str) -> None:
 def _check_cut(trace: Trace, name: str) -> None:
     label = LABELS[name]
     start, stay, what = CUT_TEXT[name]
-    changes = _relay_changes(trace)
+    changes = relay_changes(trace)
     need(changes and changes[0][1] == 1 and changes[0][0] <= REACT_MS,
          f"{label} : la pompe n'a pas démarré alors que {start} (sous {LOW} %) (relire : « {S_HYST} »)")
     t_on = changes[0][0]
@@ -258,7 +248,7 @@ def _check_cut(trace: Trace, name: str) -> None:
 
 def _check_c(trace: Trace, first_read: int) -> None:
     label = LABELS["c"]
-    ons = [t for t, lv in _relay_changes(trace) if lv == 1]
+    ons = [t for t, lv in relay_changes(trace) if lv == 1]
     need(not ons, f"{label} : la pompe s'allume à {_dur(ons[0] if ons else 0)} alors que le niveau lu (70 %) est entre "
          f"{LOW} % et {HIGH} % : elle doit rester éteinte (relire : « {S_HYST} »)")
     _alarm_window(trace, "c", first_read, "la valeur brute du capteur reste identique pendant 10 min")

@@ -24,7 +24,7 @@ messages d'une même connexion ; abonnement dans les 5 s qui suivent chaque conn
 import json
 import re
 
-from esp_trace import Trace, need
+from esp_trace import code_only as _code, fmt_pct as _pct, fmt_s as _s, need, relay_states as _relay_states, topic_match as _match, Trace
 
 PIN = 5
 CHANNEL = 6
@@ -81,29 +81,6 @@ S_WDT = "Le watchdog de tâche : surveiller la boucle"
 S_ERR = "Gérer l'erreur au lieu d'abandonner : ESP_ERROR_CHECK"
 
 
-def _s(ms: float) -> str:
-    return f"{ms / 1000:g}".replace(".", ",") + " s"
-
-
-def _pct(x: float) -> str:
-    return f"{x:g}".replace(".", ",")
-
-
-def _match(flt: str, topic: str) -> bool:
-    f, t = flt.split("/"), topic.split("/")
-    for i, part in enumerate(f):
-        if part == "#":
-            return True
-        if i >= len(t) or (part != "+" and part != t[i]):
-            return False
-    return len(f) == len(t)
-
-
-def _code(source: str) -> str:
-    """Le texte du programme sans commentaires ni chaînes littérales (un nom de fonction dans une chaîne ne compte pas)."""
-    return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
-
-
 def _relay_changes(trace: Trace) -> list[tuple[int, int]]:
     """Changements du relais ; un redémarrage remet la broche à 0 (la puce se réinitialise)."""
     marks = [(t, lv, 1) for t, lv in trace.gpio_levels(PIN)] + [(e["t_ms"], 0, 0) for e in trace.events("reboot")]
@@ -131,16 +108,6 @@ def _levels_in(marks: list[tuple[int, int]], a: int, b: int, fresh: bool = False
     out = set() if fresh else {cur}
     out.update(lv for t, lv in marks if a <= t < b)
     return out
-
-
-def _relay_states(changes: list[tuple[int, int]], t: int) -> set[int]:
-    before = after = 0
-    for tc, lv in changes:
-        if tc < t:
-            before = after = lv
-        elif tc == t:
-            after = lv
-    return {before, after}
 
 
 def _high_at(name: str, t: int) -> set[int]:

@@ -29,7 +29,7 @@ jamais plus de 35 s ; une tentative au plus 36 s avant la fin si la liaison n'es
 import json
 import re
 
-from esp_trace import Trace, need
+from esp_trace import code_only as _code, fmt_s as _s, need, topic_match as _match, Trace
 
 PIN = 5
 CHANNEL = 6
@@ -92,30 +92,11 @@ S_RETRY = "Réessayer avec une attente croissante"
 S_SAFE = "Le relais reste en état sûr pendant la panne"
 
 
-def _s(ms: float) -> str:
-    return f"{ms / 1000:g}".replace(".", ",") + " s"
-
-
-def _match(flt: str, topic: str) -> bool:
-    f, t = flt.split("/"), topic.split("/")
-    for i, part in enumerate(f):
-        if part == "#":
-            return True
-        if i >= len(t) or (part != "+" and part != t[i]):
-            return False
-    return len(f) == len(t)
-
-
 # ---- analyse du texte du programme ----
 
 def _no_comments(source: str) -> str:
     """Le texte sans commentaires (les chaînes sont gardées, mais un // dans une chaîne n'est pas un commentaire)."""
     return re.sub(r'"(?:\\.|[^"\\\n])*"|//[^\n]*|/\*.*?\*/', lambda m: m.group(0) if m.group(0)[0] == '"' else " ", source, flags=re.S)
-
-
-def _code(source: str) -> str:
-    """Le texte sans commentaires ni chaînes littérales."""
-    return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
 
 
 SKIP_CN = re.compile(r"\bskip_cert_common_name_check\b(?!\s*=\s*(?:\(\s*bool\s*\)\s*)?(?:false|0)\s*[;,})])")

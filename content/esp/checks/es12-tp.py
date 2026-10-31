@@ -21,7 +21,7 @@ instants. Il lit aussi le texte d'app_main (commentaires et chaînes retirés) :
 """
 import re
 
-from esp_trace import Trace, need
+from esp_trace import code_only as _code, fmt_s as _s, need, Trace
 
 PIN = 5
 CHANNEL = 6
@@ -94,16 +94,7 @@ S_RELAY = "Le relais d'abord : état sûr avant toute autre initialisation"
 S_POWER = "Coupure de courant en plein démarrage"
 
 
-def _s(ms: float) -> str:
-    return f"{ms / 1000:g}".replace(".", ",") + " s"
-
-
 # ---- analyse du texte du programme ----
-
-def _code(source: str) -> str:
-    """Le texte sans commentaires ni chaînes littérales."""
-    return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
-
 
 def _app_main_body(code: str) -> str | None:
     m = re.search(r"\bapp_main\s*\([^)]*\)\s*\{", code)

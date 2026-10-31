@@ -22,7 +22,7 @@ Un secret caché autrement (un autre texte, un calcul) n'est pas détecté : c'e
 """
 import re
 
-from esp_trace import Trace, need
+from esp_trace import fmt_s as _s, need, Trace
 
 # Garder en phase avec kFailMs et kConnectMs de content/esp/sim/src/wifi.cpp (le test de la référence détecte une dérive).
 FAIL_MS, CONNECT_MS = 1000, 300  # durées d'une tentative du simulateur
@@ -92,10 +92,6 @@ def _static(source: str) -> None:
          f"le mot de passe doit être lu avec CONFIG_ESP_WIFI_PASSWORD (relire : « {S_SECRET} »)")
     need(IP not in nc, f"l'adresse {IP} est écrite en dur dans main.cpp : lisez celle de l'événement IP_EVENT_STA_GOT_IP "
          f"(relire : « {S_IP} »)")
-
-
-def _s(ms: float) -> str:
-    return f"{ms / 1000:g}".replace(".", ",") + " s"
 
 
 def _expected_wait(k: int) -> int:

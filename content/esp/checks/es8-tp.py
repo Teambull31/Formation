@@ -26,7 +26,7 @@ Le contrôle ne lit pas le texte du programme : tout se juge sur la trace.
 import json
 import re
 
-from esp_trace import Trace, need
+from esp_trace import fmt_pct as _pct, fmt_s as _s, need, relay_changes, relay_states as _relay_states, topic_match as _match, Trace
 
 PIN = 5
 CHANNEL = 6
@@ -78,45 +78,6 @@ S_SAFE = "Exécuter la commande sans dépasser la limite de sécurité"
 S_TELE = "La télémétrie toutes les 10 secondes"
 
 
-def _s(ms: float) -> str:
-    return f"{ms / 1000:g}".replace(".", ",") + " s"
-
-
-def _pct(x: float) -> str:
-    return f"{x:g}".replace(".", ",")
-
-
-def _match(flt: str, topic: str) -> bool:
-    """Filtre MQTT (+ un niveau, # le reste) contre un topic."""
-    f, t = flt.split("/"), topic.split("/")
-    for i, part in enumerate(f):
-        if part == "#":
-            return True
-        if i >= len(t) or (part != "+" and part != t[i]):
-            return False
-    return len(f) == len(t)
-
-
-def _relay_changes(trace: Trace) -> list[tuple[int, int]]:
-    out, level = [], 0
-    for t, lv in trace.gpio_levels(PIN):
-        if lv != level:
-            out.append((t, lv))
-            level = lv
-    return out
-
-
-def _relay_states(changes: list[tuple[int, int]], t: int) -> set[int]:
-    """États possibles de la broche à t : avant et après un changement survenu à la même milliseconde."""
-    before = after = 0
-    for tc, lv in changes:
-        if tc < t:
-            before = after = lv
-        elif tc == t:
-            after = lv
-    return {before, after}
-
-
 def _telemetry(trace: Trace, name: str) -> list[tuple[int, dict]]:
     """[(t_ms, objet JSON)] des messages du topic de télémétrie, validés un à un."""
     label = LABELS[name]
@@ -125,7 +86,7 @@ def _telemetry(trace: Trace, name: str) -> list[tuple[int, dict]]:
     need(pubs, f"{label} : aucun message sur le topic « {T_TELE} » : la télémétrie est publiée avec esp_mqtt_client_publish "
          f"sur exactement ce topic" + (f" (topic trouvé : « {others[0]} »)" if others else "")
          + f" (relire : « {S_TELE} »)")
-    changes = _relay_changes(trace)
+    changes = relay_changes(trace)
     out = []
     for e in pubs:
         t, text = e["t_ms"], e["payload"]
@@ -223,7 +184,7 @@ def _common(trace: Trace, name: str) -> list[int]:
 def _expect_relay(trace: Trace, name: str, expected: list[tuple[int, int]]) -> None:
     """Les changements du relais sont exactement `expected` : [(instant de la commande, niveau)], à REACT_MS près."""
     label = LABELS[name]
-    changes = _relay_changes(trace)
+    changes = relay_changes(trace)
     ask = f"le programme s'est-il abonné, lit-il topic_len et data_len, et comprend-il le JSON avec ou sans espace ? (relire : « {S_DATA} »)"
     i = 0  # prochaine commande attendue
     for tc, lv in changes:
@@ -254,7 +215,7 @@ def _check_a(trace: Trace) -> None:
 def _check_b(trace: Trace) -> None:
     label = LABELS["b"]
     _telemetry(trace, "b")
-    on = [t for t, lv in _relay_changes(trace) if lv == 1]
+    on = [t for t, lv in relay_changes(trace) if lv == 1]
     need(not on, f"{label} : le relais est allumé à {_s(on[0] if on else 0)} alors que le niveau est de 85 %, au-dessus de "
          f"la limite de sécurité de {LIMIT} % : la commande {{\"relay\": true}} doit être refusée, le niveau se lit au moment "
          f"de la commande (relire : « {S_SAFE} »)")

@@ -23,7 +23,7 @@ relais commuté au plus 1 s après une commande.
 import json
 import re
 
-from esp_trace import Trace, need
+from esp_trace import code_only as _code, fmt_s as _s, need, Trace
 
 PIN = 5
 CHANNEL = 6
@@ -87,16 +87,7 @@ S_RESTART = "Quand redémarrer, et ce qui suit"
 S_FLOW = "Ne pas bloquer le gestionnaire MQTT"
 
 
-def _s(ms: float) -> str:
-    return f"{ms / 1000:g}".replace(".", ",") + " s"
-
-
 # ---- analyse du texte du programme ----
-
-def _code(source: str) -> str:
-    """Le texte sans commentaires ni chaînes littérales."""
-    return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
-
 
 SKIP_CN = re.compile(r"\bskip_cert_common_name_check\b(?!\s*=\s*(?:\(\s*bool\s*\)\s*)?(?:false|0)\s*[;,})])")
 BYPASS = re.compile(r"\b(?:CONFIG_ESP_TLS_INSECURE|CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY|skip_server_cert_verify|skip_common_name)\b")

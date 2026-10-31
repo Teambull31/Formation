@@ -2,7 +2,11 @@
 
 Check modules (checks/<tp_id>.py) import this as `esp_trace`: `from esp_trace import Trace, need`.
 """
+import importlib.util
 import json
+import re
+import sys
+from pathlib import Path
 
 
 class CheckError(Exception):
@@ -81,3 +85,63 @@ class Trace:
     def last_end(self) -> dict:
         ends = self.events("end")
         return ends[-1] if ends else {}
+
+
+# ---- small helpers shared by the check modules (they were copied from one TP check to the next) ----
+
+def fmt_s(ms: float) -> str:
+    """Une durée en secondes, à la française : 2500 -> « 2,5 s »."""
+    return f"{ms / 1000:g}".replace(".", ",") + " s"
+
+
+def fmt_pct(x: float) -> str:
+    return f"{x:g}".replace(".", ",")
+
+
+def topic_match(flt: str, topic: str) -> bool:
+    """Filtre MQTT (+ un niveau, # le reste) contre un topic."""
+    f, t = flt.split("/"), topic.split("/")
+    for i, part in enumerate(f):
+        if part == "#":
+            return True
+        if i >= len(t) or (part != "+" and part != t[i]):
+            return False
+    return len(f) == len(t)
+
+
+def code_only(source: str) -> str:
+    """Le texte sans commentaires ni chaînes littérales."""
+    return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"', " ", source, flags=re.S)
+
+
+def relay_changes(trace: Trace, pin: int = 5) -> list[tuple[int, int]]:
+    """Changements réels du niveau de la broche (départ à 0 : sortie non commandée) : [(t_ms, niveau)]."""
+    out, level = [], 0
+    for t, lv in trace.gpio_levels(pin):
+        if lv != level:
+            out.append((t, lv))
+            level = lv
+    return out
+
+
+def relay_states(changes: list[tuple[int, int]], t: int) -> set[int]:
+    """États possibles de la broche à t : avant et après un changement survenu à la même milliseconde."""
+    before = after = 0
+    for tc, lv in changes:
+        if tc < t:
+            before = after = lv
+        elif tc == t:
+            after = lv
+    return {before, after}
+
+
+def load_check(name: str):
+    """Un autre module de checks/ (contenu de confiance), chargé par chemin : un check peut réutiliser les constantes et les
+    fonctions d'un autre au lieu de les recopier."""
+    key = f"esp_check_{name}"
+    if key not in sys.modules:
+        spec = importlib.util.spec_from_file_location(key, Path(__file__).resolve().parent / "checks" / f"{name}.py")
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[key] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[key]
