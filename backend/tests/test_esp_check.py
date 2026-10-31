@@ -2102,3 +2102,203 @@ def test_es10_test_credentials_live_only_in_the_check_module():
     for path in (ES10 / "seed" / "main.cpp", ES10 / "solution.sh", ES10 / "tp.json", ES10.parent / "es10.md", ES10.parent / "es10.qcm.json"):
         text = path.read_text(encoding="utf-8")
         assert check.USER not in text and check.PASS not in text, path
+
+
+# ---- TP es11 (mises à jour OTA : version strictement plus récente, https vérifié, relais sûr, redémarrage après succès) ----
+
+ES11 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp4" / "lessons" / "es11.tp"
+
+
+def _es11_reference() -> str:
+    text = (ES11 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es11_mutant(*edits: tuple[str, str]) -> str:
+    src = _es11_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es11_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es11-tp")
+
+
+def test_es11_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es11_run(tmp_path, _es11_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es11_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es11_run(tmp_path, (ES11 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "scénario a" in out and "aucun téléchargement commencé" in out and "relire" in out, out
+
+
+VPR_OLD = _es11_reference()[_es11_reference().index("static bool version_plus_recente"):_es11_reference().index("// Fourni (TP 10) : lire")]
+RELAY_SAFE = "    regler_relais(false);  // état sûr pendant toute la mise à jour : il ne se rallume que sur une nouvelle commande\n"
+FAIL_LOG = '        ESP_LOGE(TAG, "mise à jour échouée : %s", esp_err_to_name(err));\n'
+OTA_CALL = "    esp_err_t err = esp_https_ota(&cfg);\n"
+CERT_OTA = "    http.cert_pem = _binary_server_cert_pem_start;  // le certificat du serveur : la vérification complète, comme pour MQTT\n"
+HTTPS_TEST = '    if (strncmp(url, "https://", 8) != 0) {\n'
+STEP2 = "        if (url_dans_commande(ev->data, ev->data_len)) {  // étape 2 : ne rien télécharger ici, lever le drapeau\n            xEventGroupSetBits(groupe_liaison, BIT_OTA);\n        }\n"
+RESTART = "    esp_restart();\n}\n"
+
+# nom -> (remplacements, fragments de message attendus)
+ES11_MUTANTS = {
+    "same_version_accepted": ([("    return false;  // identique : pas de mise à jour\n", "    return true;\n")],
+                              ["scénario c", "n'est pas strictement plus récente"]),
+    "older_version_accepted": ([("return n[i] > c[i];", "return n[i] != c[i];")], ["scénario e", "n'est pas strictement plus récente"]),
+    "always_newer": ([(VPR_OLD, "static bool version_plus_recente(const char *nouvelle, const char *courante) {\n    (void)nouvelle;\n    (void)courante;\n    return true;\n}\n\n")],
+                     ["scénario c", "n'est pas strictement plus récente"]),
+    "versions_compared_as_text": ([(VPR_OLD, "static bool version_plus_recente(const char *nouvelle, const char *courante) {\n    return strcmp(nouvelle, courante) > 0;\n}\n\n")],
+                                  ["scénario a", "aucun téléchargement commencé", "comparaison des nombres"]),
+    "restart_despite_the_failure": ([(FAIL_LOG + "        return;\n", FAIL_LOG)], ["scénario b", "malgré l'échec"]),
+    "failure_not_logged": ([(FAIL_LOG, "        (void)err;\n")], ["scénario b", "n'est pas journalisé", "ESP_ERR_OTA_VALIDATE_FAILED"]),
+    "failure_logged_without_the_code": ([(FAIL_LOG, '        ESP_LOGE(TAG, "mise à jour échouée");\n')], ["scénario b", "n'est pas journalisé"]),
+    "failure_logged_at_info_level": ([(FAIL_LOG, FAIL_LOG.replace("ESP_LOGE", "ESP_LOGI"))], ["scénario b", "n'est pas journalisé"]),
+    "esp_error_check_on_the_update": ([(OTA_CALL, "    ESP_ERROR_CHECK(esp_https_ota(&cfg));\n    esp_err_t err = ESP_OK;\n")], ["ESP_ERROR_CHECK", "esp_https_ota"]),
+    "common_name_not_verified": ([(CERT_OTA, CERT_OTA + "    http.skip_cert_common_name_check = true;\n")], ["skip_cert_common_name_check"]),
+    "certificate_not_provided": ([(CERT_OTA, "")], ["scénario a", "aucun téléchargement commencé", "ESP_ERR_INVALID_ARG"]),
+    "public_bundle_instead_of_the_certificate": ([(CERT_OTA, "    http.crt_bundle_attach = esp_crt_bundle_attach;\n"),
+                                                  ('#include "sdkconfig.h"', '#include "sdkconfig.h"\n#include "esp_crt_bundle.h"')],
+                                                 ["scénario a", "paquet de certificats public"]),
+    "cleartext_http_accepted": ([(HTTPS_TEST, "    if (false) {\n")], ["scénario f", "http://", "ne refuse pas ce schéma"]),
+    "relay_left_on_during_the_update": ([(RELAY_SAFE, "")], ["scénario a", "relais n'est pas éteint pendant la mise à jour"]),
+    "relay_switched_on_again_after_the_failure": ([(FAIL_LOG + "        return;\n", FAIL_LOG + "        regler_relais(true);\n        return;\n")],
+                                                  ["scénario b", "relais n'est pas éteint pendant la mise à jour"]),
+    "relay_cut_before_the_checks": ([(RELAY_SAFE, ""), ("static void mettre_a_jour(const char *url) {\n", "static void mettre_a_jour(const char *url) {\n    regler_relais(false);\n")],
+                                    ["scénario c", "une demande refusée ne touche pas à la pompe"]),
+    "relay_command_obeyed_during_the_update": ([("    if (voulu && ota_demandee) {\n", "    if (false) {\n")],
+                                               ["scénario a", "relais n'est pas éteint pendant la mise à jour"]),
+    "no_restart_after_success": ([(RESTART, "}\n")], ["scénario a", "0 redémarrage"]),
+    "restart_too_late": ([(RESTART, "    vTaskDelay(pdMS_TO_TICKS(15000));\n" + RESTART)], ["scénario a", "au plus 10 s accordées"]),
+    "handler_never_asks_for_the_update": ([(STEP2, "")], ["scénario a", "aucun téléchargement commencé"]),
+    "a_second_attempt_after_the_failure": ([(OTA_CALL, OTA_CALL + "    if (err != ESP_OK) {\n        err = esp_https_ota(&cfg);\n    }\n")], ["scénario b", "2 téléchargements"]),
+    "refusal_not_logged": ([('        ESP_LOGW(TAG, "mise à jour refusée : version proposée %s, version courante %s", version, courante);\n', "")],
+                           ["scénario c", "le refus n'est pas journalisé"]),
+    "https_refusal_not_logged": ([('        ESP_LOGW(TAG, "mise à jour refusée : %s n\'est pas une adresse https://", url);\n', "")],
+                                 ["scénario f", "le refus n'est pas journalisé"]),
+    "update_started_from_the_wrong_url": ([("    http.url = url;\n", '    http.url = "https://broker.local:8443/firmware/pool-ctl-1.10.0.bin";\n')],
+                                           ["scénario b", "au lieu de l'adresse de la commande"]),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES11_MUTANTS.values(), ids=ES11_MUTANTS.keys())
+def test_es11_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es11_run(tmp_path, _es11_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+STRTOL_VERSION = '''static bool version_plus_recente(const char *nouvelle, const char *courante) {
+    long v[2][3];
+    const char *texte[2] = {nouvelle, courante};
+    for (int k = 0; k < 2; k++) {
+        const char *p = texte[k];
+        for (int i = 0; i < 3; i++) {
+            char *suite;
+            if (*p < '0' || *p > '9') {
+                return false;
+            }
+            v[k][i] = strtol(p, &suite, 10);
+            p = suite;
+            if (i < 2) {
+                if (*p != '.') {
+                    return false;
+                }
+                p++;
+            }
+        }
+        if (*p != '\\0') {
+            return false;
+        }
+    }
+    for (int i = 0; i < 3; i++) {
+        if (v[0][i] != v[1][i]) {
+            return v[0][i] > v[1][i];
+        }
+    }
+    return false;
+}
+
+'''
+CMP_VERSION = '''static int comparer_versions(const char *a, const char *b) {
+    int x[3], y[3];
+    char z;
+    if (sscanf(a, "%d.%d.%d%c", &x[0], &x[1], &x[2], &z) != 3 || sscanf(b, "%d.%d.%d%c", &y[0], &y[1], &y[2], &z) != 3) {
+        return -1;
+    }
+    long ka = (long)x[0] << 40 | (long)x[1] << 20 | x[2];
+    long kb = (long)y[0] << 40 | (long)y[1] << 20 | y[2];
+    return ka > kb ? 1 : ka < kb ? -1 : 0;
+}
+
+static bool version_plus_recente(const char *nouvelle, const char *courante) {
+    return comparer_versions(nouvelle, courante) > 0;
+}
+
+'''
+
+# Variantes valides, écrites autrement.
+ES11_VARIANTS = {
+    "version_parsed_with_strtol": [(VPR_OLD, STRTOL_VERSION)],
+    "version_packed_in_one_number": [(VPR_OLD, CMP_VERSION)],
+    "refusals_logged_in_english": [('"mise à jour refusée : version proposée %s, version courante %s"', '"update refused: new %s, current %s"')],
+    "restart_after_a_short_pause": [(RESTART, "    vTaskDelay(pdMS_TO_TICKS(1000));\n" + RESTART)],
+    "http_client_with_keep_alive_and_timeout": [(CERT_OTA, CERT_OTA + "    http.keep_alive_enable = true;\n    http.timeout_ms = 10000;\n")],
+    "common_name_check_explicitly_enabled": [(CERT_OTA, CERT_OTA + "    http.skip_cert_common_name_check = false;\n")],
+    "https_tested_with_strstr": [(HTTPS_TEST, '    if (strstr(url, "https://") != url) {\n')],
+    "relay_cut_through_the_pin": [(RELAY_SAFE, "    gpio_set_level(RELAIS_GPIO, 0);\n    relais = false;\n")],
+    "failure_logged_with_the_numeric_code_too": [(FAIL_LOG, '        ESP_LOGE(TAG, "mise à jour échouée : %s (0x%x)", esp_err_to_name(err), (unsigned)err);\n')],
+    "bypass_option_named_in_a_comment_and_a_string": [(CERT_OTA, CERT_OTA + '    // pas de skip_cert_common_name_check = true : voir la leçon\n    const char *note = "ESP_ERROR_CHECK(esp_https_ota(&cfg))";\n    (void)note;\n')],
+}
+
+
+@pytest.mark.parametrize("edits", ES11_VARIANTS.values(), ids=ES11_VARIANTS.keys())
+def test_es11_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es11_run(tmp_path, _es11_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+def _es11_check_module():
+    import sys
+    sys.modules.setdefault("esp_trace", _load("esp_trace_probe", ESP / "trace.py"))
+    return _load("es11_check_probe", ESP / "checks" / "es11-tp.py")
+
+
+@pytest.mark.parametrize("src", [
+    "esp_err_t err = esp_https_ota(&cfg);",
+    "cfg.skip_cert_common_name_check = false;",
+    "// ESP_ERROR_CHECK(esp_https_ota(&cfg)) est interdit\nint x = 1;",
+    'ESP_LOGI(TAG, "skip_cert_common_name_check = true ? non");',
+    "ESP_ERROR_CHECK(esp_restart_prepare());\nESP_ERROR_CHECK(esp_https_ota_helper(&cfg));",
+])
+def test_es11_source_scan_does_not_refuse_legitimate_idioms(src):
+    _es11_check_module()._check_source(src)
+
+
+@pytest.mark.parametrize("src", [
+    "ESP_ERROR_CHECK(esp_https_ota(&cfg));",
+    "ESP_ERROR_CHECK( esp_https_ota (&cfg) );",
+    "http.skip_cert_common_name_check = true;",
+    "http.skip_cert_common_name_check = vite;",
+    "#ifdef CONFIG_ESP_TLS_INSECURE\n#endif",
+    "cfg.skip_server_cert_verify = true;",
+])
+def test_es11_source_scan_refuses_bypasses_and_checked_updates(src):
+    import sys
+    module = _es11_check_module()
+    with pytest.raises(sys.modules["esp_trace"].CheckError):
+        module._check_source(src)
+
+
+def test_es11_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES11.parent / "es11.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es11-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles

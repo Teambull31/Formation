@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es11-q1",
+  "text": "Pourquoi la carte réserve-t-elle deux emplacements (ota_0 et ota_1) au programme ?",
+  "options": [
+   "Pour exécuter deux programmes en même temps sur les deux cœurs de la puce",
+   "Pour doubler la mémoire vive disponible pendant que le programme s'exécute",
+   "Pour écrire la mise à jour sans toucher au programme qui tourne",
+   "Pour garder une copie de la NVS avant chaque mise à jour du programme"
+  ],
+  "answer": 2,
+  "explain": "Un programme ne peut pas s'écraser lui-même : une coupure en pleine écriture laisserait une image à moitié écrite. La mise à jour s'écrit donc dans l'autre emplacement, et la partition otadata n'est modifiée qu'une fois l'image vérifiée : jusque-là, la carte redémarrerait sur l'ancien programme, intact. Les deux emplacements ne tournent jamais ensemble, ne touchent pas à la mémoire vive, et la NVS (partition de données) n'est pas concernée par une mise à jour de l'application.",
+  "remedial_lesson_id": "es11"
+ },
+ {
+  "id": "es11-q2",
+  "text": "La carte tourne en version 1.9.0 et la commande propose 1.10.0. Quelle comparaison suit les règles du TP ?",
+  "options": [
+   "Comparer 1 puis 9 contre 10 comme des nombres : la mise à jour est acceptée",
+   "Comparer les deux textes avec strcmp : 1.10.0 vient avant 1.9.0, donc refus",
+   "Accepter dès que les deux textes de version diffèrent, quelle que soit leur valeur",
+   "Refuser, car 10 s'écrit avec deux chiffres et 9 avec un seul"
+  ],
+  "answer": 0,
+  "explain": "Une version x.y.z se compare nombre par nombre, de gauche à droite : 1 égale 1, puis 10 est plus grand que 9, donc 1.10.0 est strictement plus récente et la mise à jour est acceptée. Avec strcmp, le texte 1.10.0 est classé avant 1.9.0 (le caractère 1 précède le caractère 9) : on refuserait la bonne mise à jour. Accepter toute différence installerait aussi les versions plus anciennes, et le nombre de chiffres n'a rien à voir avec l'ordre des versions.",
+  "remedial_lesson_id": "es11"
+ },
+ {
+  "id": "es11-q3",
+  "text": "esp_https_ota renvoie ESP_ERR_OTA_VALIDATE_FAILED : l'image reçue est corrompue. Quelle conduite suit les règles du TP ?",
+  "options": [
+   "Appeler esp_restart() pour que le bootloader répare lui-même l'image reçue",
+   "Entourer l'appel d'un ESP_ERROR_CHECK pour relancer la carte automatiquement",
+   "Rallumer le relais et réessayer en boucle jusqu'à ce que l'image soit valide",
+   "Journaliser le code d'erreur, ne pas redémarrer et garder le service"
+  ],
+  "answer": 3,
+  "explain": "Une image invalide n'est jamais adoptée : la carte continue sur l'ancien programme, sans dégât. Il suffit de tester le résultat, de journaliser le nom du code (esp_err_to_name) pour comprendre l'échec à distance, de ne pas redémarrer et de laisser la télémétrie et les commandes continuer. Le bootloader ne répare rien, ESP_ERROR_CHECK arrêterait la carte (en boucle si le serveur renvoie toujours la même image), et réessayer sans fin martèle le serveur, relais rallumé de soi-même en plus.",
+  "remedial_lesson_id": "es11"
+ },
+ {
+  "id": "es11-q4",
+  "text": "La commande donne une adresse en http://, et esp_https_ota reçoit un cert_pem. Que se passe-t-il ?",
+  "options": [
+   "La fonction refuse toute seule l'adresse avec ESP_ERR_INVALID_ARG",
+   "Le téléchargement se fait en clair : c'est au programme de le refuser",
+   "La fonction passe en TLS d'elle-même grâce au certificat qu'on lui a fourni",
+   "La fonction échoue toujours avec ESP_ERR_HTTP_CONNECT, faute de poignée de main"
+  ],
+  "answer": 1,
+  "explain": "esp_https_ota ne lit jamais le début de l'adresse : avec http://, le client télécharge en clair, sans poignée de main TLS, et cert_pem est ignoré (la fonction est satisfaite parce qu'une option de vérification est donnée). N'importe quel appareil du réseau peut alors remplacer l'image au passage. Le programme doit refuser toute adresse qui ne commence pas par https:// avant d'appeler la fonction. ESP_ERR_INVALID_ARG n'est renvoyé que sans aucune option de vérification, et il n'y a pas de passage automatique en TLS.",
+  "remedial_lesson_id": "es11"
+ },
+ {
+  "id": "es11-q5",
+  "text": "Que fait le programme du TP du relais quand une mise à jour est demandée ?",
+  "options": [
+   "Il le laisse dans son état : une mise à jour ne concerne pas la pompe",
+   "Il l'éteint à la réception de la commande, même si la version est refusée",
+   "Il l'éteint juste avant le téléchargement, une fois la demande acceptée",
+   "Il le rallume aussitôt après un échec, pour que l'arrosage reprenne"
+  ],
+  "answer": 2,
+  "explain": "Pendant le téléchargement la carte est occupée et peut redémarrer à la fin : une pompe qui tourne sans surveillance est un danger, donc le relais est éteint juste avant esp_https_ota, et il reste éteint après un échec tant qu'une nouvelle commande ne l'allume pas. Mais la décision vient d'abord : une demande refusée (version identique, adresse en http://) ne démarre rien, et la pompe n'a aucune raison de s'arrêter. Laisser le relais allumé pendant la mise à jour, ou le rallumer de soi-même après un échec, sont les deux erreurs à éviter.",
+  "remedial_lesson_id": "es11"
+ }
+]
