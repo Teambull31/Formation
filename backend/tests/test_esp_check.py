@@ -2397,6 +2397,9 @@ ES12_MUTANTS = {
                            ["scénario b", "n'est pas journalisé"]),
     "wifi_wait_forever": ([("pdMS_TO_TICKS(delai_ms)", "portMAX_DELAY")], ["scénario g", "bloqué", "portMAX_DELAY"]),
     "selftest_delay_restarted_after_the_wifi": ([(WAIT, "pdMS_TO_TICKS(DELAI_AUTOTEST_MS)")], ["scénario g", "depuis le démarrage"]),
+    "tls_name_check_disabled": ([(INIT_FIRST, INIT_FIRST + "    bool skip_cert_common_name_check = true;\n    (void)skip_cert_common_name_check;\n")],
+                                ["skip_cert_common_name_check", "homme du milieu"]),
+    "credential_written_in_the_code": ([(INIT_FIRST, INIT_FIRST + '    const char *mdp = "piscine-ctl-07";\n    (void)mdp;\n')], ["identifiant est écrit en clair"]),
     "success_marked_invalid": ([(MARK_VALID, "        esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();\n")], ["scénario a", "marquée invalide"]),
 }
 

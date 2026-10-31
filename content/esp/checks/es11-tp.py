@@ -23,7 +23,7 @@ relais commuté au plus 1 s après une commande.
 import json
 import re
 
-from esp_trace import code_only as _code, fmt_s as _s, need, Trace
+from esp_trace import code_only as _code, fmt_s as _s, need, Trace, load_check
 
 PIN = 5
 CHANNEL = 6
@@ -89,8 +89,7 @@ S_FLOW = "Ne pas bloquer le gestionnaire MQTT"
 
 # ---- analyse du texte du programme ----
 
-SKIP_CN = re.compile(r"\bskip_cert_common_name_check\b(?!\s*=\s*(?:\(\s*bool\s*\)\s*)?(?:false|0)\s*[;,})])")
-BYPASS = re.compile(r"\b(?:CONFIG_ESP_TLS_INSECURE|CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY|skip_server_cert_verify|skip_common_name)\b")
+SKIP_CN, BYPASS = load_check("es10-tp").SKIP_CN, load_check("es10-tp").BYPASS  # les mêmes motifs que le TP 10
 CHECKED_OTA = re.compile(r"\bESP_ERROR_CHECK\s*\(\s*esp_https_ota\s*\(")
 
 

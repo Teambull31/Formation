@@ -21,7 +21,7 @@ instants. Il lit aussi le texte d'app_main (commentaires et chaînes retirés) :
 """
 import re
 
-from esp_trace import code_only as _code, fmt_s as _s, need, Trace
+from esp_trace import code_only as _code, fmt_s as _s, need, Trace, load_check
 
 PIN = 5
 CHANNEL = 6
@@ -113,6 +113,7 @@ OTHER_INITS = re.compile(r"\b(?:init_adc|init_nvs|nvs_flash_init|wifi_connecter|
 
 
 def _check_source(source: str) -> None:
+    load_check("es10-tp")._check_source(source)  # vérification TLS jamais coupée, identifiants jamais dans le code : acquis du TP 10
     body = _app_main_body(_code(source))
     if body is None:
         return
