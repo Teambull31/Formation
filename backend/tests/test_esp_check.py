@@ -2172,6 +2172,19 @@ ES11_MUTANTS = {
                                     ["scénario c", "une demande refusée ne touche pas à la pompe"]),
     "relay_command_obeyed_during_the_update": ([("    if (voulu && ota_demandee) {\n", "    if (false) {\n")],
                                                ["scénario a", "relais n'est pas éteint pendant la mise à jour"]),
+    "patch_number_ignored": ([("    for (int i = 0; i < 3; i++) {\n        if (n[i] < 0", "    for (int i = 0; i < 2; i++) {\n        if (n[i] < 0")],
+                             ["scénario d", "aucun téléchargement commencé"]),
+    "every_number_at_least_as_big": ([(VPR_OLD, "static bool version_plus_recente(const char *nouvelle, const char *courante) {\n    int n[3], c[3];\n    char reste;\n"
+                                      '    if (sscanf(nouvelle, "%d.%d.%d%c", &n[0], &n[1], &n[2], &reste) != 3 || sscanf(courante, "%d.%d.%d%c", &c[0], &c[1], &c[2], &reste) != 3) {\n'
+                                      "        return false;\n    }\n    for (int i = 0; i < 3; i++) {\n        if (n[i] < c[i]) {\n            return false;\n        }\n    }\n"
+                                      "    return n[0] != c[0] || n[1] != c[1] || n[2] != c[2];\n}\n\n")],
+                                     ["scénario b", "aucun téléchargement commencé"]),
+    "version_form_not_checked": ([('sscanf(nouvelle, "%d.%d.%d%c", &n[0], &n[1], &n[2], &reste) != 3', 'sscanf(nouvelle, "%d.%d.%d", &n[0], &n[1], &n[2]) != 3')],
+                                 ["scénario g", "forme x.y.z"]),
+    "download_made_in_the_mqtt_handler": ([("// Fourni (TP 10) : le gestionnaire des événements MQTT (tâche mqtt_task, il ne bloque jamais).\n",
+                                            "static void mettre_a_jour(const char *url);\n// Fourni (TP 10) : le gestionnaire des événements MQTT (tâche mqtt_task, il ne bloque jamais).\n"),
+                                           (STEP2, "        if (url_dans_commande(ev->data, ev->data_len)) {\n            mettre_a_jour(url_ota);\n            ota_demandee = false;\n        }\n")],
+                                          ["scénario b", "gestionnaire MQTT"]),
     "no_restart_after_success": ([(RESTART, "}\n")], ["scénario a", "0 redémarrage"]),
     "restart_too_late": ([(RESTART, "    vTaskDelay(pdMS_TO_TICKS(15000));\n" + RESTART)], ["scénario a", "au plus 10 s accordées"]),
     "handler_never_asks_for_the_update": ([(STEP2, "")], ["scénario a", "aucun téléchargement commencé"]),

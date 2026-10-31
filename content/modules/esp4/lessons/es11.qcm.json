@@ -32,7 +32,7 @@
    "Appeler esp_restart() pour que le bootloader répare lui-même l'image reçue",
    "Entourer l'appel d'un ESP_ERROR_CHECK pour relancer la carte automatiquement",
    "Rallumer le relais et réessayer en boucle jusqu'à ce que l'image soit valide",
-   "Journaliser le code d'erreur, ne pas redémarrer et garder le service"
+   "Journaliser le code d'erreur, ne pas redémarrer, laisser le service tourner"
   ],
   "answer": 3,
   "explain": "Une image invalide n'est jamais adoptée : la carte continue sur l'ancien programme, sans dégât. Il suffit de tester le résultat, de journaliser le nom du code (esp_err_to_name) pour comprendre l'échec à distance, de ne pas redémarrer et de laisser la télémétrie et les commandes continuer. Le bootloader ne répare rien, ESP_ERROR_CHECK arrêterait la carte (en boucle si le serveur renvoie toujours la même image), et réessayer sans fin martèle le serveur, relais rallumé de soi-même en plus.",

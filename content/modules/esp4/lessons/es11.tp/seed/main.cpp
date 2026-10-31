@@ -170,7 +170,7 @@ static void traiter_commande(const char *data, int len) {
         return;  // la valeur n'est ni true ni false : on ignore
     }
     if (voulu && ota_demandee) {
-        ESP_LOGW(TAG, "command refused: update in progress");  // pompe à l'arrêt tant qu'une mise à jour est demandée ou en cours
+        ESP_LOGW(TAG, "commande refusée : mise à jour en cours");  // pompe à l'arrêt tant qu'une mise à jour est demandée ou en cours
         return;
     }
     if (voulu) {

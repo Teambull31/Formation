@@ -3,15 +3,16 @@ la comparaison de versions (version_plus_recente), le gestionnaire (drapeau BIT_
 qui n'est pas en https:// ou une version qui n'est pas strictement plus récente, éteindre le relais, esp_https_ota avec le certificat du serveur,
 journaliser l'échec, et ne redémarrer qu'après un succès.
 
-Six exécutions (SCENARIOS), niveau constant de 72,5 % ; le serveur de micrologiciels est broker.local (certificat "@generate") ; les adresses
+Sept exécutions (SCENARIOS), niveau constant de 72,5 % ; le serveur de micrologiciels est broker.local (certificat "@generate") ; les adresses
 sont https://broker.local:8443/firmware/pool-ctl-<version>.bin. {"relay": true} à 20 s, {"ota": adresse} à 40 s, puis {"relay": true} de nouveau
 à 41 s (pendant le téléchargement, s'il a lieu : le relais doit rester éteint), 100 s en tout :
   a : version courante 1.9.0, image 1.10.0 valide : mise à jour puis redémarrage ; {"relay": true} à 70 s.
-  b : courante 1.0.0, image 1.1.0 corrompue (ESP_ERR_OTA_VALIDATE_FAILED) : échec journalisé, pas de redémarrage ; {"relay": true} à 70 s.
+  b : courante 1.4.2, image 2.0.0 corrompue (ESP_ERR_OTA_VALIDATE_FAILED) : échec journalisé, pas de redémarrage ; {"relay": true} à 70 s.
   c : courante 1.2.0, image 1.2.0 : version identique, aucune mise à jour ; {"relay": false} à 80 s.
-  d : courante 1.0.0, image 1.1.0 coupée à 60 % (ESP_FAIL) : échec journalisé, pas de redémarrage ; {"relay": true} à 70 s.
+  d : courante 1.0.0, image 1.0.1 coupée à 60 % (ESP_FAIL) : échec journalisé, pas de redémarrage ; {"relay": true} à 70 s.
   e : courante 1.10.0, image 1.9.9 : version plus ancienne, aucune mise à jour ; {"relay": false} à 80 s.
   f : courante 1.0.0, adresse en http:// : refusée (aucun téléchargement en clair) ; {"relay": false} à 80 s.
+  g : courante 1.0.0, image « 1.2.3a » : version qui n'a pas la forme x.y.z, refusée ; {"relay": false} à 80 s.
 
 Le contrôle juge la trace et lit le texte du programme pour deux choses : aucune option qui réduit la vérification (comme au TP 10) et aucun
 ESP_ERROR_CHECK autour de esp_https_ota. Commentaires et chaînes sont retirés avant la recherche.
@@ -41,14 +42,15 @@ OUTPUT_MODES = {"output", "input_output"}
 # nom -> (version courante, version de l'image, valide, coupure %, adresse de la commande, True : {"relay": true} à 70 s, sinon {"relay": false} à 80 s)
 CASES = {
     "a": ("1.9.0", "1.10.0", True, None, FW.format("1.10.0"), True),
-    "b": ("1.0.0", "1.1.0", False, None, FW.format("1.1.0"), True),
+    "b": ("1.4.2", "2.0.0", False, None, FW.format("2.0.0"), True),
     "c": ("1.2.0", "1.2.0", True, None, FW.format("1.2.0"), False),
-    "d": ("1.0.0", "1.1.0", True, 60, FW.format("1.1.0"), True),
+    "d": ("1.0.0", "1.0.1", True, 60, FW.format("1.0.1"), True),
     "e": ("1.10.0", "1.9.9", True, None, FW.format("1.9.9"), False),
     "f": ("1.0.0", "1.1.0", True, None, HTTP_FW, False),
+    "g": ("1.0.0", "1.2.3a", True, None, FW.format("1.2.3a"), False),
 }
 UPDATES = ("a", "b", "d")  # l'adresse est acceptée : le téléchargement doit avoir lieu
-REFUSED = ("c", "e", "f")
+REFUSED = ("c", "e", "f", "g")
 LABELS = {
     "a": "scénario a (image 1.10.0 plus récente que 1.9.0)",
     "b": "scénario b (image corrompue)",
@@ -56,6 +58,7 @@ LABELS = {
     "d": "scénario d (connexion coupée à 60 %)",
     "e": "scénario e (version plus ancienne)",
     "f": "scénario f (adresse en http://)",
+    "g": "scénario g (version 1.2.3a qui n'est pas de la forme x.y.z)",
 }
 EXPECTED_ERR = {"b": "ESP_ERR_OTA_VALIDATE_FAILED", "d": "ESP_FAIL"}
 
@@ -170,7 +173,9 @@ def _check_update(trace: Trace, name: str) -> None:
          f"ne modifiez pas le code fourni (relire : « {S_FAIL} »)")
     need(_levels_in(marks, b["t_ms"], T_NEXT) == {0},
          f"{label} : le relais n'est pas éteint pendant la mise à jour (début {_s(b['t_ms'])}, fin {_s(end['t_ms'])}) ou se rallume "
-         f"avant la prochaine commande : éteignez-le avant esp_https_ota et laissez-le éteint (relire : « {S_FAIL} »)")
+         f"avant la prochaine commande : éteignez-le avant esp_https_ota et laissez-le éteint ; si le téléchargement est fait dans le gestionnaire "
+         f"MQTT, les commandes reçues pendant qu'il dure attendent et s'exécutent après : levez BIT_OTA et téléchargez dans app_main "
+         f"(relire : « {S_FLOW} »)")
     reboots = trace.events("reboot")
     if name == "a":
         need(end["ok"], f"{label} : la mise à jour a échoué ({end['err']}) alors que l'image est valide (relire : « {S_OTA} »)")
@@ -207,6 +212,11 @@ def _check_refused(trace: Trace, name: str) -> None:
         need(not begins, f"{label} : un téléchargement a été lancé pour une adresse en http:// (en clair : esp_https_ota ne refuse pas ce "
              f"schéma, c'est à vous de le refuser) (relire : « {S_VERIF} »)")
         tokens = [url]
+    elif name == "g":
+        need(not begins, f"{label} : un téléchargement a été lancé pour la version « {version} » : une version qui n'a pas exactement la forme x.y.z "
+             f"(trois nombres séparés par des points, rien après) n'est jamais plus récente ; vérifiez la valeur renvoyée par sscanf "
+             f"(relire : « {S_VERSION} »)")
+        tokens = sorted({version, running})
     else:
         need(not begins, f"{label} : un téléchargement a été lancé alors que la version proposée {version} n'est pas strictement plus récente "
              f"que {running} : comparez les versions avant de télécharger (relire : « {S_VERSION} »)")

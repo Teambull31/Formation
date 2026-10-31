@@ -44,6 +44,14 @@ from app.portfolio import leak_reason
     ("    cfg.credentials.authentication.password = mot_de_passe;", None),
     ("    p->password = pass_buffer.data;", None),
     ("    cfg.token = lire_jeton(&t);", "secret en clair"),
+    # littéral C donné à une macro ou une constante dont le nom évoque un secret
+    ('#define WIFI_PASS "MonWifi2024!"', "secret en clair"),
+    ('#define MQTT_PASSWORD "hunter2222"', "secret en clair"),
+    ('  #  define API_TOKEN "ghp_A1b2C3d4E5f6"', "secret en clair"),
+    ('constexpr const char* kPass = "hunter2222";', "secret en clair"),
+    ('static const char *WIFI_SECRET = "abcdef123456";', "secret en clair"),
+    ("#define WIFI_PASS CONFIG_ESP_WIFI_PASSWORD", None),
+    ('#define NVS_CLE_MDP "pass"', None),
 ])
 def test_leak_reason(text, why):
     assert leak_reason(text) == why

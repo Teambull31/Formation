@@ -20,6 +20,8 @@ EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 KEYWORDS = r"(?:pass(?:word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)"
 SECRET = re.compile(KEYWORDS + r"[\w-]*['\"]?\s*[=:]\s*['\"]?([^\s'\"]{6,})", re.I)
 DOCKER_ENV = re.compile(r"^\s*(?:ENV|ARG)\s+\w*" + KEYWORDS + r"\w*\s+['\"]?([^\s'\"]{6,})", re.I | re.M)
+# Un littéral donné à une macro dont le nom évoque un secret : `#define WIFI_PASS "MonWifi2024!"` (pas de `=` ni de `:`).
+DEFINE_SECRET = re.compile(r'^\s*#\s*define\s+\w*' + KEYWORDS + r'\w*\s+"([^"\s]{6,})"', re.I | re.M)
 SENSITIVE_DEFAULT = re.compile(r"sensitive\s*=\s*true", re.I)
 ANY_DEFAULT = re.compile(r"^\s*default\s*=", re.M)
 PLACEHOLDER = re.compile(r"^(\$\{|\$[A-Z_]|var\.|<|\{\{|changeme|example|xxx|\*+$)", re.I)
@@ -37,6 +39,9 @@ def leak_reason(text: str) -> str | None:
     refs = {m.start(1) for m in FIELD_REF.finditer(text)}
     for m in SECRET.finditer(text):
         if not PLACEHOLDER.match(m.group(1)) and m.start(1) not in refs:
+            return "secret en clair"
+    for m in DEFINE_SECRET.finditer(text):
+        if not PLACEHOLDER.match(m.group(1)):
             return "secret en clair"
     for m in DOCKER_ENV.finditer(text):
         if not PLACEHOLDER.match(m.group(1)):
