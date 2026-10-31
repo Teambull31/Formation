@@ -40,6 +40,7 @@ export default function Boss({ onOpen }: { onOpen: (lessonId: string) => void })
           ) : (
             <>
               <p>Échec en phase {res.phase_reached}{res.failed_pattern ? ` : pattern « ${res.failed_pattern} »` : ''}.</p>
+              {res.output && <pre className="out">{res.output}</pre>}
               {res.remedial_lesson_id && (
                 <button className="btn ghost" onClick={() => onOpen(res.remedial_lesson_id!)}>Ouvrir la mini-leçon</button>
               )}

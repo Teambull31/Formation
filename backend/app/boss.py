@@ -12,6 +12,7 @@ class BossResult:
     phase_reached: int
     failed_pattern: str | None
     remedial_lesson_id: str | None
+    output: str = ""  # sortie de la phase en échec, déjà bornée par run_check (comme pour un TP)
 
 
 def attempt_boss(db: sqlite3.Connection, boss: dict, workspace: Path, boss_dir: Path) -> BossResult:
@@ -20,8 +21,9 @@ def attempt_boss(db: sqlite3.Connection, boss: dict, workspace: Path, boss_dir: 
     for i, ph in enumerate(phases, 1):
         tp = Tp(id=ph["pattern_id"], title=ph["label"], instructions_md="", check=ph["check"],
                 hints=[], timeout_s=ph.get("timeout_s", 30), workspace=".")
-        if not run_check(tp, workspace, boss_dir).passed:
-            result = BossResult(False, i, ph["pattern_id"], ph.get("remedial_lesson_id"))
+        r = run_check(tp, workspace, boss_dir)
+        if not r.passed:
+            result = BossResult(False, i, ph["pattern_id"], ph.get("remedial_lesson_id"), r.output)
             break
     db.execute(
         "INSERT INTO boss_attempts(boss_id, phase_reached, won, failed_pattern, at) "

@@ -213,6 +213,7 @@ def test_boss_get_hides_checks_and_attempt_counts(client):
     assert len(b.json()["phases"]) == 3 and b.json()["attempts"] == 0
     r = client.post("/api/boss/attempt").json()
     assert r["won"] is False and r["attempts"] == 1
+    assert isinstance(r["output"], str)
 
 
 def test_import_broken_module_is_422_with_errors(client, broken_module):

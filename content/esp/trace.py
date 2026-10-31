@@ -143,5 +143,9 @@ def load_check(name: str):
         spec = importlib.util.spec_from_file_location(key, Path(__file__).resolve().parent / "checks" / f"{name}.py")
         mod = importlib.util.module_from_spec(spec)
         sys.modules[key] = mod
-        spec.loader.exec_module(mod)
+        try:
+            spec.loader.exec_module(mod)
+        except BaseException:
+            del sys.modules[key]  # pas de demi-module en cache
+            raise
     return sys.modules[key]

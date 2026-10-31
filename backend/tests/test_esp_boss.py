@@ -162,6 +162,7 @@ MUTANTS = {
     "p3_no_selftest": (3, [("    if (image_a_confirmer()) {\n", "    if (false) {\n")], ["scénario k", "n'est jamais confirmée"]),
     "p3_ota_failure_not_logged": (3, [('        ESP_LOGE(TAG_OTA, "mise à jour échouée : %s", esp_err_to_name(err));\n', "")], ["scénario l", "n'est pas journalisé"]),
     "p3_error_check_around_the_ota": (3, [("    esp_err_t err = esp_https_ota(&cfg);\n", "    esp_err_t err = ESP_OK;\n    ESP_ERROR_CHECK(esp_https_ota(&cfg));\n")], ["ESP_ERROR_CHECK"]),
+    "p3_selftest_on_every_boot_even_if_confirmed": (3, [("    if (image_a_confirmer()) {", "    if (true) {")], ["scénario k", "marquages"]),
     "p3_selftest_does_not_wait_for_mqtt": (3, [("pdMS_TO_TICKS(delai_restant_ms())", "0")], ["scénario k", "redémarrages"]),
     "p3_version_not_announced": (3, [('    ESP_LOGI(TAG, "démarrage, version %s", esp_app_get_description()->version);\n', "")], ["versions annoncées"]),
 }

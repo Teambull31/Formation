@@ -54,9 +54,11 @@ S_SLOTS, S_OTA, S_VERIF, S_VERSION, S_IMAGE, S_FAIL, S_RESTART, S_FLOW = (
 S_ROLLBACK, S_STATE, S_TEST, S_DECIDE, S_POWER = es12.S_ROLLBACK, es12.S_STATE, es12.S_TEST, es12.S_DECIDE, es12.S_POWER
 S_BOOT = p2.S_BOOT
 
+K_REBOOT = 120_000  # après la confirmation : un démarrage sur une image déjà confirmée, courtier absent
+K_DOWN = [(118_000, 210_000)]
 IMG_OK = {"url": FW.format(V_NEW), "version": V_NEW, "valid": True, "drop_at_pct": None}
 CASES = {  # nom -> (version courante, images du serveur, commandes {"ota": ...} : instants, redémarrages du scénario, durée)
-    "k": (V_OLD, [IMG_OK], [40_000], [], 160_000),
+    "k": (V_OLD, [IMG_OK], [40_000], [K_REBOOT], 200_000),
     "l": ("1.4.2", [{"url": FW.format("2.0.0"), "version": "2.0.0", "valid": False, "drop_at_pct": None}], [40_000], [], 120_000),
     "m": (V_OLD, [IMG_OK], [40_000, 80_000], [42_000], 150_000),
     "n": (V_OLD, [{"url": FW_OTHER, "version": V_NEW, "valid": True, "drop_at_pct": None}], [40_000], [], 120_000),
@@ -83,7 +85,7 @@ LABELS = {
 
 def _scenario(name: str) -> dict:
     running, images, cmds, reboots, _ = CASES[name]
-    sc = p2.net(p2._tank(p2.LEVEL), [(t, json.dumps({"ota": URL[name]})) for t in cmds], reboots=reboots)
+    sc = p2.net(p2._tank(p2.LEVEL), [(t, json.dumps({"ota": URL[name]})) for t in cmds], reboots=reboots, broker_down=K_DOWN if name == "k" else ())
     sc["ota"] = {"images": images, "running_version": running}
     if name == "o":
         sc["boot"] = {"self_test_fails": True}
@@ -239,10 +241,20 @@ def _check_k(trace: Trace) -> None:
     need(len(trace.events("ota_begin")) == 1, f"{LABELS['k']} : {len(trace.events('ota_begin'))} téléchargements : une commande = une seule tentative "
          f"(relire : « {S_FAIL} »)")
     end, r = _success(trace, "k", 0)
-    need(len(trace.events("reboot")) == 1, f"{LABELS['k']} : {len(trace.events('reboot'))} redémarrages : après une mise à jour réussie il en faut un seul "
-         f"(relire : « {S_RESTART} »)")
-    m = _confirmed(trace, "k", r["t_ms"], [V_OLD, V_NEW])
-    _pump_on_after(trace, "k", m["t_ms"] + RESUME_MS, "après la confirmation le service reprend : la régulation tourne avec la nouvelle image", S_DECIDE)
+    early = [e for e in _sw_reboots(trace) if e["t_ms"] < K_REBOOT]
+    need(len(early) == 1, f"{LABELS['k']} : {len(early)} redémarrages commandés par le programme : après une mise à jour réussie "
+         f"il en faut un seul (relire : « {S_RESTART} »)")
+    m = _confirmed(trace, "k", r["t_ms"], [V_OLD, V_NEW, V_NEW])
+    need(_from(p2._marks(trace), m["t_ms"] + RESUME_MS, K_DOWN[0][0]) == {1}, f"{LABELS['k']} : la pompe ne tourne pas de {_s(m['t_ms'] + RESUME_MS)} à "
+         f"{_s(K_DOWN[0][0])} (niveau 50 %, liaison établie) : après la confirmation le service reprend avec la nouvelle image (relire : « {S_DECIDE} »)")
+    # Un démarrage de plus (coupure de courant à 120 s), sur l'image déjà confirmée, courtier absent : rien à confirmer ni à annuler, la pompe reste éteinte.
+    need(not [e for e in trace.events("ota_mark") if e["t_ms"] > m["t_ms"]] and not trace.events("rollback"),
+         f"{LABELS['k']} : après le redémarrage de {_s(K_REBOOT)} l'image déjà confirmée est marquée une seconde fois ou annulée : l'auto-test et la "
+         f"décision ne concernent que l'image à confirmer (état ESP_OTA_IMG_PENDING_VERIFY), jamais une image déjà confirmée, même si le courtier est "
+         f"absent (relire : « {S_DECIDE} »)")
+    need(_from(p2._marks(trace), K_DOWN[0][0] + p2.SAFE_MS, CASES["k"][4]) == {0},
+         f"{LABELS['k']} : la pompe tourne alors que le courtier est absent depuis {_s(K_DOWN[0][0])} : éteinte au plus {_s(p2.SAFE_MS)} après la perte, "
+         f"elle ne se rallume pas sans liaison (relire : « {p2.S_SAFE} »)")
 
 
 def _check_l(trace: Trace) -> None:

@@ -49,7 +49,7 @@ export interface Team {
 }
 export interface BossInfo { id: string; bosses: { id: string; title: string }[]; title: string; phases: { label: string }[]; attempts: number }
 export interface BossResult {
-  won: boolean; phase_reached: number; failed_pattern: string | null; remedial_lesson_id: string | null; attempts: number
+  won: boolean; phase_reached: number; failed_pattern: string | null; remedial_lesson_id: string | null; attempts: number; output: string
 }
 export interface Ok { ok: boolean }
 
