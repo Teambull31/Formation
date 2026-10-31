@@ -553,6 +553,20 @@ extern "C" void app_main(void) {
     assert levels(trace) == [(0, "1 1 1")]
 
 
+def test_event_group_get_bits_reads_without_clearing(lib, tmp_path):
+    trace = compile_and_run(EVG + """
+extern "C" void app_main(void) {
+    EventGroupHandle_t g = xEventGroupCreate();
+    EventBits_t a = xEventGroupGetBits(g);
+    xEventGroupSetBits(g, 0x5);
+    EventBits_t b = xEventGroupGetBits(g);
+    EventBits_t c = xEventGroupGetBits(g);  // reading does not clear
+    ESP_LOGI("g", "%x %x %x", (unsigned)a, (unsigned)b, (unsigned)c);
+}
+""", 1000, lib, tmp_path)
+    assert levels(trace) == [(0, "0 5 5")]
+
+
 def test_config_assert(lib, tmp_path):
     trace = compile_and_run(HEADERS + """
 extern "C" void app_main(void) {

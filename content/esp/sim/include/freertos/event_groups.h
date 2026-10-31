@@ -24,6 +24,9 @@ EventBits_t xEventGroupClearBits( EventGroupHandle_t xEventGroup,
                                   const EventBits_t uxBitsToClear );
 void vEventGroupDelete( EventGroupHandle_t xEventGroup );
 
+/* As in FreeRTOS: reading the bits is clearing none of them. */
+#define xEventGroupGetBits( xEventGroup )    xEventGroupClearBits( ( xEventGroup ), 0 )
+
 #ifdef __cplusplus
 }
 #endif

@@ -1709,6 +1709,13 @@
   },
   {
     "header": "freertos/event_groups.h",
+    "name": "xEventGroupGetBits",
+    "decl": "#define xEventGroupGetBits( xEventGroup ) xEventGroupClearBits( ( xEventGroup ), 0 )",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "freertos/event_groups.h",
     "name": "vEventGroupDelete",
     "decl": "void vEventGroupDelete( EventGroupHandle_t xEventGroup );",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/freertos_idf.html",
