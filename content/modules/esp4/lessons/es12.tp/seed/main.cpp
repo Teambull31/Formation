@@ -16,6 +16,7 @@
 #include "mqtt_client.h"
 #include "esp_app_desc.h"
 #include "esp_ota_ops.h"
+#include "esp_timer.h"
 #include "esp_system.h"
 #include "sdkconfig.h"
 
@@ -65,8 +66,9 @@ static void gestionnaire_wifi(void *arg, esp_event_base_t base, int32_t id, void
     }
 }
 
-// Bloque jusqu'à l'obtention d'une adresse IP : MQTT a besoin du réseau. (La NVS est déjà initialisée par init_nvs.)
-static void wifi_connecter(void) {
+// Attend l'adresse IP au plus delai_ms (jamais sans limite : une image dont le Wi-Fi est cassé ne doit pas rester bloquée à l'essai).
+// Renvoie true si l'adresse est obtenue. (La NVS est déjà initialisée par init_nvs.)
+static bool wifi_connecter(int delai_ms) {
     groupe_wifi = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -82,7 +84,8 @@ static void wifi_connecter(void) {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &conf));
     ESP_ERROR_CHECK(esp_wifi_start());
-    xEventGroupWaitBits(groupe_wifi, BIT_IP, pdFALSE, pdFALSE, portMAX_DELAY);
+    EventBits_t bits = xEventGroupWaitBits(groupe_wifi, BIT_IP, pdFALSE, pdFALSE, pdMS_TO_TICKS(delai_ms));
+    return (bits & BIT_IP) != 0;
 }
 
 // Initialise la NVS (idiome officiel : si la partition est pleine ou d'une autre version, on l'efface).
@@ -245,15 +248,16 @@ static void demarrer_mqtt(void) {
 
 // TODO étape 2 : l'image qui tourne est-elle encore à confirmer ? Lire l'état de la partition qui tourne
 // (esp_ota_get_state_partition(esp_ota_get_running_partition(), &etat)) : true seulement si l'appel réussit ET si l'état est
-// ESP_OTA_IMG_PENDING_VERIFY. Si l'appel échoue (par exemple ESP_ERR_NOT_FOUND sur une carte flashée par câble) : false, sans
-// ESP_ERROR_CHECK, et on journalise le nom du code.
+// ESP_OTA_IMG_PENDING_VERIFY. Si l'appel échoue (par exemple ESP_ERR_NOT_SUPPORTED ou ESP_ERR_NOT_FOUND, selon la table de partitions
+// d'une carte flashée par câble) : false, sans ESP_ERROR_CHECK, et on journalise le nom du code.
 static bool image_a_confirmer(void) {
     return false;
 }
 
 // TODO étape 3 : l'auto-test. Le capteur doit être lisible : adc_oneshot_read renvoie ESP_OK ET la valeur brute est dans
-// [RAW_MIN_OK, RAW_MAX_OK] ; MQTT doit être connecté (BIT_CONNECTE de groupe_liaison), en attendant au plus DELAI_AUTOTEST_MS
-// (xEventGroupWaitBits avec ce délai, jamais portMAX_DELAY). Renvoie true seulement si les deux conditions sont remplies ;
+// [RAW_MIN_OK, RAW_MAX_OK] ; MQTT doit être connecté (BIT_CONNECTE de groupe_liaison), en attendant au plus ce qui reste de
+// DELAI_AUTOTEST_MS compté depuis le démarrage de la carte (esp_timer_get_time() donne les microsecondes depuis le démarrage ;
+// l'attente du Wi-Fi fournie en a peut-être déjà consommé une partie). xEventGroupWaitBits avec ce délai, jamais portMAX_DELAY. Renvoie true seulement si les deux conditions sont remplies ;
 // sinon false, après un ESP_LOGW qui dit laquelle a échoué.
 static bool autotest_reussi(void) {
     return false;
@@ -271,7 +275,9 @@ extern "C" void app_main(void) {
     init_adc();
     init_nvs();
     groupe_liaison = xEventGroupCreate();
-    wifi_connecter();
+    if (!wifi_connecter(DELAI_AUTOTEST_MS)) {
+        ESP_LOGW(TAG, "pas d'adresse IP après %d ms : la suite continue sans réseau", DELAI_AUTOTEST_MS);
+    }
     init_relais();  // à déplacer tout en haut d'app_main (étape 1) : ici, le Wi-Fi et la NVS ont déjà démarré
     ESP_LOGI(TAG, "démarrage, version %s", esp_app_get_description()->version);
     if (charger_identifiants()) {

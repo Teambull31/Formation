@@ -3,14 +3,18 @@ ESP_OTA_IMG_PENDING_VERIFY. L'apprenant écrit : le relais en état sûr tout au
 l'auto-test (capteur lisible, MQTT connecté en moins de 60 s) et la conclusion (esp_ota_mark_app_valid_cancel_rollback si l'auto-test
 réussit, esp_ota_mark_app_invalid_rollback_and_reboot sinon, jamais les deux).
 
-Six exécutions (SCENARIOS), niveau constant de 72,5 % sauf en b, versions 1.10.0 (nouvelle image) et 1.9.0 (précédente) :
+Sept exécutions (SCENARIOS), niveau constant de 72,5 % sauf en b, versions 1.10.0 (nouvelle image) et 1.9.0 (précédente) :
   a : auto-test réussi (capteur lisible, courtier joignable) : une seule confirmation (valid=true), pas de retour arrière ; {"relay": true} à 30 s.
   b : capteur muet (valeur brute 0 : fil coupé) : retour arrière demandé (valid=false), redémarrage, la version 1.9.0 reprend le service.
   c : la nouvelle image n'atteint jamais le courtier (boot.self_test_fails) : retour arrière demandé vers 60 s (de 55 s à 70 s).
   d : coupure de courant à 5 s, pendant l'auto-test (courtier absent jusqu'à 20 s) : aucune décision n'a été prise, le démarrage suivant
       revient à 1.9.0 (événement rollback, raison not_validated), sans autre marquage.
   e : courtier joignable seulement à 41 s (< 60 s) : confirmation (valid=true) dès la connexion.
-  f : carte flashée par câble (aucune entrée otadata) : pas d'auto-test, aucun marquage, le service tourne.
+  f : carte flashée par câble : le simulateur la modélise sans entrée otadata (esp_ota_get_state_partition renvoie ESP_ERR_NOT_FOUND). Selon la
+      table de partitions, ESP-IDF renvoie ESP_ERR_NOT_SUPPORTED (partition factory) ou ESP_OK avec l'état VALID (sans factory) : le même test
+      (appel réussi ET état PENDING_VERIFY) convient aux trois. Pas d'auto-test, aucun marquage, le service tourne.
+  g : le Wi-Fi n'arrive jamais (boot.first_boot_after_ota) : l'attente de l'adresse IP est bornée et le délai de 60 s est compté depuis le
+      démarrage : retour arrière demandé vers 60 s (de 55 s à 70 s), sans service (le Wi-Fi reste coupé).
 
 Le contrôle juge la trace : ordre des événements du relais et du Wi-Fi à chaque démarrage, décisions (événements ota_mark, rollback, reboot),
 instants. Il lit aussi le texte d'app_main (commentaires et chaînes retirés) : le relais doit être initialisé avant les autres initialisations.
@@ -42,6 +46,7 @@ PLAN = {
     "d": dict(max_ms=100_000, relay_on=60_000, relay_off=None, tele_after=70_000),
     "e": dict(max_ms=110_000, relay_on=80_000, relay_off=None, tele_after=90_000),
     "f": dict(max_ms=60_000, relay_on=30_000, relay_off=None, tele_after=40_000),
+    "g": dict(max_ms=160_000, relay_on=30_000, relay_off=None, tele_after=0),
 }
 LABELS = {
     "a": "scénario a (auto-test réussi)",
@@ -50,6 +55,7 @@ LABELS = {
     "d": "scénario d (coupure de courant pendant l'auto-test)",
     "e": "scénario e (courtier joignable à 41 s)",
     "f": "scénario f (carte flashée par câble)",
+    "g": "scénario g (le Wi-Fi n'arrive jamais)",
 }
 
 
@@ -71,6 +77,8 @@ def _scenario(name: str) -> dict:
     if name == "d":
         mqtt["broker_down"] = [{"from_ms": 0, "to_ms": 20_000}]
         sc["reboots_at_ms"] = [5_000]
+    if name == "g":
+        sc["wifi"] = {"down": [{"from_ms": 0, "to_ms": 10_000_000}]}
     if name == "e":
         mqtt["broker_down"] = [{"from_ms": 0, "to_ms": 40_000}]
     return sc
@@ -295,9 +303,26 @@ def _check_f(trace: Trace) -> None:
     need(_versions(trace) == [V_OLD], f"{label} : versions annoncées {_versions(trace)} (relire : « {S_STATE} »)")
 
 
+def _check_g(trace: Trace) -> None:
+    label = LABELS["g"]
+    marks = _marks(trace)
+    need(marks, f"{label} : l'image reste à l'essai sans jamais décider : le programme est bloqué quelque part. Toute attente doit avoir un délai fini, "
+         f"y compris l'attente de l'adresse IP du code fourni (portMAX_DELAY interdit) (relire : « {S_TEST} »)")
+    m = marks[0]
+    need(m["valid"] is False, f"{label} : l'image est confirmée alors que le réseau n'a jamais fonctionné (relire : « {S_DECIDE} »)")
+    need(EARLY_MS <= m["t_ms"] <= LATE_MS, f"{label} : décision à {_s(m['t_ms'])} : l'essai dure {_s(DELAY_MS)} au plus, comptées depuis le démarrage de "
+         f"la carte (l'attente du Wi-Fi en a déjà consommé une partie : esp_timer_get_time) (le contrôle accepte de {_s(EARLY_MS)} à {_s(LATE_MS)}) "
+         f"(relire : « {S_TEST} »)")
+    _rolled_back(trace, label, m)
+
+
+CHECKS = (("a", _check_a), ("b", _check_b), ("c", _check_c), ("d", _check_d), ("e", _check_e), ("f", _check_f), ("g", _check_g))
+
+
 def verify(traces: dict, source: str) -> None:
     _check_source(source)
-    for name, fn in (("a", _check_a), ("b", _check_b), ("c", _check_c), ("d", _check_d), ("e", _check_e), ("f", _check_f)):
+    for name, fn in CHECKS:
         _early(traces[name], name)
         fn(traces[name])
-        _service(traces[name], name)
+        if name != "g":  # en g le Wi-Fi reste coupé : pas de service à juger
+            _service(traces[name], name)

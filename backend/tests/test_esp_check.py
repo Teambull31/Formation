@@ -2359,7 +2359,7 @@ def test_es12_tp_seed_with_the_relay_first_is_refused_for_the_missing_confirmati
 INIT_FIRST = "    init_relais();  // étape 1 : tout premier geste, avant la NVS, le Wi-Fi et le reste\n"
 CONCLURE_CALL = "        conclure_autotest(autotest_reussi());\n"
 SENSOR_GATE = "    if (!capteur_lisible()) {\n        return false;\n    }\n"
-WAIT = "pdMS_TO_TICKS(DELAI_AUTOTEST_MS)"
+WAIT = "pdMS_TO_TICKS(delai_restant_ms())"
 MARK_INVALID = "    esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();"
 MARK_VALID = "        esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();\n"
 RANGE_TEST = "    if (raw < RAW_MIN_OK || raw > RAW_MAX_OK) {\n"
@@ -2369,7 +2369,8 @@ LOG_SENSOR = ('        ESP_LOGW(TAG, "auto-test : lecture du capteur impossible 
               '        ESP_LOGW(TAG, "auto-test : valeur brute %d hors de [%d, %d]", raw, RAW_MIN_OK, RAW_MAX_OK);\n',
               '        ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);\n',
               '    ESP_LOGE(TAG, "auto-test échoué : retour à la version précédente");\n')
-WIFI_LINE = "    wifi_connecter();\n"
+WIFI_BLOCK = ('    if (!wifi_connecter(DELAI_AUTOTEST_MS)) {\n'
+              '        ESP_LOGW(TAG, "pas d\'adresse IP après %d ms : la suite continue sans réseau", DELAI_AUTOTEST_MS);\n    }\n')
 
 # nom -> (remplacements, fragments de message attendus)
 ES12_MUTANTS = {
@@ -2381,7 +2382,7 @@ ES12_MUTANTS = {
     "infinite_selftest_delay": ([(WAIT, "portMAX_DELAY")], ["scénario c", "délai fini"]),
     "selftest_delay_too_short": ([("DELAI_AUTOTEST_MS = 60000", "DELAI_AUTOTEST_MS = 20000")], ["scénario c", "55 s"]),
     "selftest_without_waiting_for_mqtt": ([(WAIT, "0")], ["scénario a", "marquée invalide"]),
-    "relay_after_the_wifi": ([(INIT_FIRST, ""), (WIFI_LINE, WIFI_LINE + "    init_relais();\n")], ["init_adc", "avant l'initialisation du relais"]),
+    "relay_after_the_wifi": ([(INIT_FIRST, ""), (WIFI_BLOCK, WIFI_BLOCK + "    init_relais();\n")], ["init_adc", "avant l'initialisation du relais"]),
     "relay_after_the_nvs_and_the_sensor": ([(INIT_FIRST, ""), ("    init_nvs();\n", "    init_nvs();\n    init_relais();\n")], ["init_adc", "avant l'initialisation du relais"]),
     "selftest_ignores_the_sensor": ([(SENSOR_GATE, "")], ["scénario a", "capteur n'a pas été lu"]),
     "sensor_value_not_range_checked": ([(RANGE_TEST, "    if (false) {\n")], ["scénario b", "capteur est muet"]),
@@ -2394,6 +2395,8 @@ ES12_MUTANTS = {
                                  ["ESP_ERROR_CHECK"]),
     "failure_not_logged": ([(LOG_SENSOR[0], "        (void)err;\n"), (LOG_SENSOR[1], ""), (LOG_SENSOR[2], ""), (LOG_SENSOR[3], "")],
                            ["scénario b", "n'est pas journalisé"]),
+    "wifi_wait_forever": ([("pdMS_TO_TICKS(delai_ms)", "portMAX_DELAY")], ["scénario g", "bloqué", "portMAX_DELAY"]),
+    "selftest_delay_restarted_after_the_wifi": ([(WAIT, "pdMS_TO_TICKS(DELAI_AUTOTEST_MS)")], ["scénario g", "depuis le démarrage"]),
     "success_marked_invalid": ([(MARK_VALID, "        esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();\n")], ["scénario a", "marquée invalide"]),
 }
 
@@ -2404,7 +2407,7 @@ def test_es12_tp_mutant(tmp_path, bwrap_ok, edits, expected):
     assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
 
 
-POLLED_WAIT = '''    for (int i = 0; i < DELAI_AUTOTEST_MS / 1000; i++) {
+POLLED_WAIT = '''    for (int reste = delai_restant_ms(); reste > 0; reste -= 1000) {
         if (xEventGroupGetBits(groupe_liaison) & BIT_CONNECTE) {
             return true;
         }
@@ -2413,7 +2416,7 @@ POLLED_WAIT = '''    for (int i = 0; i < DELAI_AUTOTEST_MS / 1000; i++) {
     ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);
     return false;
 }'''
-WAIT_BLOCK = '''    EventBits_t bits = xEventGroupWaitBits(groupe_liaison, BIT_CONNECTE, pdFALSE, pdFALSE, pdMS_TO_TICKS(DELAI_AUTOTEST_MS));
+WAIT_BLOCK = '''    EventBits_t bits = xEventGroupWaitBits(groupe_liaison, BIT_CONNECTE, pdFALSE, pdFALSE, pdMS_TO_TICKS(delai_restant_ms()));
     if ((bits & BIT_CONNECTE) == 0) {
         ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);
         return false;

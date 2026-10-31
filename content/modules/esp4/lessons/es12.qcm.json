@@ -22,7 +22,7 @@
    "Appeler esp_ota_mark_app_invalid_rollback_and_reboot par précaution"
   ],
   "answer": 0,
-  "explain": "ESP_ERR_NOT_FOUND veut dire qu'il n'y a pas d'entrée dans otadata : c'est le cas d'une carte flashée par câble, qui n'a encore jamais reçu de mise à jour. Il n'y a rien à confirmer ni à annuler, et les deux fonctions de marquage y renvoient ESP_FAIL (« Running firmware is factory »). ESP_ERROR_CHECK arrêterait la carte à chaque démarrage pour un cas parfaitement normal : le programme journalise le nom du code et continue.",
+  "explain": "ESP_ERR_NOT_FOUND veut dire que otadata n'existe pas ou n'a aucune entrée pour cette partition : il n'y a pas d'image à l'essai, donc rien à confirmer ni à annuler (une carte flashée par câble peut aussi renvoyer ESP_ERR_NOT_SUPPORTED avec une partition factory, ou ESP_OK avec VALID sans elle : le bon test est toujours « appel réussi ET PENDING_VERIFY »). Appeler un marquage serait inutile ou renverrait ESP_FAIL (« Running firmware is factory »). ESP_ERROR_CHECK arrêterait la carte à chaque démarrage pour un cas normal : le programme journalise le nom du code et continue.",
   "remedial_lesson_id": "es12"
  },
  {
