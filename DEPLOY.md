@@ -134,3 +134,20 @@ Vérifie `/`, `/manifest.webmanifest`, `/api/quest`, le refus (401) sans mot de 
 avec un `Host` non autorisé est refusé (403), que `FORMATION_REMOTE_EXEC` soit actif ou non. Ce dernier contrôle
 n'a de sens que sur l'URL directe de l'appli, pas derrière Caddy. Le mot de passe n'apparaît ni dans la liste des
 processus ni dans la sortie.
+
+## TP C++ (ESP)
+
+Les TP C++ du parcours ESP et le boss ESP compilent et exécutent le code de l'apprenant dans un bac à sable.
+Avant la première exécution sur le VPS, vérifiez que `g++` et `bwrap` répondent (`g++ --version`, `bwrap --version`).
+
+Ces TP sont `local_only` : `/api/tp/{id}/check` (TP C++) et `/api/boss/attempt` (boss esp) renvoient 403 hors de la machine locale.
+La garde `strictly_local` exige un pair en boucle locale et un `Host`/`Origin` locaux, sans jamais consulter `FORMATION_ALLOWED_HOSTS`.
+Elle se fie donc à l'hôte `127.0.0.1` : derrière un proxy local qui transmet l'en-tête `Host` tel quel, la connexion
+paraît locale et la garde ne protège plus rien (même faiblesse que pour l'accès local du terminal).
+
+Deux limites à garder en tête (notes M1 et M2 du registre de la tranche 1) :
+
+- la garde ne contrôle que la **notation**. Avec `FORMATION_REMOTE_EXEC=1`, le terminal distant (`/ws/terminal`) peut
+  compiler et exécuter du C++ de toute façon ;
+- l'ouverture à distance de ces TP n'est pas prête : voir « Domotique ESP-IDF » dans `docs/BACKLOG.md` pour les
+  blocages à lever (cgroup, seccomp, tests du bac à sable avec `ESP_SANDBOX_REQUIRED=1`).
