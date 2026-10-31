@@ -22,6 +22,8 @@ SECRET = re.compile(KEYWORDS + r"[\w-]*['\"]?\s*[=:]\s*['\"]?([^\s'\"]{6,})", re
 DOCKER_ENV = re.compile(r"^\s*(?:ENV|ARG)\s+\w*" + KEYWORDS + r"\w*\s+['\"]?([^\s'\"]{6,})", re.I | re.M)
 # Un littéral donné à une macro dont le nom évoque un secret : `#define WIFI_PASS "MonWifi2024!"` (pas de `=` ni de `:`).
 DEFINE_SECRET = re.compile(r'^\s*#\s*define\s+\w*' + KEYWORDS + r'\w*\s+"([^"\s]{6,})"', re.I | re.M)
+# Un littéral donné à un nom français : `static const char *MDP = "Pz9-ke4N-77qL";`. Seulement un littéral entre guillemets : `taille_mdp = sizeof(x);` passe.
+FRENCH_SECRET = re.compile(r'\w*(?:mdp|mot_?de_?passe)\w*\s*=\s*"([^"\s]{6,})"', re.I)
 SENSITIVE_DEFAULT = re.compile(r"sensitive\s*=\s*true", re.I)
 ANY_DEFAULT = re.compile(r"^\s*default\s*=", re.M)
 PLACEHOLDER = re.compile(r"^(\$\{|\$[A-Z_]|var\.|<|\{\{|changeme|example|xxx|\*+$)", re.I)
@@ -41,6 +43,9 @@ def leak_reason(text: str) -> str | None:
         if not PLACEHOLDER.match(m.group(1)) and m.start(1) not in refs:
             return "secret en clair"
     for m in DEFINE_SECRET.finditer(text):
+        if not PLACEHOLDER.match(m.group(1)):
+            return "secret en clair"
+    for m in FRENCH_SECRET.finditer(text):
         if not PLACEHOLDER.match(m.group(1)):
             return "secret en clair"
     for m in DOCKER_ENV.finditer(text):

@@ -52,6 +52,10 @@ from app.portfolio import leak_reason
     ('static const char *WIFI_SECRET = "abcdef123456";', "secret en clair"),
     ("#define WIFI_PASS CONFIG_ESP_WIFI_PASSWORD", None),
     ('#define NVS_CLE_MDP "pass"', None),
+    ('static const char *MDP = "Pz9-ke4N-77qL";', "secret en clair"),
+    ('static const char *mot_de_passe = "Pz9-ke4N-77qL";', "secret en clair"),
+    ('static const char *NVS_CLE_MDP = "pass";', None),
+    ("    cfg.credentials.authentication.password = mdp;", None),
 ])
 def test_leak_reason(text, why):
     assert leak_reason(text) == why
