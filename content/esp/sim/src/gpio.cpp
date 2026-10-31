@@ -105,6 +105,15 @@ esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull) {
     return ESP_OK;
 }
 
+esp_err_t gpio_reset_pin(gpio_num_t gpio_num) {  // documented: GPIO function, pull-up enabled, input and output disabled
+    if (!valid(gpio_num)) return ESP_ERR_INVALID_ARG;
+    sim::plant_sync();
+    pins[gpio_num].mode = GPIO_MODE_DISABLE;
+    pins[gpio_num].pull_up = true;
+    trace_config(gpio_num);
+    return ESP_OK;
+}
+
 esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level) {
     if (!valid(gpio_num) || input_only(gpio_num)) return ESP_ERR_INVALID_ARG;
     sim::plant_sync();  // integrate the tank up to now with the old relay level

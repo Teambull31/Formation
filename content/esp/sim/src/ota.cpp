@@ -35,10 +35,17 @@
 //     the boot slot stay as they were until success; but the write erases the other slot, so after any failure
 //     there is nothing to roll back to (esp_ota_check_rollback_is_possible is false).
 //   - otadata: a slot has an OTA-data entry (and so a readable state) only once the OTA process chose it. A board
-//     flashed by cable has none: the first app runs from ota_0 with no entry, esp_ota_get_state_partition then returns
-//     ESP_ERR_NOT_FOUND and esp_ota_mark_app_valid_cancel_rollback returns ESP_FAIL (esp_ota_ops.c: "Running firmware is
-//     factory"). An app with an entry whose state is not VALID (also UNDEFINED) becomes VALID. esp_ota_get_state_partition:
-//     ESP_ERR_INVALID_ARG on a null argument, ESP_ERR_NOT_SUPPORTED for a partition that is not an OTA slot.
+//     flashed by cable has none here: the first app runs from ota_0 with no entry, esp_ota_get_state_partition then
+//     returns ESP_ERR_NOT_FOUND and esp_ota_mark_app_valid_cancel_rollback returns ESP_FAIL. This is ONE of the real
+//     cases, simplified (ESP-IDF v5.5.3, esp_ota_ops.c and the bootloader): with a "factory" partition the app runs
+//     from factory, esp_ota_get_state_partition returns ESP_ERR_NOT_SUPPORTED (not an OTA slot) and the marking calls
+//     return ESP_FAIL ("Running firmware is factory"); with only ota_0/ota_1 the bootloader initialises a blank
+//     otadata to VALID at the first boot, so both calls return ESP_OK (state VALID). ESP_ERR_NOT_FOUND is documented
+//     as "no otadata partition or no entry for this partition". The sim returns NOT_FOUND where the factory layout
+//     returns NOT_SUPPORTED; every correct program (err == ESP_OK && state == PENDING_VERIFY) behaves the same in
+//     all three. An app with an entry whose state is not VALID (also UNDEFINED) becomes VALID.
+//     esp_ota_get_state_partition: ESP_ERR_INVALID_ARG on a null argument, ESP_ERR_NOT_SUPPORTED for a partition that
+//     is not an OTA slot.
 //
 // Handed over to the next boot (the flash survives a reset), like the NVS: the boot slot, the version and state of
 // both slots (boot.cpp). A reboot of any kind (esp_restart, watchdog, scripted power cycle) is the "reset" above.
@@ -265,7 +272,7 @@ esp_err_t esp_ota_mark_app_valid_cancel_rollback(void) {
     return ESP_OK;
 }
 
-esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void) {
+esp_err_t esp_ota_mark_app_invalid_rollback(void) {
     if (!slots[running].otadata) return ESP_FAIL;  // "Running firmware is factory", tested before the rollback target
     const Slot &previous = slots[1 - running];
     if (!bootable(previous)) return ESP_ERR_OTA_ROLLBACK_FAILED;
@@ -273,6 +280,11 @@ esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void) {
     emit_rollback("marked_invalid", slots[running].version, previous.version);
     slots[running].state = ESP_OTA_IMG_INVALID;
     boot_slot = 1 - running;
+    return ESP_OK;
+}
+
+esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void) {
+    if (esp_err_t err = esp_ota_mark_app_invalid_rollback()) return err;
     sim::reboot("sw");
 }
 

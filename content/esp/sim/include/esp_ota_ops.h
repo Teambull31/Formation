@@ -25,6 +25,7 @@ extern "C" {
 const esp_partition_t *esp_ota_get_running_partition(void);
 esp_err_t esp_ota_get_state_partition(const esp_partition_t *partition, esp_ota_img_states_t *ota_state);
 esp_err_t esp_ota_mark_app_valid_cancel_rollback(void);
+esp_err_t esp_ota_mark_app_invalid_rollback(void);
 esp_err_t esp_ota_mark_app_invalid_rollback_and_reboot(void);
 const esp_partition_t *esp_ota_get_last_invalid_partition(void);
 bool esp_ota_check_rollback_is_possible(void);

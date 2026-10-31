@@ -66,6 +66,7 @@ typedef struct {
 esp_err_t gpio_config(const gpio_config_t *pGPIOConfig);
 esp_err_t gpio_set_direction(gpio_num_t gpio_num, gpio_mode_t mode);
 esp_err_t gpio_set_pull_mode(gpio_num_t gpio_num, gpio_pull_mode_t pull);
+esp_err_t gpio_reset_pin(gpio_num_t gpio_num);
 esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level);
 int gpio_get_level(gpio_num_t gpio_num);
 

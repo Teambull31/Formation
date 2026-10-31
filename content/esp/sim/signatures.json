@@ -71,6 +71,13 @@
   },
   {
     "header": "driver/gpio.h",
+    "name": "gpio_reset_pin",
+    "decl": "esp_err_t gpio_reset_pin(gpio_num_t gpio_num);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "driver/gpio.h",
     "name": "gpio_set_level",
     "decl": "esp_err_t gpio_set_level(gpio_num_t gpio_num, uint32_t level);",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/peripherals/gpio.html",
@@ -2026,6 +2033,13 @@
     "header": "esp_ota_ops.h",
     "name": "esp_ota_mark_app_valid_cancel_rollback",
     "decl": "esp_err_t esp_ota_mark_app_valid_cancel_rollback(void);",
+    "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
+    "idf": "5.5.3"
+  },
+  {
+    "header": "esp_ota_ops.h",
+    "name": "esp_ota_mark_app_invalid_rollback",
+    "decl": "esp_err_t esp_ota_mark_app_invalid_rollback(void);",
     "source": "https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32/api-reference/system/ota.html",
     "idf": "5.5.3"
   },

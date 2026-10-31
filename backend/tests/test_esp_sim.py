@@ -271,6 +271,24 @@ extern "C" void app_main(void) {
     ]
 
 
+def test_gpio_reset_pin_disables_the_pin_and_enables_the_pull_up(lib, tmp_path):
+    trace = compile_and_run(GPIO + """
+extern "C" void app_main(void) {
+    gpio_config_t io = {};
+    io.pin_bit_mask = 1ULL << GPIO_NUM_5;
+    io.mode = GPIO_MODE_OUTPUT;
+    ESP_ERROR_CHECK(gpio_config(&io));
+    ESP_ERROR_CHECK(gpio_reset_pin(GPIO_NUM_5));
+    ESP_LOGI("r", "%d", (int)gpio_reset_pin((gpio_num_t)99));
+}
+""", 1000, lib, tmp_path)
+    assert [e for e in trace if e["ev"] == "gpio_config"] == [
+        {"t_ms": 0, "ev": "gpio_config", "pin": 5, "mode": "output", "pull_up": False},
+        {"t_ms": 0, "ev": "gpio_config", "pin": 5, "mode": "disable", "pull_up": True},
+    ]
+    assert levels(trace) == [(0, "258")]  # ESP_ERR_INVALID_ARG
+
+
 READ_LOOP = GPIO + """
 extern "C" void app_main(void) {
     gpio_config_t io = {};
@@ -2011,6 +2029,27 @@ extern "C" void app_main(void) {
     assert [e["reason"] for e in trace if e["ev"] == "reboot"] == ["sw"]
 
 
+def test_mark_invalid_rollback_without_reboot_then_esp_restart(lib, tmp_path, cert_pem):
+    sc = json.dumps({"ota": {"images": [], "running_version": "2.0.0", "previous_version": "1.5.0"},
+                     "boot": {"first_boot_after_ota": True, "self_test_fails": False}})
+    main = """
+extern "C" void app_main(void) {
+    report("boot");
+    if (esp_reset_reason() == ESP_RST_POWERON) {
+        ESP_LOGI("c", "%s", esp_err_to_name(esp_ota_mark_app_invalid_rollback()));  // returns: no reboot by itself
+        ESP_LOGI("c", "still running");
+        esp_restart();
+    }
+    vTaskDelay(pdMS_TO_TICKS(100));
+}
+"""
+    trace = ota_run(lib, tmp_path, main, sc)
+    assert msgs(trace, "c") == ["ESP_OK", "still running"]
+    assert msgs(trace, "boot")[1].startswith("slot=ota_0 version=1.5.0")
+    assert [e["valid"] for e in trace if e["ev"] == "ota_mark"] == [False]
+    assert [e["reason"] for e in trace if e["ev"] == "reboot"] == ["sw"]
+
+
 SELF_TEST = CERT_SYMBOL + """
 static volatile bool up = false;
 static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data) { if (id == MQTT_EVENT_CONNECTED) up = true; }
@@ -2099,11 +2138,12 @@ extern "C" void app_main(void) {
     ESP_LOGI("r", "%s", esp_err_to_name(fetch(FW_URL)));
     ESP_LOGI("r", "possible=%d", (int)esp_ota_check_rollback_is_possible());
     ESP_LOGI("r", "%s", esp_err_to_name(esp_ota_mark_app_invalid_rollback_and_reboot()));
+    ESP_LOGI("r", "%s", esp_err_to_name(esp_ota_mark_app_invalid_rollback()));
     vTaskDelay(pdMS_TO_TICKS(100));
 }
 """
     trace = ota_run(lib, tmp_path, main, json.dumps(sc))
-    assert msgs(trace, "r") == ["possible=1", "ESP_FAIL", "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED"]
+    assert msgs(trace, "r") == ["possible=1", "ESP_FAIL", "possible=0", "ESP_ERR_OTA_ROLLBACK_FAILED", "ESP_ERR_OTA_ROLLBACK_FAILED"]
     assert not [e for e in trace if e["ev"] in ("rollback", "reboot")]
 
 
