@@ -1,0 +1,67 @@
+[
+ {
+  "id": "es12-q1",
+  "text": "La nouvelle image est à l'état ESP_OTA_IMG_PENDING_VERIFY quand le courant est coupé, puis revient. Que fait le bootloader ?",
+  "options": [
+   "Il relance la même image, car la carte n'a pas planté par sa faute",
+   "Il confirme l'image d'office, puisqu'elle avait déjà démarré une fois",
+   "Il abandonne l'image (ABORTED) et lance la version précédente",
+   "Il efface les deux emplacements et attend une nouvelle mise à jour"
+  ],
+  "answer": 2,
+  "explain": "Une image qui n'a pas été confirmée avant un redémarrage, quelle qu'en soit la raison (coupure de courant, plantage, chien de garde), passe à ESP_OTA_IMG_ABORTED et n'est plus jamais lancée : le bootloader relance la version précédente. Il ne confirme jamais rien lui-même (c'est le travail du programme, après son auto-test), il ne relance pas l'image à l'essai, et il n'efface aucun emplacement.",
+  "remedial_lesson_id": "es12"
+ },
+ {
+  "id": "es12-q2",
+  "text": "Au démarrage, esp_ota_get_state_partition renvoie ESP_ERR_NOT_FOUND. Que doit faire le programme ?",
+  "options": [
+   "Journaliser le code, puis continuer sans auto-test : rien à confirmer",
+   "Arrêter la carte par ESP_ERROR_CHECK, car l'état de l'image est inconnu",
+   "Appeler esp_ota_mark_app_valid_cancel_rollback pour créer l'état manquant",
+   "Appeler esp_ota_mark_app_invalid_rollback_and_reboot par précaution"
+  ],
+  "answer": 0,
+  "explain": "ESP_ERR_NOT_FOUND veut dire qu'il n'y a pas d'entrée dans otadata : c'est le cas d'une carte flashée par câble, qui n'a encore jamais reçu de mise à jour. Il n'y a rien à confirmer ni à annuler, et les deux fonctions de marquage y renvoient ESP_FAIL (« Running firmware is factory »). ESP_ERROR_CHECK arrêterait la carte à chaque démarrage pour un cas parfaitement normal : le programme journalise le nom du code et continue.",
+  "remedial_lesson_id": "es12"
+ },
+ {
+  "id": "es12-q3",
+  "text": "L'auto-test attend la connexion MQTT avec xEventGroupWaitBits. Quel délai suit les règles du TP ?",
+  "options": [
+   "portMAX_DELAY, pour ne jamais annuler une version qui marche",
+   "Zéro : un échec dès que le drapeau n'est pas déjà levé",
+   "Quelques secondes, le temps d'une seule tentative de connexion",
+   "60 s : ensuite l'auto-test échoue et on revient en arrière"
+  ],
+  "answer": 3,
+  "explain": "Le délai est fini : 60 s dans le TP. xEventGroupWaitBits rend la main dès que le drapeau est levé et au plus tard au bout du délai. Une attente infinie laisserait la carte à l'essai sans jamais décider si le courtier est injoignable ; un délai nul ou de quelques secondes annulerait à tort une version saine dont le Wi-Fi ou le courtier est simplement lent (le contrôle en essaie une dont le courtier ne répond qu'à 41 s).",
+  "remedial_lesson_id": "es12"
+ },
+ {
+  "id": "es12-q4",
+  "text": "Pendant l'auto-test, adc_oneshot_read renvoie ESP_OK mais la valeur brute est 0 (fil coupé). Que fait le programme ?",
+  "options": [
+   "Il confirme l'image, car la lecture a réussi sans erreur",
+   "Il journalise la cause, puis demande le retour arrière",
+   "Il confirme l'image, puis demande aussitôt le retour arrière",
+   "Il ne fait aucun appel et laisse la carte à l'essai indéfiniment"
+  ],
+  "answer": 1,
+  "explain": "Un capteur lisible, c'est une lecture sans erreur ET une valeur plausible : 0 (fil coupé) ou près de 4095 n'ont aucun sens pour un capteur branché. L'auto-test échoue : le programme journalise pourquoi (le redémarrage efface tout) puis appelle esp_ota_mark_app_invalid_rollback_and_reboot. Confirmer une image qui échoue à son test supprime le retour arrière ; appeler les deux fonctions est contradictoire ; ne rien faire laisse l'image à l'essai, annulée au prochain redémarrage seulement par hasard.",
+  "remedial_lesson_id": "es12"
+ },
+ {
+  "id": "es12-q5",
+  "text": "Où placer l'initialisation du relais dans app_main, et pourquoi ?",
+  "options": [
+   "Après le Wi-Fi : le relais n'est utile que lorsque MQTT est connecté",
+   "Tout au début, avant la NVS et le Wi-Fi : fenêtre d'allumage réduite",
+   "Après l'auto-test : un relais configuré trop tôt gênerait le retour arrière",
+   "N'importe où : la broche est toujours éteinte avant que le programme la configure"
+  ],
+  "answer": 1,
+  "explain": "Tant que le programme n'a pas configuré la broche, elle n'est pas pilotée par lui : la documentation ne garantit pas son état par défaut (et le GPIO 5 est une broche de strapping), donc selon le montage le relais peut être allumé. Chaque initialisation faite avant celle du relais (NVS, Wi-Fi qui attend une adresse IP, MQTT) allonge cette fenêtre : le relais est configuré en sortie et éteint en tout premier, à chaque démarrage.",
+  "remedial_lesson_id": "es12"
+ }
+]

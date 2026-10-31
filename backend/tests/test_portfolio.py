@@ -144,3 +144,16 @@ def test_es11_solution_passes_the_export(client, tmp_path):
     z = _zip(client)
     assert any(n.endswith("main.cpp") for n in z.namelist())
     assert "secret en clair détecté" not in z.read("README.md").decode()
+
+
+def test_es12_solution_passes_the_export(client, tmp_path):
+    """La solution du TP es12 (identifiants lus en NVS, `password = mot_de_passe;`, auto-test, retour arrière) n'est pas prise pour un secret en clair."""
+    _flag_demo(tmp_path)
+    _pass_t1(client, tmp_path)
+    shipped = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp4" / "lessons" / "es12.tp" / "solution.sh"
+    solution = shipped.read_text(encoding="utf-8").split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+    assert leak_reason(solution) is None
+    (tmp_path / "ws" / "main.cpp").write_text(solution, encoding="utf-8")
+    z = _zip(client)
+    assert any(n.endswith("main.cpp") for n in z.namelist())
+    assert "secret en clair détecté" not in z.read("README.md").decode()

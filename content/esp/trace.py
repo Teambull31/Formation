@@ -64,6 +64,10 @@ class Trace:
             else:
                 self.bad_lines += 1
 
+    def all(self) -> list[dict]:
+        """Every event in the order the simulator wrote them (to compare the order of events of different types)."""
+        return list(self._events)
+
     def events(self, ev: str, **match) -> list[dict]:
         return [e for e in self._events if e["ev"] == ev and all(e.get(k) == v for k, v in match.items())]
 

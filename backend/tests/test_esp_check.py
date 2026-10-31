@@ -2315,3 +2315,193 @@ def test_es11_check_sections_exist_in_lesson():
     constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
     cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
     assert cited and cited <= titles, cited - titles
+
+
+# ---- TP es12 (retour arrière et état sûr : relais d'abord, auto-test, validation ou annulation, coupure de courant) ----
+
+ES12 = Path(__file__).resolve().parents[2] / "content" / "modules" / "esp4" / "lessons" / "es12.tp"
+
+
+def _es12_reference() -> str:
+    text = (ES12 / "solution.sh").read_text(encoding="utf-8")
+    return text.split("<<'EOF'\n", 1)[1].rsplit("\nEOF", 1)[0] + "\n"
+
+
+def _es12_mutant(*edits: tuple[str, str]) -> str:
+    src = _es12_reference()
+    for old, new in edits:
+        assert old in src, old
+        src = src.replace(old, new)
+    return src
+
+
+def _es12_run(tmp_path, src: str) -> tuple[int, str]:
+    return run(tmp_path, src, tp="es12-tp")
+
+
+def test_es12_tp_reference_passes(tmp_path, bwrap_ok):
+    code, out = _es12_run(tmp_path, _es12_reference())
+    assert code == 0 and out.startswith("OK"), out
+
+
+def test_es12_tp_seed_refused(tmp_path, bwrap_ok):
+    code, out = _es12_run(tmp_path, (ES12 / "seed" / "main.cpp").read_text(encoding="utf-8"))
+    assert failed(code, out) and "init_adc" in out and "relire" in out, out
+
+
+def test_es12_tp_seed_with_the_relay_first_is_refused_for_the_missing_confirmation(tmp_path, bwrap_ok):
+    seed = (ES12 / "seed" / "main.cpp").read_text(encoding="utf-8")
+    seed = seed.replace("    init_relais();  // à déplacer", "    // déplacé").replace("    // TODO étape 1 : tout premier geste", "    init_relais();\n    // TODO étape 1 : tout premier geste")
+    code, out = _es12_run(tmp_path, seed)
+    assert failed(code, out) and "scénario a" in out and "n'est jamais confirmée" in out and "relire" in out, out
+
+
+INIT_FIRST = "    init_relais();  // étape 1 : tout premier geste, avant la NVS, le Wi-Fi et le reste\n"
+CONCLURE_CALL = "        conclure_autotest(autotest_reussi());\n"
+SENSOR_GATE = "    if (!capteur_lisible()) {\n        return false;\n    }\n"
+WAIT = "pdMS_TO_TICKS(DELAI_AUTOTEST_MS)"
+MARK_INVALID = "    esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();"
+MARK_VALID = "        esp_err_t err = esp_ota_mark_app_valid_cancel_rollback();\n"
+RANGE_TEST = "    if (raw < RAW_MIN_OK || raw > RAW_MAX_OK) {\n"
+GET_STATE = "    esp_err_t err = esp_ota_get_state_partition(esp_ota_get_running_partition(), &etat);\n"
+NOT_CONNECTED = '        ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);\n        return false;\n'
+LOG_SENSOR = ('        ESP_LOGW(TAG, "auto-test : lecture du capteur impossible (%s)", esp_err_to_name(err));\n',
+              '        ESP_LOGW(TAG, "auto-test : valeur brute %d hors de [%d, %d]", raw, RAW_MIN_OK, RAW_MAX_OK);\n',
+              '        ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);\n',
+              '    ESP_LOGE(TAG, "auto-test échoué : retour à la version précédente");\n')
+WIFI_LINE = "    wifi_connecter();\n"
+
+# nom -> (remplacements, fragments de message attendus)
+ES12_MUTANTS = {
+    "immediate_validation_without_selftest": ([(CONCLURE_CALL, "        conclure_autotest(true);\n")], ["scénario a", "n'a pas attendu MQTT"]),
+    "validated_before_the_selftest": ([("    if (image_a_confirmer()) {\n", "    esp_ota_mark_app_valid_cancel_rollback();\n    if (image_a_confirmer()) {\n")],
+                                      ["scénario a", "n'a pas attendu MQTT"]),
+    "no_rollback_on_failure": ([(MARK_INVALID, "    esp_err_t err = ESP_OK;")], ["scénario b", "aucun retour arrière n'est demandé"]),
+    "plain_restart_instead_of_the_rollback_call": ([(MARK_INVALID, "    esp_restart();\n    esp_err_t err = ESP_OK;")], ["scénario b", "aucun retour arrière n'est demandé"]),
+    "infinite_selftest_delay": ([(WAIT, "portMAX_DELAY")], ["scénario c", "délai fini"]),
+    "selftest_delay_too_short": ([("DELAI_AUTOTEST_MS = 60000", "DELAI_AUTOTEST_MS = 20000")], ["scénario c", "55 s"]),
+    "selftest_without_waiting_for_mqtt": ([(WAIT, "0")], ["scénario a", "marquée invalide"]),
+    "relay_after_the_wifi": ([(INIT_FIRST, ""), (WIFI_LINE, WIFI_LINE + "    init_relais();\n")], ["init_adc", "avant l'initialisation du relais"]),
+    "relay_after_the_nvs_and_the_sensor": ([(INIT_FIRST, ""), ("    init_nvs();\n", "    init_nvs();\n    init_relais();\n")], ["init_adc", "avant l'initialisation du relais"]),
+    "selftest_ignores_the_sensor": ([(SENSOR_GATE, "")], ["scénario a", "capteur n'a pas été lu"]),
+    "sensor_value_not_range_checked": ([(RANGE_TEST, "    if (false) {\n")], ["scénario b", "capteur est muet"]),
+    "contradictory_calls": ([(MARK_INVALID, "    esp_ota_mark_app_valid_cancel_rollback();\n" + MARK_INVALID)], ["scénario b", "appels de marquage"]),
+    "validated_on_timeout": ([(NOT_CONNECTED, NOT_CONNECTED.replace("return false", "return true"))], ["scénario c", "confirmée"]),
+    "never_validated_after_success": ([(MARK_VALID, "        esp_err_t err = ESP_OK;\n")], ["scénario a", "n'est jamais confirmée"]),
+    "selftest_at_every_boot": ([("    if (image_a_confirmer()) {\n", "    if (true) {\n")], ["scénario c", "appels de marquage", "déjà confirmée"]),
+    "state_not_compared": ([("    return etat == ESP_OTA_IMG_PENDING_VERIFY;\n", "    return true;\n")], ["scénario c", "appels de marquage", "déjà confirmée"]),
+    "error_check_on_the_state": ([(GET_STATE, "    ESP_ERROR_CHECK(esp_ota_get_state_partition(esp_ota_get_running_partition(), &etat));\n    esp_err_t err = ESP_OK;\n")],
+                                 ["ESP_ERROR_CHECK"]),
+    "failure_not_logged": ([(LOG_SENSOR[0], "        (void)err;\n"), (LOG_SENSOR[1], ""), (LOG_SENSOR[2], ""), (LOG_SENSOR[3], "")],
+                           ["scénario b", "n'est pas journalisé"]),
+    "success_marked_invalid": ([(MARK_VALID, "        esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();\n")], ["scénario a", "marquée invalide"]),
+}
+
+
+@pytest.mark.parametrize("edits,expected", ES12_MUTANTS.values(), ids=ES12_MUTANTS.keys())
+def test_es12_tp_mutant(tmp_path, bwrap_ok, edits, expected):
+    code, out = _es12_run(tmp_path, _es12_mutant(*edits))
+    assert failed(code, out) and all(fragment in out for fragment in expected) and "relire" in out, out
+
+
+POLLED_WAIT = '''    for (int i = 0; i < DELAI_AUTOTEST_MS / 1000; i++) {
+        if (xEventGroupGetBits(groupe_liaison) & BIT_CONNECTE) {
+            return true;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);
+    return false;
+}'''
+WAIT_BLOCK = '''    EventBits_t bits = xEventGroupWaitBits(groupe_liaison, BIT_CONNECTE, pdFALSE, pdFALSE, pdMS_TO_TICKS(DELAI_AUTOTEST_MS));
+    if ((bits & BIT_CONNECTE) == 0) {
+        ESP_LOGW(TAG, "auto-test : MQTT non connecté après %d ms", DELAI_AUTOTEST_MS);
+        return false;
+    }
+    return true;
+}'''
+INLINE_RELAY = ('    gpio_config_t sortie = {};\n    sortie.pin_bit_mask = 1ULL << GPIO_NUM_5;\n    sortie.mode = GPIO_MODE_OUTPUT;\n'
+                '    gpio_config(&sortie);\n    gpio_set_level(GPIO_NUM_5, 0);\n')
+SENSOR_RETRY = ('static bool capteur_lisible(void) {\n    for (int essai = 0; essai < 3; essai++) {\n        int raw = 0;\n'
+                '        if (adc_oneshot_read(adc, CANAL, &raw) == ESP_OK && raw >= RAW_MIN_OK && raw <= RAW_MAX_OK) {\n            return true;\n        }\n'
+                '        vTaskDelay(pdMS_TO_TICKS(1000));\n    }\n    ESP_LOGW(TAG, "auto-test : capteur illisible après 3 essais");\n    return false;\n}\n\n'
+                'static bool capteur_lisible_une_fois(void) {')
+
+# Variantes valides, écrites autrement.
+ES12_VARIANTS = {
+    "mqtt_polled_every_second": [(WAIT_BLOCK, POLLED_WAIT)],
+    "relay_configured_inline_first": [(INIT_FIRST, INLINE_RELAY)],
+    "sensor_read_three_times": [("static bool capteur_lisible(void) {", SENSOR_RETRY)],
+    "state_logged_and_switch": [("    return etat == ESP_OTA_IMG_PENDING_VERIFY;\n",
+                                 '    ESP_LOGI(TAG, "état de l\'image : %d", (int)etat);\n    switch (etat) {\n    case ESP_OTA_IMG_PENDING_VERIFY:\n        return true;\n    default:\n        return false;\n    }\n')],
+    "relay_not_cut_before_the_rollback": [('    regler_relais(false);\n    ESP_LOGE(TAG, "auto-test échoué', '    ESP_LOGE(TAG, "auto-test échoué')],
+    "english_logs": [('"auto-test : MQTT non connecté après %d ms"', '"self-test: MQTT not connected after %d ms"')],
+    "init_calls_named_in_comments_and_strings": [("    init_adc();\n", '    // init_adc() vient après init_relais()\n    const char *note = "wifi_connecter() plus tard";\n    (void)note;\n    init_adc();\n')],
+    "first_telemetry_before_the_selftest": [("    if (image_a_confirmer()) {\n", "    publier_telemetrie();\n    if (image_a_confirmer()) {\n")],
+}
+
+
+@pytest.mark.parametrize("edits", ES12_VARIANTS.values(), ids=ES12_VARIANTS.keys())
+def test_es12_tp_legitimate_variant_passes(tmp_path, bwrap_ok, edits):
+    code, out = _es12_run(tmp_path, _es12_mutant(*edits))
+    assert code == 0 and out.startswith("OK"), out
+
+
+def _es12_check_module():
+    import sys
+    sys.modules.setdefault("esp_trace", _load("esp_trace_probe", ESP / "trace.py"))
+    return _load("es12_check_probe", ESP / "checks" / "es12-tp.py")
+
+
+@pytest.mark.parametrize("src", [
+    'extern "C" void app_main(void) {\n    init_relais();\n    init_adc();\n    init_nvs();\n    wifi_connecter();\n}',
+    'extern "C" void app_main(void) {\n    gpio_config(&c);\n    gpio_set_level(GPIO_NUM_5, 0);\n    init_nvs();\n}',
+    'extern "C" void app_main(void) {\n    demarrage();\n}',
+    'extern "C" void app_main(void) {\n    // init_nvs() plus tard\n    init_relais();\n    ESP_LOGI(TAG, "init_adc");\n    init_adc();\n}',
+    'static void f() { init_nvs(); }\nextern "C" void app_main(void) {\n    init_relais();\n    f();\n}',
+])
+def test_es12_source_scan_does_not_refuse_legitimate_idioms(src):
+    _es12_check_module()._check_source(src)
+
+
+@pytest.mark.parametrize("src", [
+    'extern "C" void app_main(void) {\n    init_adc();\n    init_relais();\n}',
+    'extern "C" void app_main(void) {\n    init_nvs();\n    wifi_connecter();\n}',
+    'extern "C" void app_main(void) {\n    nvs_flash_init();\n    gpio_set_level(GPIO_NUM_5, 0);\n}',
+    'extern "C" void app_main(void) {\n    esp_wifi_init(&cfg);\n    init_relais();\n}',
+])
+def test_es12_source_scan_refuses_a_relay_initialised_late(src):
+    import sys
+    module = _es12_check_module()
+    with pytest.raises(sys.modules["esp_trace"].CheckError):
+        module._check_source(src)
+
+
+def test_es12_relay_order_is_judged_on_every_boot():
+    """Le relais doit être prêt avant le Wi-Fi à CHAQUE démarrage, pas seulement au premier."""
+    import json
+    import sys
+    module = _es12_check_module()
+    boot = [{"ev": "gpio_config", "t_ms": 0, "pin": 5, "mode": "output"}, {"ev": "gpio_set", "t_ms": 0, "pin": 5, "level": 0},
+            {"ev": "wifi", "t_ms": 10, "event": "sta_start"}]
+    late = [{"ev": "wifi", "t_ms": 20, "event": "sta_start"}, {"ev": "gpio_config", "t_ms": 20, "pin": 5, "mode": "output"},
+            {"ev": "gpio_set", "t_ms": 20, "pin": 5, "level": 0}]
+    reboot = [{"ev": "reboot", "t_ms": 15, "reason": "scripted"}]
+
+    def trace(evs):
+        return sys.modules["esp_trace"].Trace("\n".join(json.dumps(e) for e in evs))
+
+    module._relay_first(trace(boot + reboot + boot), "x")
+    with pytest.raises(sys.modules["esp_trace"].CheckError, match="démarrage n° 2"):
+        module._relay_first(trace(boot + reboot + late), "x")
+
+
+def test_es12_check_sections_exist_in_lesson():
+    """Chaque « relire : <section> » du contrôle renvoie à un titre réel de la leçon."""
+    import re
+    lesson = (ES12.parent / "es12.md").read_text(encoding="utf-8")
+    titles = set(re.findall(r"^## (.+)$", lesson, re.M))
+    source = (ESP / "checks" / "es12-tp.py").read_text(encoding="utf-8")
+    constants = dict(re.findall(r'^(S_\w+) = "([^"]+)"$', source, re.M))
+    cited = set(re.findall(r"relire : « ([^»{]+) »", source)) | set(constants.values())
+    assert cited and cited <= titles, cited - titles
