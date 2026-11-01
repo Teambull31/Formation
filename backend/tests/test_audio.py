@@ -72,8 +72,22 @@ def test_synthesize_edge_wraps_errors(tmp_path, monkeypatch):
 
     class Boom:
         def __init__(self, *a, **k): pass
-        async def save(self, path): raise OSError("hors ligne")
+        async def stream(self):
+            raise OSError("hors ligne")
+            yield
 
     monkeypatch.setattr(edge_tts, "Communicate", Boom)
     with pytest.raises(RuntimeError, match="edge-tts"):
         synthesize("a", tmp_path / "a.mp3", engine="edge")
+
+
+def test_chunks_split_long_text_on_lines_and_keep_everything():
+    from app.audio import _chunks
+
+    text = "\n".join(f"ligne {i} " + "x" * 40 for i in range(200))
+    parts = _chunks(text, size=500)
+    assert len(parts) > 1 and all(len(p) <= 500 for p in parts)
+    assert "\n".join(parts).split() == text.split()
+    assert _chunks("court") == ["court"]
+    assert all(len(p) <= 100 for p in _chunks("mot " * 200, size=100))
+    assert all(len(p) <= 100 for p in _chunks("x" * 350, size=100))

@@ -14,11 +14,29 @@ def strip_markdown(md: str) -> str:
 
 
 EDGE_VOICE = "fr-FR-VivienneMultilingualNeural"
-EDGE_TIMEOUT_S = 90
+EDGE_TIMEOUT_S = 300
+EDGE_CHUNK = 800  # caractères par requête : edge-tts est lent sur un long texte, des morceaux en parallèle vont plus vite
+EDGE_PARALLEL = 8
+
+
+def _chunks(text: str, size: int = EDGE_CHUNK) -> list[str]:
+    out, cur = [], ""
+    for ln in text.splitlines():
+        while len(ln) > size:  # ligne géante : coupe à la dernière espace
+            cut = ln.rfind(" ", 0, size)
+            if cut <= 0:
+                cut = size
+            out.append(ln[:cut]); ln = ln[cut:].lstrip()
+        if cur and len(cur) + len(ln) + 1 > size:
+            out.append(cur); cur = ""
+        cur = f"{cur}\n{ln}" if cur else ln
+    if cur.strip():
+        out.append(cur)
+    return out or [text]
 
 
 def _synthesize_edge(text: str, out: Path) -> Path:
-    # edge-tts : service Microsoft non officiel, en ligne ; produit du mp3
+    # edge-tts : service Microsoft non officiel, en ligne ; produit du mp3 (des mp3 mis bout à bout se lisent)
     try:
         import edge_tts
     except ImportError as e:
@@ -27,15 +45,25 @@ def _synthesize_edge(text: str, out: Path) -> Path:
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)
 
+    async def one(sem, chunk):
+        async with sem:
+            data = b""
+            async for m in edge_tts.Communicate(chunk, voice).stream():
+                if m["type"] == "audio":
+                    data += m["data"]
+            return data
+
     async def run():
-        await asyncio.wait_for(edge_tts.Communicate(text, voice).save(str(out)), EDGE_TIMEOUT_S)
+        sem = asyncio.Semaphore(EDGE_PARALLEL)
+        parts = await asyncio.wait_for(asyncio.gather(*(one(sem, c) for c in _chunks(text))), EDGE_TIMEOUT_S)
+        if not all(parts):
+            raise RuntimeError("morceau sans audio")
+        out.write_bytes(b"".join(parts))
 
     try:
         asyncio.run(run())
     except Exception as e:  # réseau, délai, voix refusée : l'appelant bascule sur espeak
         raise RuntimeError(f"Échec de la synthèse vocale (edge-tts) : {e}") from e
-    if not out.exists() or out.stat().st_size == 0:
-        raise RuntimeError("Échec de la synthèse vocale (edge-tts) : aucun fichier produit")
     return out
 
 
