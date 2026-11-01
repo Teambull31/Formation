@@ -130,13 +130,13 @@ def test_remote_cannot_hint(remote_client):
 def test_audio_failure_leaves_no_partial(client, tmp_path, monkeypatch):
     import app.main as m
 
-    def boom(text, out):
+    def boom(text, out, engine="espeak"):
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(b"partial")
         raise RuntimeError("fail")
 
-    monkeypatch.setattr(m, "synthesize", boom)
-    assert client.get("/api/audio/l1.wav").status_code == 503
+    monkeypatch.setattr("app.audio.synthesize", boom)
+    assert client.get("/api/audio/l1.mp3").status_code == 503
     assert list((tmp_path / "audio").glob("*")) == []
 
 
@@ -251,20 +251,33 @@ def test_weekly_brief(client):
 
 
 def test_audio_rejects_traversal_and_unknown(client):
-    assert client.get("/api/audio/a.b.wav").status_code == 404
-    assert client.get("/api/audio/..%2Fx.wav").status_code == 404
-    assert client.get("/api/audio/nope.wav").status_code == 404
+    assert client.get("/api/audio/a.b.mp3").status_code == 404
+    assert client.get("/api/audio/..%2Fx.mp3").status_code == 404
+    assert client.get("/api/audio/nope.mp3").status_code == 404
+    assert client.get("/api/audio/l1.ogg").status_code == 404
 
 
 @pytest.mark.skipif(shutil.which("espeak-ng") is None, reason="espeak-ng absent")
-def test_audio_generates_wav(client):
-    r = client.get("/api/audio/l1.wav")
+def test_audio_falls_back_to_wav_with_espeak(client):
+    r = client.get("/api/audio/l1.mp3")
     assert r.status_code == 200 and r.headers["content-type"] == "audio/wav"
+
+
+def test_audio_serves_edge_mp3(client, monkeypatch):
+    monkeypatch.setenv("FORMATION_TTS", "edge")
+    def fake_edge(text, out):
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"ID3x")
+        return out
+
+    monkeypatch.setattr("app.audio._synthesize_edge", fake_edge)
+    r = client.get("/api/audio/l1.mp3")
+    assert r.status_code == 200 and r.headers["content-type"] == "audio/mpeg" and r.content == b"ID3x"
 
 
 def test_audio_503_without_espeak(client, monkeypatch):
     monkeypatch.setattr("shutil.which", lambda *_: None)
-    assert client.get("/api/audio/l1.wav").status_code == 503
+    assert client.get("/api/audio/l1.mp3").status_code == 503
 
 
 def test_broken_module_skipped(client, tmp_path):

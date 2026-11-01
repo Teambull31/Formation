@@ -60,7 +60,7 @@ export const setTopic = (topic: string | null) => call<Ok>('POST', '/api/topic',
 export interface LessonIndex { id: string; title: string; lessons: { id: string; title: string; minutes: number }[] }
 export const getLessons = () => call<LessonIndex[]>('GET', '/api/lessons')
 export const getLesson =(id: string) => call<Lesson>('GET', `/api/lesson/${encodeURIComponent(id)}`)
-export const audioUrl = (id: string) => `/api/audio/${encodeURIComponent(id)}.wav`
+export const audioUrl = (id: string) => `/api/audio/${encodeURIComponent(id)}.mp3`
 export const answerQcm = (question_id: string, chosen: number) =>
   call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen })
 export interface ReviewQuestion { id: string; text: string; options: string[]; box: number }

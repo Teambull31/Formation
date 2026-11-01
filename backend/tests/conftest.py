@@ -3,6 +3,12 @@ import pytest
 from app.db import connect
 
 
+@pytest.fixture(autouse=True)
+def _tts_offline(monkeypatch):
+    # jamais de réseau en test : espeak par défaut, les tests edge-tts simulent le service
+    monkeypatch.setenv("FORMATION_TTS", "espeak")
+
+
 @pytest.fixture
 def db():
     conn = connect(":memory:")

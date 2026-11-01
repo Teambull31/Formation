@@ -159,3 +159,7 @@ Deux limites à garder en tête (relevées à la revue de la première tranche d
   compiler et exécuter du C++ de toute façon ;
 - l'ouverture à distance de ces TP n'est pas prête : voir « Domotique ESP-IDF » dans `docs/BACKLOG.md` pour les
   blocages à lever (cgroup, seccomp, tests du bac à sable avec `ESP_SANDBOX_REQUIRED=1`).
+
+## Audio des leçons
+
+Le serveur génère l'audio avec `edge-tts` (voix Microsoft, service non officiel) : il envoie le texte de la leçon à Microsoft en sortie HTTPS/WebSocket. Si le service est injoignable, il bascule sur `espeak-ng` (voix robotique, format wav). Pour interdire toute sortie, mettre `FORMATION_TTS=espeak` dans l'environnement du service. Les audios sont mis en cache dans `data/audio/` : après un changement de voix, supprimer `data/audio/*` pour les regénérer.

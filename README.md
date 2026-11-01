@@ -7,7 +7,7 @@ Backend FastAPI (`backend/`), frontend React (`frontend/`).
 
 - Python 3.12+ et [uv](https://docs.astral.sh/uv/)
 - Node.js et npm
-- `espeak-ng` (lecture audio des leçons)
+- Audio des leçons : voix neuronale Microsoft via `edge-tts` (en ligne, installé avec le backend, le texte de la leçon est envoyé à Microsoft) ; `espeak-ng` sert de repli hors ligne. `FORMATION_TTS=espeak` force espeak, `FORMATION_TTS_VOICE` change la voix (défaut `fr-FR-VivienneMultilingualNeural`)
 - Optionnel : [Ollama](https://ollama.com) avec le modèle `qwen3:14b` (indices et explications d'erreurs ; sans lui, le texte pré-écrit est affiché)
 
 ## Installation

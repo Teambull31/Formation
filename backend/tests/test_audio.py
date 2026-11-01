@@ -2,7 +2,7 @@ import shutil
 
 import pytest
 
-from app.audio import strip_markdown, synthesize
+from app.audio import speak, strip_markdown, synthesize
 
 
 def test_strip_markdown_removes_markers():
@@ -36,3 +36,44 @@ def test_synthesize_text_starting_with_dashes(tmp_path):
     if shutil.which("espeak-ng") is None:
         pytest.skip("espeak-ng absent")
     assert synthesize("--dry-run x", tmp_path / "a.wav").exists()
+
+
+def _edge_ok(text, out):
+    out.write_bytes(b"ID3x")
+    return out
+
+
+def test_speak_edge_writes_mp3_atomically(tmp_path, monkeypatch):
+    monkeypatch.setenv("FORMATION_TTS", "edge")
+    monkeypatch.setattr("app.audio._synthesize_edge", _edge_ok)
+    out = speak("bonjour", tmp_path / "a")
+    assert out == tmp_path / "a.mp3" and out.read_bytes() == b"ID3x"
+    assert [p.name for p in tmp_path.iterdir()] == ["a.mp3"]
+
+
+def test_speak_falls_back_to_espeak_when_edge_fails(tmp_path, monkeypatch):
+    monkeypatch.setenv("FORMATION_TTS", "edge")
+
+    def down(text, out):
+        raise RuntimeError("réseau")
+
+    def fake_espeak(text, out, engine="espeak"):
+        out.write_bytes(b"RIFF")
+        return out
+
+    monkeypatch.setattr("app.audio._synthesize_edge", down)
+    monkeypatch.setattr("app.audio.synthesize", fake_espeak)
+    out = speak("bonjour", tmp_path / "a")
+    assert out == tmp_path / "a.wav" and [p.name for p in tmp_path.iterdir()] == ["a.wav"]
+
+
+def test_synthesize_edge_wraps_errors(tmp_path, monkeypatch):
+    import edge_tts
+
+    class Boom:
+        def __init__(self, *a, **k): pass
+        async def save(self, path): raise OSError("hors ligne")
+
+    monkeypatch.setattr(edge_tts, "Communicate", Boom)
+    with pytest.raises(RuntimeError, match="edge-tts"):
+        synthesize("a", tmp_path / "a.mp3", engine="edge")

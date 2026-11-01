@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app import llm
 from app.auth import BasicAuth, make_security, security_from_env
-from app.audio import strip_markdown, synthesize
+from app.audio import speak, strip_markdown
 from app.boss import attempt_boss, count_attempts
 from app.content import Module, ModuleError, load_module
 from app.db import connect
@@ -220,21 +220,18 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/audio/{name}")
     def audio(name: str):
-        lid = name[:-4] if name.endswith(".wav") else ""
-        if not SAFE_ID.fullmatch(lid):
+        lid, ext = name[:-4], name[-4:]
+        if ext not in (".mp3", ".wav") or not SAFE_ID.fullmatch(lid):
             raise HTTPException(404, "Audio inconnu")
         _, _, les = find_lesson(lid)
-        out = Path(db_path).parent / "audio" / f"{lid}.wav"
+        stem = Path(db_path).parent / "audio" / lid
+        out = stem.with_suffix(".mp3")  # pas d'audio mp3 : speak() tente edge-tts puis bascule sur espeak (wav)
         if not out.exists():
-            tmp = out.with_name(out.name + ".tmp")
             try:
-                synthesize(strip_markdown(les.body_md), tmp)
-                os.replace(tmp, out)
+                out = speak(strip_markdown(les.body_md), stem)
             except RuntimeError as e:
                 raise HTTPException(503, str(e))
-            finally:
-                tmp.unlink(missing_ok=True)
-        return FileResponse(out, media_type="audio/wav")
+        return FileResponse(out, media_type="audio/mpeg" if out.suffix == ".mp3" else "audio/wav")
 
     @app.post("/api/qcm/answer")
     def qcm_answer(body: AnswerIn, db=Depends(get_db)):
