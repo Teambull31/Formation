@@ -57,7 +57,9 @@ export const getQuest = (minutes: 30 | 60 = 30) => call<Quest>('GET', `/api/ques
 export const completeStep = (kind: StepKind, lesson_id: string) => call<Ok>('POST', '/api/quest/step', { kind, lesson_id })
 export const announceRest = () => call<Ok>('POST', '/api/rest')
 export const setTopic = (topic: string | null) => call<Ok>('POST', '/api/topic', { topic })
-export const getLesson = (id: string) => call<Lesson>('GET', `/api/lesson/${encodeURIComponent(id)}`)
+export interface LessonIndex { id: string; title: string; lessons: { id: string; title: string; minutes: number }[] }
+export const getLessons = () => call<LessonIndex[]>('GET', '/api/lessons')
+export const getLesson =(id: string) => call<Lesson>('GET', `/api/lesson/${encodeURIComponent(id)}`)
 export const audioUrl = (id: string) => `/api/audio/${encodeURIComponent(id)}.wav`
 export const answerQcm = (question_id: string, chosen: number) =>
   call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen })

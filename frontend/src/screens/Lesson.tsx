@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, isForbidden, startTp,
-  type Lesson as L, type QcmResult, type StepKind,
+  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, getLessons, isForbidden, startTp,
+  type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
 import Feynman from './Feynman'
@@ -50,6 +50,27 @@ function Qcm({ q, onOpen, onAnswered }: { q: L['qcm'][number]; onOpen: (id: stri
   )
 }
 
+function Catalog({ onOpen }: { onOpen: (id: string) => void }) {
+  const [mods, setMods] = useState<LessonIndex[] | null>(null)
+  const [err, setErr] = useState('')
+  useEffect(() => { getLessons().then(setMods).catch((e: Error) => setErr(e.message)) }, [])
+  if (err) return <section className="screen wrap"><p className="note" role="alert">{err}</p></section>
+  if (!mods) return <section className="screen wrap"><p className="note">Chargement…</p></section>
+  return (
+    <section className="screen wrap">
+      <h1>Leçons</h1>
+      {mods.map((m) => (
+        <div className="card" key={m.id}>
+          <h2>{m.title}</h2>
+          {m.lessons.map((l) => (
+            <button key={l.id} className="btn ghost" onClick={() => onOpen(l.id)}>{l.title} · {l.minutes} min</button>
+          ))}
+        </div>
+      ))}
+    </section>
+  )
+}
+
 interface Props {
   id: string | null
   kind?: StepKind | null // step kind the lesson was opened from
@@ -82,7 +103,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
     if (id) getLesson(id).then(setLes).catch((e: Error) => setLoadErr(e.message))
   }, [id])
 
-  if (!id) return <section className="screen wrap"><p className="note">Choisis une étape dans la quête pour ouvrir une leçon.</p></section>
+  if (!id) return <Catalog onOpen={onOpen} />
   if (loadErr) return <section className="screen wrap"><p className="note" role="alert">{loadErr}</p></section>
   if (!les) return <section className="screen wrap"><p className="note">Chargement…</p></section>
 

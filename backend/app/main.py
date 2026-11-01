@@ -202,6 +202,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         set_imposed_topic(db, body.topic, date.today())
         return {"ok": True}
 
+    @app.get("/api/lessons")
+    def lessons():
+        return [{"id": m.id, "title": m.title,
+                 "lessons": [{"id": les.id, "title": les.title, "minutes": les.minutes} for les in m.lessons]}
+                for _, m in modules()]
+
     @app.get("/api/lesson/{lesson_id}")
     def lesson(lesson_id: str):
         _, _, les = find_lesson(lesson_id)

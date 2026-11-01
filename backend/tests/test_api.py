@@ -31,6 +31,13 @@ def test_lesson_never_leaks_check_or_hints(client):
     assert t["tp"]["id"] == "t1" and t["tp"]["timeout_s"] == 10
 
 
+def test_lessons_index_lists_titles_only(client):
+    r = client.get("/api/lessons")
+    assert r.status_code == 200
+    ids = [les["id"] for m in r.json() for les in m["lessons"]]
+    assert "l1" in ids and "body_md" not in r.text and "answer" not in r.text
+
+
 def test_unknown_lesson_404(client):
     assert client.get("/api/lesson/nope").status_code == 404
 
