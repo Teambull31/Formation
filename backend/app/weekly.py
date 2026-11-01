@@ -44,6 +44,16 @@ def import_module(src: Path, dest_root: Path) -> Path:
     final = dest_root / module.id
     if final.is_symlink():
         raise ModuleError([f"destination symlink interdite: {final}"])
+    mine = {les.tp.id for les in module.lessons if les.tp}
+    for d in sorted(dest_root.glob("*/")):
+        if d.name.startswith(".") or not d.is_dir() or d == final:
+            continue
+        try:
+            taken = mine & {les.tp.id for les in load_module(d).lessons if les.tp}
+        except ModuleError:
+            continue
+        if taken:  # find_tp prend le premier : un module importé ne doit pas redéclarer (et affaiblir, ex. local_only) un TP existant
+            raise ModuleError([f"id de TP déjà pris par le module {d.name}: {', '.join(sorted(taken))}"])
     tmp = Path(tempfile.mkdtemp(dir=dest_root, prefix=".import-"))
     try:
         staged = tmp / module.id

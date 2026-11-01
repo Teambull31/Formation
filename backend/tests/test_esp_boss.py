@@ -352,3 +352,16 @@ def test_esp_boss_attempt_on_loopback_stops_at_the_first_phase_on_an_empty_works
     c = _app(tmp_path, "127.0.0.1", "http://localhost")
     r = c.post("/api/boss/attempt", params={"id": "esp_boss"}).json()
     assert r["won"] is False and r["phase_reached"] == 1 and r["remedial_lesson_id"] == "es6", r
+
+
+@pytest.mark.parametrize("n", PHASES)
+def test_esp_boss_refuses_an_espboss_symlink_leaving_the_workspace(tmp_path, n):
+    """Le boss lit espboss/main.cpp dans un vrai dossier de l'espace de travail : un lien vers un autre projet est refusé avant toute compilation."""
+    elsewhere = tmp_path / "ailleurs"
+    elsewhere.mkdir()
+    (elsewhere / "main.cpp").write_text(_solution_source(n), encoding="utf-8")
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / "espboss").symlink_to(elsewhere, target_is_directory=True)
+    code, out = _check(ws, n)
+    assert _failed(code, out) and "hors de l'espace de travail" in out, out

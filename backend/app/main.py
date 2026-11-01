@@ -129,7 +129,8 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def modules() -> list[tuple[Path, Module]]:
         # scanned per request so a weekly import shows up immediately; broken modules are skipped
         out = []
-        for d in sorted((content_dir / "modules").glob("*/")):
+        # modules ESP (esp1..) après les autres : ils ne changent pas la quête du jour des modules existants
+        for d in sorted((content_dir / "modules").glob("*/"), key=lambda d: (d.name.startswith("esp"), d.name)):
             if d.name.startswith(".") or not d.is_dir():
                 continue
             try:

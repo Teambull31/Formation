@@ -61,8 +61,14 @@ def exec_ok(conn, remote_hosts=frozenset()) -> bool:
     return bool(remote_hosts) and _origin_ok(conn, remote_hosts)
 
 
+PROXY_HEADERS = ("x-forwarded-for", "forwarded", "x-real-ip", "via")
+
+
 def strictly_local(conn) -> bool:
-    """Pair loopback ET Host/Origin locaux, sans jamais consulter remote_hosts (TP/boss `local_only`)."""
+    """Pair loopback ET Host/Origin locaux, sans jamais consulter remote_hosts (TP/boss `local_only`).
+    Un en-tête de relais (x-forwarded-for, forwarded, x-real-ip, via) prouve qu'un proxy a transmis la requête : le pair loopback est alors le proxy."""
+    if any(h in conn.headers for h in PROXY_HEADERS):
+        return False
     return is_local(conn.client.host if conn.client else None) and _origin_ok(conn)
 
 

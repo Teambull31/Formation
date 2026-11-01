@@ -104,3 +104,11 @@ def test_import_creates_dest_root_only_on_success(tmp_path):
     with pytest.raises(ModuleError):
         import_module(src, root2)
     assert not root2.exists()
+
+
+def test_import_refuses_a_tp_id_already_taken_by_another_module(tmp_path):
+    """find_tp prend le premier TP portant l'id : un module importé ne peut pas redéclarer un TP existant (et lui retirer `local_only`)."""
+    shutil.copytree(DEMO, tmp_path / "aaa")
+    with pytest.raises(ModuleError, match="id de TP déjà pris"):
+        import_module(DEMO, tmp_path)
+    assert [p.name for p in tmp_path.iterdir()] == ["aaa"]

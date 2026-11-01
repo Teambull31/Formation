@@ -161,3 +161,13 @@ def test_es12_solution_passes_the_export(client, tmp_path):
     z = _zip(client)
     assert any(n.endswith("main.cpp") for n in z.namelist())
     assert "secret en clair détecté" not in z.read("README.md").decode()
+
+
+@pytest.mark.parametrize("unit", ["mdp", "password", "#define ", ".x", "\n", "a", "ENV ", "password=", "sensitive ", "mot_de_passe", "a.b-"])
+def test_leak_reason_is_linear_on_a_hostile_file(unit):
+    """Un fichier de 200 Ko répétant un mot-clé ne doit pas geler le backend (backtracking polynomial des expressions régulières)."""
+    import time
+    text = unit * (200_000 // len(unit))
+    t0 = time.monotonic()
+    leak_reason(text)
+    assert time.monotonic() - t0 < 2

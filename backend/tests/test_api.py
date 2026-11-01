@@ -230,6 +230,8 @@ def test_import_ok_then_lesson_available(client, tmp_path):
         f.rename(f.with_name(f.name.replace("l1", "n1").replace("l2", "n2")))
     for f in src.rglob("*.qcm.json"):
         f.write_text(f.read_text().replace("q1", "p1").replace("q2", "p2").replace('"l2"', '"n2"'))
+    for f in src.rglob("tp.json"):  # un module importé ne peut pas reprendre l'id d'un TP existant
+        f.write_text(f.read_text().replace('"id": "t1"', '"id": "wk-t1"').replace('"id": "t2"', '"id": "wk-t2"'))
     r = client.post("/api/weekly/import", json={"path": str(src)})
     assert r.json() == {"module_id": "wk2"}
     assert client.get("/api/lesson/n1").status_code == 200

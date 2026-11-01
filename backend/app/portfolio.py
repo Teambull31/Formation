@@ -16,21 +16,24 @@ KEEP_DOTFILES = {".gitignore", ".dockerignore"}
 SKIP_DIRS = {".git", ".terraform", "__pycache__", "node_modules", ".venv"}
 SKIP_SUFFIXES = (".pem", ".key", ".pyc", ".log")
 SKIP_INFIXES = (".tfstate", ".tfvars")  # aussi .tfvars.json, .auto.tfvars, terraform.tfstate.backup
-EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+# Toutes les expressions ci-dessous sont linéaires : un seul point de départ par mot (lookbehind), quantificateurs possessifs
+# (Python >= 3.11), et le mot-clé se cherche par un lookahead lazy borné au mot (jamais deux `\w*` autour d'un mot-clé : backtracking cubique).
+EMAIL = re.compile(r"(?<![\w.+-])[\w.+-]++@[\w-]++(?:\.[\w-]++)++")
 KEYWORDS = r"(?:pass(?:word|wd)?|secret|token|api[_-]?key|access[_-]?key|private[_-]?key)"
-SECRET = re.compile(KEYWORDS + r"[\w-]*['\"]?\s*[=:]\s*['\"]?([^\s'\"]{6,})", re.I)
-DOCKER_ENV = re.compile(r"^\s*(?:ENV|ARG)\s+\w*" + KEYWORDS + r"\w*\s+['\"]?([^\s'\"]{6,})", re.I | re.M)
+# nom (suite de [\w-]) contenant un mot-clé, puis `=` ou `:`, puis la valeur
+SECRET = re.compile(r"(?<![\w-])(?=[\w-]*?" + KEYWORDS + r")([\w-]++)['\"]?+\s*+[=:]\s*+['\"]?+([^\s'\"]{6,})", re.I)
+DOCKER_ENV = re.compile(r"^[^\S\n]*+(?:ENV|ARG)\s++(?=[\w-]*?" + KEYWORDS + r")([\w-]++)\s++['\"]?+([^\s'\"]{6,})", re.I | re.M)
 # Un littéral donné à une macro dont le nom évoque un secret : `#define WIFI_PASS "MonWifi2024!"` (pas de `=` ni de `:`).
-DEFINE_SECRET = re.compile(r'^\s*#\s*define\s+\w*' + KEYWORDS + r'\w*\s+"([^"\s]{6,})"', re.I | re.M)
+DEFINE_SECRET = re.compile(r'^[^\S\n]*+#\s*+define\s++(?=[\w-]*?' + KEYWORDS + r')([\w-]++)\s++"([^"\s]{6,})"', re.I | re.M)
 # Un littéral donné à un nom français : `static const char *MDP = "Pz9-ke4N-77qL";`. Seulement un littéral entre guillemets : `taille_mdp = sizeof(x);` passe.
-FRENCH_SECRET = re.compile(r'\w*(?:mdp|mot_?de_?passe)\w*\s*=\s*"([^"\s]{6,})"', re.I)
+FRENCH_SECRET = re.compile(r'(?<!\w)(?=\w*?(?:mdp|mot_?de_?passe))(\w++)\s*+=\s*+"([^"\s]{6,})"', re.I)
 SENSITIVE_DEFAULT = re.compile(r"sensitive\s*=\s*true", re.I)
-ANY_DEFAULT = re.compile(r"^\s*default\s*=", re.M)
+ANY_DEFAULT = re.compile(r"^[^\S\n]*+default\s*+=", re.M)
 PLACEHOLDER = re.compile(r"^(\$\{|\$[A-Z_]|var\.|<|\{\{|changeme|example|xxx|\*+$)", re.I)
 # Une affectation de champ C/C++ (`cfg.credentials.authentication.password = mot_de_passe;`) : le secret est ailleurs. Étroit à dessein :
 # `.x` ou `->x` devant le mot-clé, `=` entre blancs, valeur snake_case minuscule sans chiffre, terminée par `;`.
 # shortcut: un mot de passe tout en minuscules sans chiffre affecté à un champ passe, à revoir si un TP en a besoin.
-FIELD_REF = re.compile(r"(?:\.|->)\w*" + KEYWORDS + r"\w*\s+=\s+((?-i:[a-z_]+(?:(?:\.|->)[a-z_]+)*);)", re.I)
+FIELD_REF = re.compile(r"(?:\.|->)(?=\w*?" + KEYWORDS + r")(\w++)\s++=\s++((?-i:[a-z_]++(?:(?:\.|->)[a-z_]++)*+);)", re.I)
 
 
 def leak_reason(text: str) -> str | None:
@@ -38,18 +41,18 @@ def leak_reason(text: str) -> str | None:
     for m in EMAIL.finditer(text):
         if not m.group(0).lower().endswith("@example.test"):
             return "adresse e-mail"
-    refs = {m.start(1) for m in FIELD_REF.finditer(text)}
+    refs = {m.start(2) for m in FIELD_REF.finditer(text)}
     for m in SECRET.finditer(text):
-        if not PLACEHOLDER.match(m.group(1)) and m.start(1) not in refs:
+        if not PLACEHOLDER.match(m.group(2)) and m.start(2) not in refs:
             return "secret en clair"
     for m in DEFINE_SECRET.finditer(text):
-        if not PLACEHOLDER.match(m.group(1)):
+        if not PLACEHOLDER.match(m.group(2)):
             return "secret en clair"
     for m in FRENCH_SECRET.finditer(text):
-        if not PLACEHOLDER.match(m.group(1)):
+        if not PLACEHOLDER.match(m.group(2)):
             return "secret en clair"
     for m in DOCKER_ENV.finditer(text):
-        if not PLACEHOLDER.match(m.group(1)):
+        if not PLACEHOLDER.match(m.group(2)):
             return "secret en clair"
     if SENSITIVE_DEFAULT.search(text) and ANY_DEFAULT.search(text):  # variable sensible avec valeur par défaut : écartée par prudence
         return "secret en clair"

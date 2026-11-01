@@ -88,6 +88,13 @@ def test_loopback_peer_with_remote_host_refused(tmp_path):
     assert _post(c, f"/api/tp/{FLAGGED}/check", host="localhost", extra={"origin": f"http://{REMOTE}"}).status_code == 403
 
 
+@pytest.mark.parametrize("header", ["X-Forwarded-For", "Forwarded", "X-Real-IP", "Via"])
+def test_relay_header_makes_a_loopback_peer_not_strictly_local(tmp_path, header):
+    c = _app(tmp_path, "127.0.0.1", "http://localhost")
+    assert c.post(f"/api/tp/{FLAGGED}/check").status_code == 200
+    assert c.post(f"/api/tp/{FLAGGED}/check", headers={header: "203.0.113.9"}).status_code == 403
+
+
 def test_ipv4_mapped_loopback_peer_ok_and_remote_peer_spoofing_host_refused(tmp_path):
     assert _post(_remote_app(tmp_path, "::ffff:127.0.0.1"), f"/api/tp/{FLAGGED}/check", host="localhost").status_code == 200
     assert _post(_remote_app(tmp_path / "b"), f"/api/tp/{FLAGGED}/check", host="localhost").status_code == 403
@@ -105,3 +112,18 @@ def test_boss_local_only_must_be_boolean(tmp_path):
     _set(content / "boss/demo_boss/boss.json", "oui")
     with pytest.raises(ValueError, match="local_only"):
         create_app(str(tmp_path / "f.db"), content, tmp_path)
+
+
+def test_esp_modules_come_after_the_other_modules(tmp_path):
+    """Les modules esp* passent après les autres (même alphabétiquement entre docker et k8s) : ils ne changent pas la quête du jour existante."""
+    content = _content(tmp_path)
+    for name in ("esp1", "k8s", "docker"):
+        shutil.copytree(FX / "demo_module", content / "modules" / name)
+        with open(content / "modules" / name / "lessons" / "l1.md", "a", encoding="utf-8") as f:
+            f.write(f"\n\nMODULE-{name}\n")
+    shutil.rmtree(content / "modules" / "demo")
+    c = TestClient(create_app(str(tmp_path / "f.db"), content, tmp_path), base_url="http://localhost", client=("127.0.0.1", 50000))
+    assert "MODULE-docker" in c.get("/api/lesson/l1").json()["body_md"]  # le premier trouvé : docker, puis k8s, esp1 en dernier
+    shutil.rmtree(content / "modules" / "docker")
+    shutil.rmtree(content / "modules" / "k8s")
+    assert "MODULE-esp1" in c.get("/api/lesson/l1").json()["body_md"]

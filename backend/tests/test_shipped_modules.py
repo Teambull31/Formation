@@ -6,6 +6,7 @@ shipped-content tests and by the self-tests on a synthetic module.
 import json
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -173,9 +174,59 @@ def test_lesson_static(mod_dir, lid):
     assert check_lesson_static(mod_dir, lid) == []
 
 
+def _skip_without_esp_tools():
+    """Les TP ESP compilent du C++ dans bwrap et fabriquent un certificat : sans g++, bwrap ou openssl on saute (ESP_SANDBOX_REQUIRED=1 : on échoue)."""
+    missing = [t for t in ("g++", "bwrap", "openssl") if shutil.which(t) is None]
+    if missing:
+        msg = f"outils absents : {', '.join(missing)} (TP ESP)"
+        if os.environ.get("ESP_SANDBOX_REQUIRED") == "1":
+            pytest.fail(msg)
+        pytest.skip(msg)
+
+
+def _uses_esp_driver(path: Path) -> bool:
+    return "esp_check.py" in path.read_text(encoding="utf-8", errors="replace")
+
+
+def _tp_check_files(tp_dir: Path, tp: Tp) -> list[Path]:
+    return [tp_dir / "check.sh"] if (tp_dir / "check.sh").is_file() else []
+
+
 @pytest.mark.parametrize("mod_dir,lid", _lesson_cases())
 def test_lesson_tp_solution(mod_dir, lid, tmp_path):
+    les = next(x for x in load_module(mod_dir).lessons if x.id == lid)
+    if les.tp is not None and (les.tp.check.count("esp_check.py") or any(_uses_esp_driver(f) for f in _tp_check_files(mod_dir / "lessons" / f"{lid}.tp", les.tp))):
+        _skip_without_esp_tools()
     assert check_tp_solution(mod_dir, lid, tmp_path) == []
+
+
+def test_every_esp_graded_tp_and_boss_is_local_only():
+    """Tout TP ou boss dont la notation passe par esp_check.py compile du C++ : il doit déclarer `local_only: true` (jamais d'exécution distante)."""
+    missing = []
+    for m in _module_dirs():
+        if not _listed(m):
+            continue
+        for les in load_module(m).lessons:
+            tp = les.tp
+            if tp and (("esp_check.py" in tp.check) or any(_uses_esp_driver(f) for f in _tp_check_files(m / "lessons" / f"{les.id}.tp", tp))) and not tp.local_only:
+                missing.append(f"{m.name}/{les.id}")
+    for b in _boss_dirs():
+        boss = json.loads((b / "boss.json").read_text(encoding="utf-8"))
+        if any(_uses_esp_driver(f) for f in b.glob("phase*_check.sh")) and boss.get("local_only") is not True:
+            missing.append(f"boss/{b.name}")
+    assert not missing, missing
+
+
+def test_shipped_tp_ids_are_unique():
+    """find_tp prend le premier TP portant l'id : un doublon dans le contenu livré en masquerait un autre."""
+    seen: dict[str, str] = {}
+    for m in _module_dirs():
+        if not _listed(m):
+            continue
+        for les in load_module(m).lessons:
+            if les.tp:
+                assert les.tp.id not in seen, f"{les.tp.id} : {seen[les.tp.id]} et {m.name}/{les.id}"
+                seen[les.tp.id] = f"{m.name}/{les.id}"
 
 
 @pytest.mark.parametrize("mod_dir", _module_dirs(), ids=lambda p: p.name)
@@ -185,6 +236,8 @@ def test_no_foreign_emails(mod_dir):
 
 @pytest.mark.parametrize("boss_dir", _boss_dirs(), ids=lambda p: p.name)
 def test_boss(boss_dir, tmp_path):
+    if any(_uses_esp_driver(f) for f in boss_dir.glob("phase*_check.sh")):
+        _skip_without_esp_tools()
     assert check_boss(boss_dir, tmp_path) == []
 
 
