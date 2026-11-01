@@ -74,6 +74,15 @@ Onglet « Semaine » (Préparation de la semaine) :
 
 Exemple complet : `backend/tests/fixtures/demo_module`.
 
+## Parcours domotique ESP-IDF
+
+Les modules `esp1` à `esp4` enseignent le C++ d'ESP-IDF (GPIO, FreeRTOS, Wi-Fi, MQTT sur TLS, OTA, retour arrière) sur un
+contrôleur de piscine, contre un **simulateur** (`content/esp/sim/`) : aucune carte n'est nécessaire, le temps est virtuel et le
+simulateur simplifie le matériel (chaque leçon dit ce qu'il simplifie). Les TP C++ et le boss final sont `local_only` : ils ne se
+notent que depuis la machine locale. Ils exigent `g++`, `bwrap` (bubblewrap) et `openssl` (certificat de test des TP es10 à es12 et
+des phases 2 et 3 du boss), absents de l'image Docker. Avec `FORMATION_REMOTE_EXEC=1`, le terminal distant (`/ws/terminal`) permet
+encore de compiler et d'exécuter du C++ ; la garde `local_only` ne protège que la notation. Voir `DEPLOY.md`.
+
 ## Tests
 
 ```bash

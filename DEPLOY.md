@@ -138,14 +138,22 @@ processus ni dans la sortie.
 ## TP C++ (ESP)
 
 Les TP C++ du parcours ESP et le boss ESP compilent et exécutent le code de l'apprenant dans un bac à sable.
-Avant la première exécution sur le VPS, vérifiez que `g++` et `bwrap` répondent (`g++ --version`, `bwrap --version`).
+Prérequis sur la machine qui note ces TP (PC, VPS) : `g++` (compilation), `bwrap` (bubblewrap, bac à sable) et `openssl`
+(certificat de test généré à chaque exécution : requis par les TP es10 à es12 et par les phases 2 et 3 du boss).
+Vérifiez qu'ils répondent (`g++ --version`, `bwrap --version`, `openssl version`) avant la première exécution.
+
+**L'image Docker du dépôt n'a ni `g++`, ni `bwrap`, ni `openssl`** : les TP ESP et le boss ESP y sont inutilisables
+(et ils sont `local_only`, donc refusés de toute façon dans le conteneur, où le pair vu est la passerelle Docker).
+Utilisez le mode PC natif pour le parcours ESP.
 
 Ces TP sont `local_only` : `/api/tp/{id}/check` (TP C++) et `/api/boss/attempt` (boss esp) renvoient 403 hors de la machine locale.
 La garde `strictly_local` exige un pair en boucle locale et un `Host`/`Origin` locaux, sans jamais consulter `FORMATION_ALLOWED_HOSTS`.
 Elle se fie donc à l'hôte `127.0.0.1` : derrière un proxy local qui transmet l'en-tête `Host` tel quel, la connexion
 paraît locale et la garde ne protège plus rien (même faiblesse que pour l'accès local du terminal).
+Par prudence, la garde refuse aussi dès qu'un en-tête de relais (`X-Forwarded-For`, `Forwarded`, `X-Real-IP`, `Via`) est présent ;
+un relais TCP qui n'en ajoute pas (socat, `ssh -R`, HAProxy en mode `tcp`) reste hors de sa portée.
 
-Deux limites à garder en tête (notes M1 et M2 du registre de la tranche 1) :
+Deux limites à garder en tête (relevées à la revue de la première tranche du parcours ESP) :
 
 - la garde ne contrôle que la **notation**. Avec `FORMATION_REMOTE_EXEC=1`, le terminal distant (`/ws/terminal`) peut
   compiler et exécuter du C++ de toute façon ;
