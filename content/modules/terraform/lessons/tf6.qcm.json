@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf6-q1",
+  "text": "Vous renommez resource \"local_file\" \"hello\" en \"greeting\". Sans autre changement, que prévoit le plan ?",
+  "options": [
+   "Rien, Terraform comprend le renommage",
+   "Détruire hello et créer greeting",
+   "Une erreur de syntaxe",
+   "Un import automatique"
+  ],
+  "answer": 1,
+  "explain": "Pour Terraform, c'est une adresse supprimée et une nouvelle. Le bloc moved { from = ... to = ... } transforme ça en simple déplacement dans le state.",
+  "remedial_lesson_id": "tf6"
+ },
+ {
+  "id": "tf6-q2",
+  "text": "Que fait prevent_destroy = true ?",
+  "options": [
+   "Il chiffre la ressource",
+   "Tout plan qui détruirait la ressource échoue",
+   "Il crée la ressource avant de détruire l'ancienne",
+   "Il ignore les changements"
+  ],
+  "answer": 1,
+  "explain": "C'est une ceinture de sécurité pour les données. Pour supprimer volontairement, on retire d'abord la ligne, dans une revue.",
+  "remedial_lesson_id": "tf6"
+ },
+ {
+  "id": "tf6-q3",
+  "text": "Dans un plan, que signifie -/+ ?",
+  "options": [
+   "Une modification sur place",
+   "Un remplacement : destruction puis recréation",
+   "Un import",
+   "Un déplacement"
+  ],
+  "answer": 1,
+  "explain": "-/+ (ou +/- avec create_before_destroy) est un remplacement. Cherchez « forces replacement » pour savoir quel attribut l'impose.",
+  "remedial_lesson_id": "tf6"
+ },
+ {
+  "id": "tf6-q4",
+  "text": "Quel flux est recommandé pour Terraform en CI ?",
+  "options": [
+   "apply sur chaque pull request",
+   "plan sur chaque pull request, apply après fusion sur main dans un environnement protégé",
+   "apply depuis le poste du développeur",
+   "plan seulement, jamais d'apply en CI"
+  ],
+  "answer": 1,
+  "explain": "Le plan est relu dans la PR ; l'application se fait une fois le code fusionné, avec approbation et identifiants OIDC limités au job apply.",
+  "remedial_lesson_id": "tf6"
+ },
+ {
+  "id": "tf6-q5",
+  "text": "Une ressource a été créée à la main dans la console cloud. Comment la gérer avec Terraform sans la recréer ?",
+  "options": [
+   "La supprimer et la recréer avec Terraform",
+   "Un bloc import { to = ...  id = ... } puis plan",
+   "terraform taint",
+   "moved { from = console }"
+  ],
+  "answer": 1,
+  "explain": "import rattache l'objet existant au state ; plan -generate-config-out peut même écrire le bloc resource à relire.",
+  "remedial_lesson_id": "tf6"
+ }
+]

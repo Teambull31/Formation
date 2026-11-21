@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an2-q1",
+  "text": "Une tâche command: nginx -v affiche changed à chaque lancement. Que faire ?",
+  "options": [
+   "La supprimer",
+   "Ajouter changed_when: false, car c'est une lecture",
+   "Ajouter become: true",
+   "La transformer en handler"
+  ],
+  "answer": 1,
+  "explain": "Une commande est toujours supposée changer quelque chose. changed_when: false déclare qu'elle ne fait que lire ; creates sert pour les commandes qui créent un fichier.",
+  "remedial_lesson_id": "an2"
+ },
+ {
+  "id": "an2-q2",
+  "text": "Quand un handler s'exécute-t-il ?",
+  "options": [
+   "Au début du play",
+   "Après chaque tâche",
+   "Une seule fois à la fin du play, s'il a été notifié par une tâche changed",
+   "À chaque lancement"
+  ],
+  "answer": 2,
+  "explain": "Le handler attend la fin du play et tourne une fois, même notifié plusieurs fois. Si la configuration n'a pas changé, nginx n'est pas rechargé.",
+  "remedial_lesson_id": "an2"
+ },
+ {
+  "id": "an2-q3",
+  "text": "notify: recharger nginx et un handler nommé Recharger nginx. Que se passe-t-il ?",
+  "options": [
+   "Ça fonctionne",
+   "Le play échoue : le nom doit être identique, majuscules comprises",
+   "Le handler s'exécute deux fois",
+   "Ansible corrige la casse"
+  ],
+  "answer": 1,
+  "explain": "La correspondance est exacte. Une faute de frappe fait échouer le play avec « handler not found ».",
+  "remedial_lesson_id": "an2"
+ },
+ {
+  "id": "an2-q4",
+  "text": "Une variable est définie dans group_vars/web.yml et passée par -e. Quelle valeur gagne ?",
+  "options": [
+   "group_vars",
+   "-e, qui a la priorité la plus haute",
+   "La première lue",
+   "Aucune, erreur"
+  ],
+  "answer": 1,
+  "explain": "Les extra-vars (-e) écrasent tout. group_vars et host_vars sont l'endroit normal des valeurs ; -e sert aux exceptions.",
+  "remedial_lesson_id": "an2"
+ },
+ {
+  "id": "an2-q5",
+  "text": "Pourquoi écrire mode: \"0644\" entre guillemets ?",
+  "options": [
+   "Par convention seulement",
+   "Sans guillemets, YAML peut lire le nombre 644 (ou un octal mal interprété) et donner des droits inattendus",
+   "Pour le chiffrer",
+   "Parce que mode est une chaîne obligatoire"
+  ],
+  "answer": 1,
+  "explain": "Les guillemets garantissent qu'Ansible reçoit la chaîne octale exacte. ansible-lint signale les modes non protégés.",
+  "remedial_lesson_id": "an2"
+ }
+]

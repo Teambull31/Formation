@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an4-q1",
+  "text": "Quel fichier est le point d'entrée d'un rôle ?",
+  "options": [
+   "roles/nginx/main.yml",
+   "roles/nginx/tasks/main.yml",
+   "roles/nginx/site.yml",
+   "roles/nginx/meta/main.yml"
+  ],
+  "answer": 1,
+  "explain": "Ansible exécute tasks/main.yml quand le rôle est appliqué. Les autres dossiers sont chargés automatiquement selon leur rôle.",
+  "remedial_lesson_id": "an4"
+ },
+ {
+  "id": "an4-q2",
+  "text": "Où mettre le port par défaut d'un rôle, pour qu'il soit surchargeable par group_vars ?",
+  "options": [
+   "vars/main.yml",
+   "defaults/main.yml",
+   "meta/main.yml",
+   "Dans le playbook"
+  ],
+  "answer": 1,
+  "explain": "defaults a la priorité la plus basse : n'importe quel group_vars le remplace. vars/main.yml a une priorité forte et surprend les utilisateurs.",
+  "remedial_lesson_id": "an4"
+ },
+ {
+  "id": "an4-q3",
+  "text": "Pourquoi préfixer les variables du rôle (nginx_port plutôt que port) ?",
+  "options": [
+   "C'est obligatoire",
+   "Pour éviter que deux rôles utilisant le même nom se marchent dessus",
+   "Pour le chiffrement",
+   "Pour la vitesse"
+  ],
+  "answer": 1,
+  "explain": "Les variables partagent un espace commun. Le préfixe rend chaque rôle indépendant.",
+  "remedial_lesson_id": "an4"
+ },
+ {
+  "id": "an4-q4",
+  "text": "À quoi sert requirements.yml ?",
+  "options": [
+   "À lister les paquets apt",
+   "À déclarer, avec leurs versions, les collections et rôles tiers à installer par ansible-galaxy",
+   "À configurer SSH",
+   "À lister les hôtes"
+  ],
+  "answer": 1,
+  "explain": "ansible-galaxy install -r requirements.yml installe les mêmes versions partout. Sans version, chaque machine peut avoir un comportement différent.",
+  "remedial_lesson_id": "an4"
+ },
+ {
+  "id": "an4-q5",
+  "text": "Différence entre import_role et include_role ?",
+  "options": [
+   "Aucune",
+   "import_role est résolu au démarrage (statique), include_role à l'exécution (peut être conditionnel ou en boucle)",
+   "include_role est obsolète",
+   "import_role ne charge pas les handlers"
+  ],
+  "answer": 1,
+  "explain": "import est statique : tags et when s'appliquent à chaque tâche. include est dynamique : utile dans une boucle ou selon une condition calculée.",
+  "remedial_lesson_id": "an4"
+ }
+]

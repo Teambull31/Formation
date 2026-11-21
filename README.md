@@ -65,7 +65,8 @@ Onglet « Semaine » (Préparation de la semaine) :
   gacha.json                    récompenses du gacha
   boss/<id>/boss.json           boss (phases)
   modules/<id>/
-    module.json                 id, title, skill, lessons[{id, title, minutes}]
+    module.json                 id, title, skill, lessons[{id, title, minutes}], order (rang, défaut 100)
+    fiche.md                    fiche de révision téléchargeable (facultative)
     lessons/<leçon>.md          cours (**gras**, !!rouge!! pour l'essentiel)
     lessons/<leçon>.qcm.json    questions (answer = index de la bonne option)
     lessons/<leçon>.tp/tp.json  TP (id, title, instructions_md, check, hints, timeout_s, workspace)
@@ -73,6 +74,21 @@ Onglet « Semaine » (Préparation de la semaine) :
 ```
 
 Exemple complet : `backend/tests/fixtures/demo_module`.
+
+## Parcours DevOps en 30 jours
+
+Les modules DevOps passent en tête de la quête (`order` dans `module.json`) : **CI/CD** (6 leçons), **Docker** (3), **Kubernetes** (7), **Terraform** (6), **Ansible** (6), chacun avec son boss. Chaque leçon = cours audio, 5 QCM, un TP vérifié dans le terminal ; chaque leçon finit par un « Labo réel » optionnel (Terraform et Ansible tournent sur le poste, Kubernetes avec `kind`).
+
+Rythme conseillé (quête de 60 min les jours doubles) :
+
+- Jours 1 à 6 : ci1 à ci6. Jour 7 : boss « Le Gardien du Pipeline ».
+- Jours 8 à 10 : dk1 à dk3. Jour 11 : boss Docker. Jours 12 à 14 : k1 à k3.
+- Jours 15 à 18 : k4 à k7 (k6 : la garde de nuit, cinq incidents). Jour 19 : boss Kubernetes. Jours 20 et 21 : tf1, tf2.
+- Jours 22 à 24 : tf3, tf4, puis tf5 et tf6. Jour 25 : boss Terraform.
+- Jours 26 à 28 : an1 et an2, an3 et an4, an5 et an6. Jour 29 : boss Ansible.
+- Jour 30 : onglet Révision (questions ratées), relecture des fiches, questions d'entretien en fin de fiche.
+
+**Fiches de révision** : onglet Leçons, bouton « Fiche de révision ⬇ » par module ou « Télécharger toutes les fiches ». Le fichier HTML est autonome : il s'ouvre hors ligne sur téléphone et s'imprime en PDF depuis le navigateur. Source : `content/modules/<id>/fiche.md` (servie par `GET /api/fiche/<id>`).
 
 ## Parcours domotique ESP-IDF
 

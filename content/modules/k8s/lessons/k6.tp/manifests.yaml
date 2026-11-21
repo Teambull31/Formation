@@ -1,0 +1,2 @@
+"""+s.rstrip("\n")+"\nEOF\n"
+open("solution.sh","w").write(sol)

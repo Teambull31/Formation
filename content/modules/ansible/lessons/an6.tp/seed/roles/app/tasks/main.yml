@@ -1,0 +1,9 @@
+- name: Déposer la configuration
+  ansible.builtin.template:
+    src: app.conf.j2
+    dest: /etc/app/app.conf
+    owner: root
+    group: app
+    mode: "0640"
+  tags: [config]
+  notify: Redémarrer app

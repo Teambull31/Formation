@@ -1,0 +1,18 @@
+{
+  "id": "k7-tp",
+  "title": "TP 7 : un overlay de production et un déployeur limité",
+  "instructions_md": "Le dossier contient une base Kustomize incomplète, un overlay de production vide, et un compte de déploiement qui a **cluster-admin**. Corrigez :\n\n1. **base/kustomization.yaml** : `resources` liste `deployment.yaml` et `service.yaml`.\n2. **overlays/prod/kustomization.yaml** : `namespace: prod`, `resources: [../../base]`, l'image `registry.example.test/web` en `newTag: \"1.5.0\"`, et `replicas` : `web` à 3.\n3. **rbac.yaml** : le ServiceAccount `deployer` (namespace `prod`) reçoit, par un **RoleBinding** dans `prod`, un **Role** qui permet seulement `get`, `list`, `watch`, `update`, `patch` sur les `deployments` du groupe `apps`. Plus de ClusterRoleBinding, pas de `*`, pas de `secrets`, pas de `delete`.\n\nSi `kubectl` est installé : `kubectl kustomize overlays/prod` affiche le résultat final.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans la base : `resources:` puis deux lignes `- deployment.yaml` et `- service.yaml`.",
+    "Dans l'overlay : `images:` est une liste (`- name: registry.example.test/web` puis `newTag: \"1.5.0\"`), `replicas:` aussi (`- name: web` puis `count: 3`).",
+    "Remplacez le ClusterRoleBinding par deux documents : un `Role` (`rules: - apiGroups: [\"apps\"] resources: [\"deployments\"] verbs: [...]`) et un `RoleBinding` dont `roleRef.kind` vaut `Role` et dont le sujet a `namespace: prod`."
+  ],
+  "timeout_s": 20,
+  "workspace": "k7",
+  "seed": [
+    "seed/base",
+    "seed/overlays",
+    "seed/rbac.yaml"
+  ]
+}

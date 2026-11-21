@@ -1,0 +1,14 @@
+- name: Serveurs web
+  hosts: web
+  become: true
+  vars:
+    nginx_port: 8080
+  tasks:
+    - name: Écrire la configuration
+      ansible.builtin.shell: echo "server { listen {{ nginx_port }}; }" > /etc/nginx/conf.d/app.conf
+    - name: Redémarrer nginx
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+    - name: Lire la version de nginx
+      ansible.builtin.command: nginx -v

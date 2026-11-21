@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k6-q1",
+  "text": "Un pod est en CrashLoopBackOff. Quelle commande montre l'erreur qui l'a fait tomber ?",
+  "options": [
+   "kubectl get pods",
+   "kubectl logs <pod> --previous",
+   "kubectl describe node",
+   "kubectl top pod"
+  ],
+  "answer": 1,
+  "explain": "Le conteneur courant vient de redémarrer, son journal est souvent vide. --previous montre le journal de l'exécution qui a planté.",
+  "remedial_lesson_id": "k6"
+ },
+ {
+  "id": "k6-q2",
+  "text": "Un pod est Pending depuis dix minutes. Où chercher ?",
+  "options": [
+   "Dans kubectl logs",
+   "Dans les Events de kubectl describe pod (FailedScheduling)",
+   "Dans le journal de l'Ingress",
+   "Dans le registre d'images"
+  ],
+  "answer": 1,
+  "explain": "Un pod Pending n'a jamais démarré : il n'a pas de journal. Les Events disent pourquoi le planificateur ne trouve pas de nœud (mémoire, taint, affinité, PVC).",
+  "remedial_lesson_id": "k6"
+ },
+ {
+  "id": "k6-q3",
+  "text": "Last State: Terminated, Reason: OOMKilled, Exit Code: 137. Que s'est-il passé ?",
+  "options": [
+   "L'image est introuvable",
+   "Le conteneur a dépassé limits.memory et le noyau l'a tué",
+   "La readinessProbe a échoué",
+   "Le nœud a été vidé"
+  ],
+  "answer": 1,
+  "explain": "137 = 128 + 9 : tué par SIGKILL. Avec OOMKilled, c'est la limite mémoire. Augmentez-la si le besoin est réel, sinon cherchez la fuite.",
+  "remedial_lesson_id": "k6"
+ },
+ {
+  "id": "k6-q4",
+  "text": "Les pods front tournent, mais kubectl get endpoints front affiche <none>. Cause ?",
+  "options": [
+   "Le sélecteur du Service ne correspond aux étiquettes d'aucun pod prêt",
+   "Le Service est en ClusterIP",
+   "Les pods n'ont pas de limits",
+   "Le namespace est mal écrit dans l'Ingress"
+  ],
+  "answer": 0,
+  "explain": "Un Service sans endpoints ne trouve aucun pod prêt avec ses étiquettes. Comparez son selector avec kubectl get pods --show-labels.",
+  "remedial_lesson_id": "k6"
+ },
+ {
+  "id": "k6-q5",
+  "text": "Vous corrigez un incident avec kubectl edit en production. Que reste-t-il à faire ?",
+  "options": [
+   "Rien, la correction est faite",
+   "Reporter la correction dans le manifeste versionné, sinon le prochain déploiement la réécrase",
+   "Redémarrer le cluster",
+   "Supprimer le namespace"
+  ],
+  "answer": 1,
+  "explain": "Le dépôt est la source de vérité : un changement fait à la main disparaît au prochain apply ou à la prochaine synchronisation GitOps.",
+  "remedial_lesson_id": "k6"
+ }
+]

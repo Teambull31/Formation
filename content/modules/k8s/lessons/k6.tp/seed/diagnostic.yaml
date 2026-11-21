@@ -1,0 +1,7 @@
+# Pour chaque composant, une cause parmi : image, application, planification, memoire, selecteur
+# (le composant api n'a pas d'endpoints car son pod n'est pas prêt : sa cause est celle de son pod)
+api: ?
+worker: ?
+batch: ?
+cache: ?
+front: ?

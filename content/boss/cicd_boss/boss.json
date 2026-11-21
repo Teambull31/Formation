@@ -1,0 +1,27 @@
+{
+  "id": "cicd_boss",
+  "title": "Le Gardien du Pipeline",
+  "phases": [
+    {
+      "pattern_id": "ci_lente_permissive",
+      "label": "Phase 1 : dans ciboss/.github/workflows/ci.yml, une CI sur push et pull_request, en lecture seule, avec concurrency, matrice d'au moins deux versions de Python, cache pip, jobs test puis build bornés par timeout-minutes",
+      "check": "bash \"$LESSON_DIR/phase1_check.sh\"",
+      "remedial_lesson_id": "ci2",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "deploiement_sauvage",
+      "label": "Phase 2 : dans ciboss/.github/workflows/deploy.yml, push sur main et workflow_dispatch ; build expose la version par $GITHUB_OUTPUT ; deploy-staging puis deploy-production (environnements, condition sur refs/heads/main, concurrence sans annulation)",
+      "check": "bash \"$LESSON_DIR/phase2_check.sh\"",
+      "remedial_lesson_id": "ci5",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "cle_statique",
+      "label": "Phase 3 : dans ciboss/.github/workflows/release.yml, release sur tag v*, artefact dist transmis entre build et publish, OIDC (id-token: write sur publish seulement, action épinglée sur SHA, aucune clé statique) ; aucun secret ni injection dans les trois workflows",
+      "check": "bash \"$LESSON_DIR/phase3_check.sh\"",
+      "remedial_lesson_id": "ci6",
+      "timeout_s": 25
+    }
+  ]
+}

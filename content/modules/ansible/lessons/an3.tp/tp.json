@@ -1,0 +1,19 @@
+{
+  "id": "an3-tp",
+  "title": "TP 3 : un template et des boucles",
+  "instructions_md": "Les variables sont prêtes dans **group_vars/web.yml** (`nginx_port`, `nginx_sites`, `base_packages`, `admins`). Modernisez **site.yml** et écrivez le template :\n\n1. **templates/nginx.conf.j2** : première ligne `# Géré par Ansible ...`, puis un bloc `server` par site avec `{% for site in nginx_sites %}` ... `{% endfor %}`, utilisant `{{ nginx_port }}` et `{{ site.domain }}`.\n2. Installation des paquets : `name: \"{{ base_packages }}\"` en une seule tâche, **sans boucle**, avec `when: ansible_os_family == \"Debian\"`.\n3. Comptes : `ansible.builtin.user` avec `loop: \"{{ admins }}\"` et `name: \"{{ item.name }}\"` (plus de `shell`).\n4. Configuration : `ansible.builtin.template` (src `templates/nginx.conf.j2`) avec `owner`, `group`, `mode`, `validate: nginx -t -c %s` et la notification du handler.\n\nTestez le rendu sur votre poste : voir le labo de la leçon.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans le template, `{% for site in nginx_sites %}` ouvre la boucle, `{% endfor %}` la ferme ; tout ce qui est entre les deux est répété.",
+    "`when:` s'écrit sans accolades : `when: ansible_os_family == \"Debian\"`.",
+    "Remplacez `with_items` par rien du tout : `apt` accepte une liste dans `name:`. Pour `user`, c'est `loop:` qui répète la tâche."
+  ],
+  "timeout_s": 20,
+  "workspace": "an3",
+  "seed": [
+    "seed/group_vars",
+    "seed/inventory.ini",
+    "seed/site.yml",
+    "seed/templates"
+  ]
+}

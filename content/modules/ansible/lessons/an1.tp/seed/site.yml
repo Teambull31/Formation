@@ -1,0 +1,4 @@
+- hosts: web
+  tasks:
+    - shell: apt-get install -y nginx
+    - command: systemctl start nginx

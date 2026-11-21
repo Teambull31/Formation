@@ -1,0 +1,19 @@
+{
+  "id": "tf5-tp",
+  "title": "TP 5 : appeler un module et partager le state",
+  "instructions_md": "Le module racine appelle **modules/app** de travers, stocke des clés dans le backend et suit une source Git mobile. Réparez :\n\n1. **modules/app/outputs.tf** : un output `config_path` qui renvoie `local_file.config.filename`.\n2. **main.tf**, bloc `backend \"s3\"` : retirez `access_key` et `secret_key`, ajoutez `encrypt = true` et `use_lockfile = true`, et une `key` propre au composant (par exemple `web/prod.tfstate`).\n3. **main.tf**, module `web` : passez exactement les variables du module (`environment` est obligatoire, `replicas` n'existe pas), avec `environment = var.environment`.\n4. **main.tf**, module `naming` : épinglez la source Git avec `?ref=v1.2.0`.\n5. **outputs.tf** : `web_config` lit une sortie qui existe vraiment dans le module.\n\nLe bucket et le dépôt Git sont fictifs : le contrôle lit les fichiers sans réseau.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Comparez les arguments du bloc `module \"web\"` avec les `variable` de modules/app/variables.tf : chaque argument doit y exister, chaque variable sans default doit être passée.",
+    "Dans le backend, les identifiants ne s'écrivent jamais : ils viennent de l'environnement (variables AWS_*) ou d'OIDC.",
+    "La sortie lue s'appelle `module.web.config_path` une fois l'output déclaré dans le module. Pour Git : `...modules.git//naming?ref=v1.2.0`."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf5",
+  "seed": [
+    "seed/main.tf",
+    "seed/variables.tf",
+    "seed/outputs.tf",
+    "seed/modules"
+  ]
+}

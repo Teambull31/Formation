@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an3-q1",
+  "text": "À quoi sert validate: nginx -t -c %s sur une tâche template ?",
+  "options": [
+   "À vérifier la syntaxe Jinja2",
+   "À tester le fichier généré avant de le mettre en place : en cas d'erreur, l'ancien fichier reste",
+   "À redémarrer nginx",
+   "À comparer avec le dépôt"
+  ],
+  "answer": 1,
+  "explain": "%s est remplacé par un fichier temporaire. Si la commande échoue, la tâche échoue et la configuration en place n'est pas touchée.",
+  "remedial_lesson_id": "an3"
+ },
+ {
+  "id": "an3-q2",
+  "text": "Comment écrire une condition sur la famille d'OS ?",
+  "options": [
+   "when: \"{{ ansible_os_family == 'Debian' }}\"",
+   "when: ansible_os_family == \"Debian\"",
+   "if: ansible_os_family == Debian",
+   "only_if: Debian"
+  ],
+  "answer": 1,
+  "explain": "when est déjà une expression Jinja2 : on l'écrit sans accolades. Les accolades provoquent un avertissement et des pièges d'évaluation.",
+  "remedial_lesson_id": "an3"
+ },
+ {
+  "id": "an3-q3",
+  "text": "Pour installer dix paquets avec apt, quelle forme préférer ?",
+  "options": [
+   "loop: avec un paquet par tour",
+   "name: \"{{ base_packages }}\" : une seule transaction apt",
+   "Dix tâches",
+   "shell: apt-get install"
+  ],
+  "answer": 1,
+  "explain": "apt accepte une liste : une seule résolution de dépendances, bien plus rapide qu'une boucle.",
+  "remedial_lesson_id": "an3"
+ },
+ {
+  "id": "an3-q4",
+  "text": "Dans une tâche avec loop: \"{{ admins }}\", comment lire l'élément courant ?",
+  "options": [
+   "{{ loop }}",
+   "{{ item }}",
+   "{{ admins[i] }}",
+   "{{ each.value }}"
+  ],
+  "answer": 1,
+  "explain": "item est la variable de boucle. loop_control: loop_var permet de la renommer dans les boucles imbriquées.",
+  "remedial_lesson_id": "an3"
+ },
+ {
+  "id": "an3-q5",
+  "text": "À quoi sert until: health.status == 200 avec retries et delay ?",
+  "options": [
+   "À répéter la tâche jusqu'à ce que la condition soit vraie, avec un nombre d'essais et une pause",
+   "À ignorer les erreurs",
+   "À exécuter en parallèle",
+   "À enregistrer un fact"
+  ],
+  "answer": 0,
+  "explain": "On attend qu'un service soit prêt sans sleep arbitraire. Si la condition n'est jamais vraie, la tâche échoue après retries essais.",
+  "remedial_lesson_id": "an3"
+ }
+]

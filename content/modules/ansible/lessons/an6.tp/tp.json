@@ -1,0 +1,18 @@
+{
+  "id": "an6-tp",
+  "title": "TP 6 : déployer par lots, valider en CI",
+  "instructions_md": "**deploy.yml** met à jour tous les serveurs web en même temps. Rendez le déploiement progressif et ajoutez la CI :\n\n1. **deploy.yml** : `serial: 1` et `max_fail_percentage: 0` au niveau du play.\n2. `pre_tasks` : une tâche `ansible.builtin.uri` qui retire l'hôte du répartiteur (`http://lb.internal/api/drain/{{ inventory_hostname }}`, `method: POST`), avec `delegate_to: localhost`.\n3. `post_tasks` : d'abord une vérification de santé `ansible.builtin.uri` sur `http://{{ ansible_host }}:8000/health` avec `register`, `until`, `retries` et `delay` ; **ensuite** la remise dans le répartiteur (`/api/enable/...`, `delegate_to: localhost`).\n4. **.github/workflows/ansible.yml** : sur `pull_request`, `permissions: contents: read`, un job avec `timeout-minutes` qui fait `actions/checkout@v4`, installe `ansible-core==...` et `ansible-lint==...` (versions épinglées), lance `ansible-lint`, puis `ansible-playbook -i inventory.ini deploy.yml --syntax-check`.\n\nEssayez : `ansible-playbook -i inventory.ini deploy.yml --list-hosts`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`serial:` et `max_fail_percentage:` se placent au niveau du play, à côté de `hosts:` et `become:`.",
+    "Ajoutez `become: false` aux tâches déléguées à localhost : votre poste n'a pas à passer root pour appeler le répartiteur.",
+    "Ordre des post_tasks : santé d'abord (`until: health.status == 200`), remise en service ensuite. Un serveur malade ne doit jamais recevoir de trafic."
+  ],
+  "timeout_s": 20,
+  "workspace": "an6",
+  "seed": [
+    "seed/deploy.yml",
+    "seed/inventory.ini",
+    "seed/roles"
+  ]
+}

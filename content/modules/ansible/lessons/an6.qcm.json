@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an6-q1",
+  "text": "Que fait serial: 1 dans un play ?",
+  "options": [
+   "Il limite le play à un seul hôte au total",
+   "Il traite les hôtes un par un : le play entier sur le premier, puis le suivant",
+   "Il désactive le parallélisme des tâches",
+   "Il ne lance qu'une tâche"
+  ],
+  "answer": 1,
+  "explain": "Le play s'exécute par lots. Avec max_fail_percentage: 0, une erreur sur un lot arrête le déploiement avant les suivants.",
+  "remedial_lesson_id": "an6"
+ },
+ {
+  "id": "an6-q2",
+  "text": "À quoi sert delegate_to: localhost dans un pre_task ?",
+  "options": [
+   "À exécuter la tâche depuis le nœud de contrôle, au nom de l'hôte en cours (par exemple appeler l'API du répartiteur)",
+   "À copier un fichier local",
+   "À passer root",
+   "À ignorer l'hôte"
+  ],
+  "answer": 0,
+  "explain": "La tâche tourne ailleurs mais garde les variables de l'hôte courant : inventory_hostname désigne toujours le serveur déployé.",
+  "remedial_lesson_id": "an6"
+ },
+ {
+  "id": "an6-q3",
+  "text": "Dans les post_tasks, pourquoi vérifier la santé avant de remettre le serveur dans le répartiteur ?",
+  "options": [
+   "Pour gagner du temps",
+   "Pour qu'un serveur qui ne répond pas ne reçoive jamais de trafic, et que le déploiement s'arrête sur lui",
+   "Parce qu'Ansible l'exige",
+   "Pour remplir le cache"
+  ],
+  "answer": 1,
+  "explain": "Si la vérification échoue, la tâche échoue, max_fail_percentage arrête tout, et le répartiteur continue d'envoyer le trafic aux serveurs sains.",
+  "remedial_lesson_id": "an6"
+ },
+ {
+  "id": "an6-q4",
+  "text": "Quelles vérifications lancer sur chaque PR qui modifie des playbooks ?",
+  "options": [
+   "Un déploiement en production",
+   "ansible-lint et ansible-playbook --syntax-check, avec des versions épinglées",
+   "Aucune",
+   "ansible-vault view"
+  ],
+  "answer": 1,
+  "explain": "Le lint attrape les mauvaises pratiques, --syntax-check les erreurs de structure. Molecule peut compléter pour tester les rôles.",
+  "remedial_lesson_id": "an6"
+ },
+ {
+  "id": "an6-q5",
+  "text": "Comment se répartissent Terraform et Ansible ?",
+  "options": [
+   "Ils font la même chose",
+   "Terraform crée et détruit l'infrastructure, Ansible configure l'intérieur des machines ; l'inventaire fait le lien",
+   "Ansible crée les réseaux, Terraform installe les paquets",
+   "Terraform remplace Ansible"
+  ],
+  "answer": 1,
+  "explain": "Terraform gère le cycle de vie des ressources cloud ; Ansible installe et configure. Les outputs Terraform ou un inventaire dynamique alimentent Ansible.",
+  "remedial_lesson_id": "an6"
+ }
+]

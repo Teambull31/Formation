@@ -1,0 +1,9 @@
+name: Tests réutilisables
+# À compléter : déclencheur workflow_call, entrée python-version, job de test.
+on:
+  push:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "à compléter"

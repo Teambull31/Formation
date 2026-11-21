@@ -1,0 +1,27 @@
+{
+  "id": "ansible_boss",
+  "title": "Le Gardien du Parc",
+  "phases": [
+    {
+      "pattern_id": "playbook_monolithe",
+      "label": "Phase 1 : dans ansibleboss/, un rôle roles/nginx (tâches nommées en FQCN, template validé, handler, defaults avec nginx_port, meta), un site.yml qui n'applique que le rôle, et un requirements.yml aux versions épinglées",
+      "check": "bash \"$LESSON_DIR/phase1_check.sh\"",
+      "remedial_lesson_id": "an4",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "secret_en_clair",
+      "label": "Phase 2 : dans ansibleboss/, group_vars/db/vars.yml lit vault_db_password, group_vars/db/vault.yml est chiffré par ansible-vault, db.yml utilise no_log et become au plus près, ansible.cfg vérifie les clés SSH, .gitignore exclut .vault_pass",
+      "check": "bash \"$LESSON_DIR/phase2_check.sh\"",
+      "remedial_lesson_id": "an5",
+      "timeout_s": 25
+    },
+    {
+      "pattern_id": "deploiement_big_bang",
+      "label": "Phase 3 : dans ansibleboss/, deploy.yml par lots (serial, max_fail_percentage 0, sortie et retour au répartiteur par delegate_to, santé vérifiée avant le retour) et un workflow .github/workflows/ansible.yml (ansible-lint et --syntax-check, versions épinglées)",
+      "check": "bash \"$LESSON_DIR/phase3_check.sh\"",
+      "remedial_lesson_id": "an6",
+      "timeout_s": 25
+    }
+  ]
+}

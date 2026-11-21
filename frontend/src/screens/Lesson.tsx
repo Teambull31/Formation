@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, getLessons, isForbidden, startTp,
+  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
+import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Terminal from './Terminal'
 
@@ -54,14 +55,26 @@ function Catalog({ onOpen }: { onOpen: (id: string) => void }) {
   const [mods, setMods] = useState<LessonIndex[] | null>(null)
   const [err, setErr] = useState('')
   useEffect(() => { getLessons().then(setMods).catch((e: Error) => setErr(e.message)) }, [])
+  const saveFiches = (ids: string[], name: string) =>
+    Promise.all(ids.map(getFiche))
+      .then((fs) => download(name, ficheHtml('Fiches de révision', fs)))
+      .catch((e: Error) => setErr(e.message))
   if (err) return <section className="screen wrap"><p className="note" role="alert">{err}</p></section>
   if (!mods) return <section className="screen wrap"><p className="note">Chargement…</p></section>
   return (
     <section className="screen wrap">
       <h1>Leçons</h1>
+      {mods.some((m) => m.fiche) && (
+        <button className="btn" onClick={() => saveFiches(mods.filter((m) => m.fiche).map((m) => m.id), 'fiches-revision.html')}>
+          Télécharger toutes les fiches de révision
+        </button>
+      )}
       {mods.map((m) => (
         <div className="card" key={m.id}>
           <h2>{m.title}</h2>
+          {m.fiche && (
+            <button className="btn ghost" onClick={() => saveFiches([m.id], `fiche-${m.id}.html`)}>Fiche de révision ⬇</button>
+          )}
           {m.lessons.map((l) => (
             <button key={l.id} className="btn ghost" onClick={() => onOpen(l.id)}>{l.title} · {l.minutes} min</button>
           ))}

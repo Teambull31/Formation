@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an1-q1",
+  "text": "Que faut-il installer sur un serveur pour qu'Ansible le gère ?",
+  "options": [
+   "Un agent Ansible",
+   "Rien de spécial : un accès SSH et Python",
+   "Docker",
+   "Un client Terraform"
+  ],
+  "answer": 1,
+  "explain": "Ansible est sans agent : il se connecte en SSH, copie un petit programme Python et l'exécute.",
+  "remedial_lesson_id": "an1"
+ },
+ {
+  "id": "an1-q2",
+  "text": "Dans un inventaire INI, que déclare [prod:children] ?",
+  "options": [
+   "Des variables pour prod",
+   "Un groupe prod qui contient d'autres groupes",
+   "Des hôtes enfants d'un hôte prod",
+   "Un environnement Terraform"
+  ],
+  "answer": 1,
+  "explain": ":children liste des noms de groupes. :vars déclare des variables de groupe.",
+  "remedial_lesson_id": "an1"
+ },
+ {
+  "id": "an1-q3",
+  "text": "Pourquoi préférer ansible.builtin.apt à shell: apt-get install -y nginx ?",
+  "options": [
+   "Le module est plus rapide à écrire",
+   "Le module vérifie l'état et ne fait rien si nginx est déjà là : la tâche est idempotente et répond ok",
+   "shell est interdit",
+   "apt fonctionne sans SSH"
+  ],
+  "answer": 1,
+  "explain": "Un module compare l'état voulu à l'état réel. Une commande s'exécute à chaque fois et répond toujours changed.",
+  "remedial_lesson_id": "an1"
+ },
+ {
+  "id": "an1-q4",
+  "text": "Que fait ansible all -m ansible.builtin.ping ?",
+  "options": [
+   "Un ping ICMP vers chaque hôte",
+   "Vérifie la connexion SSH et la présence de Python sur chaque hôte",
+   "Redémarre les hôtes",
+   "Teste le DNS"
+  ],
+  "answer": 1,
+  "explain": "Le module ping d'Ansible teste toute la chaîne de connexion, pas seulement le réseau.",
+  "remedial_lesson_id": "an1"
+ },
+ {
+  "id": "an1-q5",
+  "text": "Comment tester un playbook sur un seul serveur avant tout le parc ?",
+  "options": [
+   "--tags web1",
+   "--limit web1",
+   "--check-only web1",
+   "-e host=web1"
+  ],
+  "answer": 1,
+  "explain": "--limit restreint les hôtes visés. Combiné à --check --diff, on voit ce qui changerait sans rien modifier.",
+  "remedial_lesson_id": "an1"
+ }
+]

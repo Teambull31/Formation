@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf5-q1",
+  "text": "Un module appelé peut-il lire var.environment du module racine sans qu'on le lui passe ?",
+  "options": [
+   "Oui, les variables sont globales",
+   "Non : tout ce que le module utilise doit lui être passé en argument",
+   "Oui, si la variable a un default",
+   "Seulement avec terraform_remote_state"
+  ],
+  "answer": 1,
+  "explain": "Un module est une boîte : ses seules entrées sont ses variables, alimentées par les arguments du bloc module.",
+  "remedial_lesson_id": "tf5"
+ },
+ {
+  "id": "tf5-q2",
+  "text": "Comment lire la sortie config_path du module web ?",
+  "options": [
+   "var.web.config_path",
+   "module.web.config_path",
+   "output.web.config_path",
+   "local.web.config_path"
+  ],
+  "answer": 1,
+  "explain": "module.<nom>.<output>. Seuls les outputs déclarés dans le module sont visibles.",
+  "remedial_lesson_id": "tf5"
+ },
+ {
+  "id": "tf5-q3",
+  "text": "Pourquoi épingler un module Git avec ?ref=v1.2.0 ?",
+  "options": [
+   "Pour accélérer le téléchargement",
+   "Sans ref, init suit la branche par défaut : le code change sans que vous le sachiez",
+   "C'est obligatoire pour HTTPS",
+   "Pour éviter le verrou du state"
+  ],
+  "answer": 1,
+  "explain": "Comme une action GitHub ou une image Docker, une dépendance non épinglée peut changer entre deux init. Pour le registre, c'est l'attribut version.",
+  "remedial_lesson_id": "tf5"
+ },
+ {
+  "id": "tf5-q4",
+  "text": "Qu'apporte use_lockfile = true (ou dynamodb_table) dans un backend s3 ?",
+  "options": [
+   "Le chiffrement du state",
+   "Un verrou qui empêche deux apply simultanés de corrompre le state",
+   "La compression",
+   "Un state par workspace"
+  ],
+  "answer": 1,
+  "explain": "Le verrou sérialise les opérations qui écrivent le state. encrypt = true, lui, chiffre le fichier.",
+  "remedial_lesson_id": "tf5"
+ },
+ {
+  "id": "tf5-q5",
+  "text": "Où mettre les identifiants AWS utilisés par le backend ?",
+  "options": [
+   "Dans access_key et secret_key du bloc backend",
+   "Dans un fichier terraform.tfvars versionné",
+   "Dans l'environnement d'exécution (variables AWS_*, profil, ou OIDC en CI), jamais dans le code",
+   "Dans un output sensitive"
+  ],
+  "answer": 2,
+  "explain": "Le bloc backend est versionné. Les identifiants viennent de l'environnement ; en CI, d'OIDC sans aucune clé stockée.",
+  "remedial_lesson_id": "tf5"
+ }
+]

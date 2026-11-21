@@ -1,0 +1,18 @@
+{
+  "id": "tf6-tp",
+  "title": "TP 6 : faire évoluer sans casser",
+  "instructions_md": "Trois risques dans ce dossier : une variable qui accepte n'importe quoi, un renommage qui détruirait un fichier, une configuration de base non protégée, et une CI qui applique directement depuis les pull requests.\n\n1. **variables.tf** : `environment` a un bloc `validation` qui n'accepte que `dev`, `staging` et `prod`, avec un `error_message` clair.\n2. **main.tf** : un bloc `moved` de `local_file.hello` vers `local_file.greeting` ; `local_file.db_config` reçoit `lifecycle { prevent_destroy = true }`.\n3. **.github/workflows/terraform.yml** : déclenché sur `pull_request` et sur `push` vers `main` ; `permissions: contents: read` ; un job `plan` (`terraform fmt -check`, `init`, `validate`, `plan`) ; un job `apply` qui attend `plan`, ne tourne que si `github.ref == 'refs/heads/main'`, porte `environment: production` et seul reçoit `id-token: write` ; `hashicorp/setup-terraform` épinglé sur un SHA ; `timeout-minutes` partout.\n\nLabo réel : `terraform init && terraform plan -var environment=qa` doit afficher votre message d'erreur.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`validation { condition = contains([\"dev\", \"staging\", \"prod\"], var.environment)  error_message = \"...\" }` à l'intérieur du bloc variable.",
+    "`moved { from = local_file.hello  to = local_file.greeting }` se place au premier niveau de main.tf, hors de toute ressource.",
+    "Pour le SHA, celui de la leçon convient : `hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd`. Le `if:` du job apply se place au même niveau que `runs-on:`."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf6",
+  "seed": [
+    "seed/main.tf",
+    "seed/variables.tf",
+    "seed/.github"
+  ]
+}

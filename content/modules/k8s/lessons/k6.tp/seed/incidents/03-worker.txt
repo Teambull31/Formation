@@ -1,0 +1,17 @@
+$ kubectl logs worker-5f7b9c6d4-m8zrt -n shop --previous
+Starting worker 2.3.1
+Traceback (most recent call last):
+  File "/app/worker.py", line 12, in <module>
+    DB = os.environ["DATABASE_URL"]
+  File "/usr/local/lib/python3.12/os.py", line 714, in __getitem__
+    raise KeyError(key) from None
+KeyError: 'DATABASE_URL'
+
+$ kubectl get secret -n shop
+NAME       TYPE     DATA   AGE
+worker-db  Opaque   1      30d
+
+$ kubectl describe secret worker-db -n shop
+Data
+====
+url:  58 bytes

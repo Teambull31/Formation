@@ -1,0 +1,19 @@
+{
+  "id": "ci4-tp",
+  "title": "TP 4 : factoriser la CI",
+  "instructions_md": "Le fichier **.github/workflows/ci.yml** répète deux fois le même job. Factorisez :\n\n1. Créez l'action composite **.github/actions/setup/action.yml** : une entrée `python-version` obligatoire, `runs: using: composite`, une étape `actions/setup-python@v5` (avec `cache: pip`) puis une étape `run: pip install -r requirements.txt` avec `shell: bash`.\n2. Complétez **.github/workflows/reusable-test.yml** : déclencheur `workflow_call` avec l'entrée `python-version` (`type: string`, `required: true`) ; un job `test` sur `ubuntu-latest` avec `timeout-minutes`, qui fait `actions/checkout@v4`, puis appelle `./.github/actions/setup` en lui passant `${{ inputs.python-version }}`, puis lance `pytest`.\n3. Dans **ci.yml**, remplacez les deux jobs par un seul job `test` avec une matrice `python-version` (au moins deux versions) qui appelle `./.github/workflows/reusable-test.yml` et lui passe `${{ matrix.python-version }}`.\n\nGardez `push`, `pull_request` et `permissions: contents: read` dans ci.yml. Le contrôle lit les fichiers, sans rien exécuter.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans action.yml, la clé n'est pas `jobs:` mais `runs:` avec `using: composite` et `steps:`. Chaque `run:` y a besoin de `shell: bash`.",
+    "Le workflow réutilisable commence par `on:` puis `workflow_call:` puis `inputs:` puis `python-version:` avec `type: string` et `required: true`. L'étape d'action locale vient APRÈS checkout.",
+    "Dans ci.yml, le job `test` n'a ni `runs-on` ni `steps` : `strategy: matrix: python-version: [\"3.11\", \"3.12\"]`, puis `uses: ./.github/workflows/reusable-test.yml` et `with: python-version: ${{ matrix.python-version }}`."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci4",
+  "seed": [
+    "seed/app.py",
+    "seed/test_app.py",
+    "seed/requirements.txt",
+    "seed/.github"
+  ]
+}

@@ -1,0 +1,13 @@
+$ kubectl get pods -n shop -o wide
+NAME                      READY   STATUS             RESTARTS        AGE   IP           NODE
+api-7d9c6b8f5-x2kqp       0/1     ImagePullBackOff   0               12m   10.244.1.7   worker-1
+worker-5f7b9c6d4-m8zrt    0/1     CrashLoopBackOff   7 (2m ago)      14m   10.244.2.3   worker-2
+batch-6c8d7f9b5-p4lnv     0/1     Pending            0               14m   <none>       <none>
+cache-84b6d9c7f-q9wds     0/1     CrashLoopBackOff   5 (40s ago)     14m   10.244.1.9   worker-1
+front-6f5d8b7c9-r7tjk     1/1     Running            0               14m   10.244.2.8   worker-2
+front-6f5d8b7c9-z3hfb     1/1     Running            0               14m   10.244.1.4   worker-1
+
+$ kubectl get endpoints -n shop
+NAME     ENDPOINTS          AGE
+api      <none>             14m
+front    <none>             14m

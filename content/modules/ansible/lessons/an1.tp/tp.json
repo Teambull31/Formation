@@ -1,0 +1,17 @@
+{
+  "id": "an1-tp",
+  "title": "TP 1 : un inventaire propre et un premier playbook",
+  "instructions_md": "L'inventaire **inventory.ini** range mal les hôtes et contient un mot de passe ; **site.yml** n'est qu'un script shell déguisé. Corrigez :\n\n1. **inventory.ini** : groupe `[web]` (web1, web2) et `[db]` (db1), chacun avec son `ansible_host` ; un groupe `[prod:children]` qui contient `web` et `db` ; `[all:vars]` avec `ansible_user=deploy`. Plus aucun `ansible_password`.\n2. **site.yml** : un play nommé, `hosts: web`, `become: true` ; deux tâches nommées qui utilisent des modules en nom complet : `ansible.builtin.apt` (nginx, `state: present`) et `ansible.builtin.service` (nginx, `state: started`, `enabled: true`). Plus de `shell` ni de `command`.\n\nEssayez ensuite : `ansible-inventory -i inventory.ini --graph` et `ansible-playbook -i inventory.ini site.yml --syntax-check`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Un en-tête `[web]` puis une ligne par hôte : `web1 ansible_host=10.0.1.11`. Les hôtes sans en-tête au-dessus sont dans le groupe implicite « ungrouped ».",
+    "`[prod:children]` est suivi des NOMS de groupes (`web`, `db`), un par ligne, pas des hôtes.",
+    "Une tâche : `- name: Installer nginx` puis, indenté, `ansible.builtin.apt:` et ses paramètres `name: nginx` et `state: present` encore indentés dessous."
+  ],
+  "timeout_s": 20,
+  "workspace": "an1",
+  "seed": [
+    "seed/inventory.ini",
+    "seed/site.yml"
+  ]
+}

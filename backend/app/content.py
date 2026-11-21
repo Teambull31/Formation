@@ -43,6 +43,8 @@ class Module:
     title: str
     skill: str
     lessons: list[Lesson]
+    order: int = 100  # rang dans le parcours (quête et catalogue) ; égalité : nom du dossier
+    fiche_md: str | None = None  # fiche de révision téléchargeable (fiche.md du module)
 
 
 class ModuleError(Exception):
@@ -163,6 +165,11 @@ def load_module(path: Path) -> Module:
             seen.add(q.id)
             if q.remedial_lesson_id is not None and q.remedial_lesson_id not in ids:
                 errors.append(f"lesson {les.id}: question {q.id}: remedial_lesson_id inconnu")
+    order = meta.get("order", 100)
+    if not isinstance(order, int) or isinstance(order, bool):
+        errors.append(f"{path / 'module.json'}: order doit être un entier")
+    fiche = path / "fiche.md"
     if errors:
         raise ModuleError(errors)
-    return Module(meta["id"], meta["title"], meta["skill"], lessons)
+    return Module(meta["id"], meta["title"], meta["skill"], lessons, order,
+                  fiche.read_text(encoding="utf-8") if fiche.is_file() and not fiche.is_symlink() else None)

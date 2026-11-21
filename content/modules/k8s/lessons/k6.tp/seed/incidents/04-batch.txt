@@ -1,0 +1,16 @@
+$ kubectl describe pod batch-6c8d7f9b5-p4lnv -n shop
+Containers:
+  batch:
+    Image:      registry.example.test/batch:3.1.0
+    Requests:
+      cpu:      500m
+      memory:   64Gi
+Events:
+  Type     Reason            Age                From               Message
+  ----     ------            ----               ----               -------
+  Warning  FailedScheduling  2m (x15 over 14m)  default-scheduler  0/3 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 2 Insufficient memory. preemption: 0/3 nodes are available: 3 No preemption victims found for incoming pod.
+
+$ kubectl describe nodes | grep -A2 Allocatable
+Allocatable:
+  cpu:     4
+  memory:  7944Mi

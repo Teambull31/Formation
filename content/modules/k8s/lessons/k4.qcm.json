@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k4-q1",
+  "text": "Pourquoi une base de données sur un volume emptyDir est-elle une erreur ?",
+  "options": [
+   "emptyDir est trop lent",
+   "emptyDir est détruit avec le pod : les données disparaissent au premier redémarrage",
+   "emptyDir est en lecture seule",
+   "emptyDir n'existe pas dans un StatefulSet"
+  ],
+  "answer": 1,
+  "explain": "emptyDir vit et meurt avec le pod. Une donnée durable demande un PersistentVolumeClaim, que le StatefulSet crée par volumeClaimTemplates.",
+  "remedial_lesson_id": "k4"
+ },
+ {
+  "id": "k4-q2",
+  "text": "Qu'apporte un StatefulSet par rapport à un Deployment ?",
+  "options": [
+   "Plus de réplicas",
+   "Des pods à identité stable (db-0, db-1) avec chacun leur propre disque persistant",
+   "Une mise à jour plus rapide",
+   "Un équilibrage de charge intégré"
+  ],
+  "answer": 1,
+  "explain": "Les pods d'un StatefulSet gardent leur nom et leur PVC quand ils sont recréés, et démarrent dans l'ordre. C'est ce dont une base répliquée a besoin.",
+  "remedial_lesson_id": "k4"
+ },
+ {
+  "id": "k4-q3",
+  "text": "Que fait un Service avec clusterIP: None ?",
+  "options": [
+   "Il bloque tout le trafic",
+   "Il publie un nom DNS par pod au lieu d'une adresse virtuelle unique",
+   "Il expose le service sur Internet",
+   "Il désactive le sélecteur"
+  ],
+  "answer": 1,
+  "explain": "Un Service headless ne répartit pas : il donne l'adresse de chaque pod (db-0.db). Le StatefulSet le désigne par serviceName.",
+  "remedial_lesson_id": "k4"
+ },
+ {
+  "id": "k4-q4",
+  "text": "La sauvegarde de la nuit dure parfois plus de 24 h. Quel réglage évite d'en avoir deux en même temps ?",
+  "options": [
+   "backoffLimit: 0",
+   "restartPolicy: Never",
+   "concurrencyPolicy: Forbid",
+   "schedule: \"@daily\""
+  ],
+  "answer": 2,
+  "explain": "Forbid saute le nouveau Job tant que le précédent tourne. activeDeadlineSeconds tue en plus une sauvegarde bloquée.",
+  "remedial_lesson_id": "k4"
+ },
+ {
+  "id": "k4-q5",
+  "text": "Vous supprimez le StatefulSet db. Que deviennent ses PVC ?",
+  "options": [
+   "Ils sont supprimés avec lui",
+   "Ils restent : les données sont conservées tant qu'on ne supprime pas les PVC",
+   "Ils passent en lecture seule",
+   "Ils sont rattachés au Deployment suivant"
+  ],
+  "answer": 1,
+  "explain": "Kubernetes protège les données : les PVC créés par volumeClaimTemplates survivent au StatefulSet. On les supprime explicitement quand on est sûr.",
+  "remedial_lesson_id": "k4"
+ }
+]

@@ -1,0 +1,17 @@
+$ kubectl describe pod cache-84b6d9c7f-q9wds -n shop
+Containers:
+  cache:
+    Image:          redis:7.4.1
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       OOMKilled
+      Exit Code:    137
+    Limits:
+      memory:  32Mi
+    Requests:
+      memory:  32Mi
+
+$ kubectl top pod -n shop -l app=cache --containers
+POD                       NAME    CPU(cores)   MEMORY(bytes)
+cache-84b6d9c7f-q9wds     cache   12m          31Mi

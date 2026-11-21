@@ -1,0 +1,19 @@
+{
+  "id": "an5-tp",
+  "title": "TP 5 : le mot de passe au coffre",
+  "instructions_md": "Le mot de passe de la base est en clair dans **group_vars/db.yml**, la tâche qui l'utilise l'afficherait en cas d'erreur, et la vérification SSH est désactivée. Sécurisez :\n\n1. Remplacez **group_vars/db.yml** par un dossier **group_vars/db/** : `vars.yml` (en clair : `db_name`, `db_user`, `db_password: \"{{ vault_db_password }}\"`) et `vault.yml` (`vault_db_password: \"...\"`).\n2. Chiffrez le coffre : `echo 'votre-mot-de-passe' > ~/.vault_pass && chmod 600 ~/.vault_pass` puis `ansible-vault encrypt --vault-password-file ~/.vault_pass group_vars/db/vault.yml`.\n3. **db.yml** : pas de `become: true` sur tout le play, mais sur les tâches qui en ont besoin ; la tâche qui utilise `db_password` porte `no_log: true`.\n4. **ansible.cfg** : retirez `host_key_checking = False`.\n5. **.gitignore** : excluez `.vault_pass`.\n\nVérifiez : `ansible-vault view --vault-password-file ~/.vault_pass group_vars/db/vault.yml`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`mkdir -p group_vars/db`, créez les deux fichiers, puis `rm group_vars/db.yml` : il ne doit rester aucun mot de passe en clair dans un fichier YAML.",
+    "Après `ansible-vault encrypt`, la première ligne de vault.yml est `$ANSIBLE_VAULT;1.1;AES256` : ne modifiez plus le fichier à la main, utilisez `ansible-vault edit`.",
+    "Sur la tâche postgresql_user : `become: true`, `become_user: postgres` et `no_log: true`, au même niveau que `name:`."
+  ],
+  "timeout_s": 20,
+  "workspace": "an5",
+  "seed": [
+    "seed/ansible.cfg",
+    "seed/db.yml",
+    "seed/group_vars",
+    "seed/inventory.ini"
+  ]
+}

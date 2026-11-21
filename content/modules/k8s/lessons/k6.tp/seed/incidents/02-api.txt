@@ -1,0 +1,16 @@
+$ kubectl describe pod api-7d9c6b8f5-x2kqp -n shop
+Containers:
+  api:
+    Image:          registry.example.test/api:1.27.O
+    State:          Waiting
+      Reason:       ImagePullBackOff
+Events:
+  Type     Reason     Age                 From     Message
+  ----     ------     ----                ----     -------
+  Normal   Pulling    11m (x4 over 12m)   kubelet  Pulling image "registry.example.test/api:1.27.O"
+  Warning  Failed     11m (x4 over 12m)   kubelet  Failed to pull image "registry.example.test/api:1.27.O": manifest unknown: tag 1.27.O not found
+  Warning  Failed     11m (x4 over 12m)   kubelet  Error: ErrImagePull
+  Normal   BackOff    2m (x42 over 12m)   kubelet  Back-off pulling image "registry.example.test/api:1.27.O"
+
+$ curl -s https://registry.example.test/v2/api/tags/list
+{"name":"api","tags":["1.26.3","1.27.0","1.27.1"]}

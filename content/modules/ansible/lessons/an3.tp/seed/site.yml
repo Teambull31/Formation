@@ -1,0 +1,21 @@
+- name: Serveurs web
+  hosts: web
+  become: true
+  tasks:
+    - name: Installer les paquets de base
+      ansible.builtin.apt:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{ base_packages }}"
+    - name: Créer les comptes administrateurs
+      ansible.builtin.shell: useradd -m alice; useradd -m bob
+    - name: Configurer nginx
+      ansible.builtin.copy:
+        src: nginx.conf
+        dest: /etc/nginx/nginx.conf
+      notify: Recharger nginx
+  handlers:
+    - name: Recharger nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded

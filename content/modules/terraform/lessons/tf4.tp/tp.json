@@ -1,0 +1,19 @@
+{
+  "id": "tf4-tp",
+  "title": "TP 4 : une boucle au lieu de trois copies",
+  "instructions_md": "**main.tf** déclare trois fois la même ressource, une par environnement. Les valeurs sont déjà dans **envs.tfvars**. Factorisez :\n\n1. Dans **variables.tf**, ajoutez la variable `environments` : `type = map(object({ replicas = number, debug = bool }))`, une `description`, **pas** de `default`.\n2. Dans **main.tf**, un bloc `locals` (par exemple `out_dir = \"${path.module}/out\"`) et **une seule** ressource `local_file` avec `for_each = var.environments`. Le `filename` utilise `each.key` (et votre local), le `content` utilise `each.value.replicas` et `each.value.debug`.\n3. Dans **outputs.tf**, un output `config_files` calculé par une expression `for` sur la ressource.\n\nPas de `count`. Labo réel ensuite : `terraform init`, puis `terraform apply -var-file=envs.tfvars`, puis `ls out/`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Supprimez `local_file.dev`, `staging` et `prod` ; écrivez `resource \"local_file\" \"config\" { for_each = var.environments ... }`.",
+    "`filename = \"${local.out_dir}/${each.key}.conf\"` et `content = \"replicas=${each.value.replicas}\\ndebug=${each.value.debug}\\n\"`.",
+    "`value = { for env, f in local_file.config : env => f.filename }` dans l'output config_files."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf4",
+  "seed": [
+    "seed/main.tf",
+    "seed/variables.tf",
+    "seed/outputs.tf",
+    "seed/envs.tfvars"
+  ]
+}

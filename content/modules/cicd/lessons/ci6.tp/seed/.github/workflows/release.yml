@@ -1,0 +1,22 @@
+name: Release
+on:
+  push:
+    branches: [main]
+permissions: write-all
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p dist && tar czf dist/app.tar.gz app.py requirements.txt
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: CLE-STATIQUE-A-RETIRER
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-3
+      - run: aws s3 cp dist/app.tar.gz s3://releases-exemple/

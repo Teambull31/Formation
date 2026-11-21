@@ -578,10 +578,201 @@ def check_tf3() -> None:
         need(not is_ignored(rules, name), f".gitignore : {name} ne doit pas être exclu de Git (règle trop large ?)")
 
 
+# ---- tf4 : for_each, locals, expressions ----
+
+
+def norm(expr: str | None) -> str:
+    return re.sub(r"\s+", "", expr or "")
+
+
+def check_tf4() -> None:
+    blocks = module_blocks()
+    files = [b for b in blocks if b.type == "resource" and b.labels[:1] == ["local_file"]]
+    need(len(files) == 1, f"une seule ressource local_file attendue (trouvé : {len(files)}) : remplacez les copies par une boucle for_each")
+    r = files[0]
+    need("count" not in r.attrs, "count repère les objets par position : utilisez for_each, qui les repère par clé")
+    fe = r.attrs.get("for_each")
+    need(fe, f"la ressource local_file.{r.labels[1]} doit avoir for_each = var.environments")
+    v, _ = references(fe)
+    need(v or "local." in code_of(fe), "for_each doit parcourir une variable (var.environments) ou un local")
+    need("each.key" in code_of(r.attrs.get("filename", "")), "filename doit utiliser each.key : un fichier par environnement")
+    need("each.value" in code_of(r.attrs.get("content", "")), "content doit utiliser each.value (replicas, debug)")
+    variables = {b.labels[0]: b for b in parse_file("variables.tf").blocks if b.type == "variable" and b.labels}
+    need("environments" in variables, 'variable "environments" manquante dans variables.tf')
+    env = variables["environments"]
+    need(norm(env.attrs.get("type")).startswith("map(object("), "environments : type = map(object({ replicas = number, debug = bool }))")
+    need("replicas" in norm(env.attrs.get("type")) and "debug" in norm(env.attrs.get("type")), "environments : l'objet décrit replicas et debug")
+    desc = literal(env.attrs.get("description"))
+    need(desc and len(desc.strip()) >= 5, "environments : 'description' absente ou vide")
+    need("default" not in env.attrs, "environments : pas de default, les valeurs viennent de envs.tfvars")
+    locs = {k for b in blocks if b.type == "locals" for k in b.attrs}
+    need(locs, "ajoutez un bloc locals (par exemple out_dir = \"${path.module}/out\")")
+    used = set()
+    for b in blocks:
+        for a in b.attrs.values():
+            used |= set(re.findall(r"\blocal\.([A-Za-z_][\w-]*)", code_of(a)))
+    need(used, "un local déclaré doit être utilisé quelque part (local.out_dir)")
+    for u in used:
+        need(u in locs, f"local.{u} est utilisé mais n'est déclaré dans aucun bloc locals")
+    outs = [b for b in parse_file("outputs.tf").blocks if b.type == "output" and b.labels == ["config_files"]]
+    need(outs, 'output "config_files" manquant dans outputs.tf')
+    val = outs[0].attrs.get("value", "")
+    need(re.search(r"\bfor\b", val) and f"local_file.{r.labels[1]}" in val,
+         f"config_files : une expression for sur local_file.{r.labels[1]}, par exemple {{ for env, f in local_file.{r.labels[1]} : env => f.filename }}")
+
+
+# ---- tf5 : modules et backend distant ----
+
+
+def dir_blocks(d: str) -> list[Block]:
+    need(os.path.isdir(d) and not os.path.islink(d), f"le dossier {d}/ est introuvable")
+    out: list[Block] = []
+    for name in sorted(f for f in os.listdir(d) if f.endswith(".tf")):
+        out += parse_file(os.path.join(d, name)).blocks
+    return out
+
+
+META_ARGS = {"source", "version", "providers", "count", "for_each", "depends_on"}
+
+
+def check_tf5() -> None:
+    blocks = module_blocks()
+    app = dir_blocks(os.path.join("modules", "app"))
+    app_vars = {b.labels[0]: b for b in app if b.type == "variable" and b.labels}
+    app_res = {tuple(b.labels) for b in app if b.type == "resource" and len(b.labels) == 2}
+    app_outs = {b.labels[0]: b for b in app if b.type == "output" and b.labels}
+    need("config_path" in app_outs, 'modules/app/outputs.tf : output "config_path" manquant')
+    v, r = references(app_outs["config_path"].attrs.get("value", ""))
+    need(r and r <= app_res, "modules/app : config_path doit référencer une ressource du module (local_file.config.filename)")
+    tf = [b for b in blocks if b.type == "terraform"]
+    need(tf, "bloc terraform manquant dans main.tf")
+    be = [b for b in tf[0].blocks if b.type == "backend"]
+    need(be, "ajoutez un backend distant dans le bloc terraform : backend \"s3\" { ... }")
+    be = be[0]
+    for bad in ("access_key", "secret_key", "token"):
+        need(bad not in be.attrs, f"backend : supprimez {bad}, les identifiants viennent de l'environnement ou d'OIDC, jamais du code")
+    for attr in ("bucket", "key", "region"):
+        need(nonblank(be.attrs.get(attr)), f"backend : '{attr}' manquant")
+    need(literal(be.attrs.get("key")) not in ("terraform.tfstate", None), "backend : une key par composant et environnement, par exemple \"web/prod.tfstate\"")
+    need(be.attrs.get("encrypt", "").strip() == "true", "backend : encrypt = true")
+    need(be.attrs.get("use_lockfile", "").strip() == "true" or nonblank(be.attrs.get("dynamodb_table")),
+         "backend : activez le verrou (use_lockfile = true) pour empêcher deux apply simultanés")
+    root_vars = {b.labels[0] for b in blocks if b.type == "variable" and b.labels}
+    mods = {b.labels[0]: b for b in blocks if b.type == "module" and b.labels}
+    need("web" in mods, 'module "web" manquant dans main.tf')
+    for name, m in mods.items():
+        src = literal(m.attrs.get("source"))
+        need(src, f"module {name} : 'source' littéral manquant")
+        if src.startswith(("./", "../")):
+            continue
+        if src.startswith("git::") or ".git" in src:
+            need("?ref=" in src, f"module {name} : une source Git s'épingle avec ?ref=<tag>, sinon elle suit la branche par défaut")
+        else:
+            need(version_ok(literal(m.attrs.get("version"))), f"module {name} : un module du registre a besoin de version = \"~> X.Y\"")
+    web = mods["web"]
+    need(literal(web.attrs.get("source")) == "./modules/app", 'module web : source = "./modules/app"')
+    args = set(web.attrs) - META_ARGS
+    for a in sorted(args - set(app_vars)):
+        raise CheckError(f"module web : l'argument {a} n'est pas une variable de modules/app")
+    for name, b in app_vars.items():
+        if "default" not in b.attrs:
+            need(name in args, f"module web : la variable obligatoire {name} de modules/app n'est pas passée")
+    for name in args:
+        used, _ = references(web.attrs[name])
+        for u in used:
+            need(u in root_vars, f"module web : var.{u} n'est pas déclarée dans le module racine")
+    for b in parse_file("outputs.tf").blocks:
+        if b.type != "output":
+            continue
+        for mod, out in re.findall(r"\bmodule\.([A-Za-z_][\w-]*)\.([A-Za-z_][\w-]*)", code_of(b.attrs.get("value", ""))):
+            need(mod in mods, f"l'output {b.labels[0]} lit module.{mod}, qui n'est pas déclaré")
+            if mod == "web":
+                need(out in app_outs, f"l'output {b.labels[0]} lit module.web.{out}, que modules/app ne déclare pas dans outputs.tf")
+    need(any(b.type == "output" and "module.web." in b.attrs.get("value", "") for b in parse_file("outputs.tf").blocks),
+         "outputs.tf : web_config doit lire une sortie du module (module.web.config_path)")
+
+
+# ---- tf6 : validation, lifecycle, moved, CI ----
+
+
+def check_tf6() -> None:
+    blocks = module_blocks()
+    env = [b for b in parse_file("variables.tf").blocks if b.type == "variable" and b.labels == ["environment"]]
+    need(env, 'variable "environment" manquante dans variables.tf')
+    vals = [b for b in env[0].blocks if b.type == "validation"]
+    need(vals, "environment : ajoutez un bloc validation { condition = ... error_message = ... }")
+    cond = vals[0].attrs.get("condition", "")
+    need("var.environment" in code_of(cond), "validation : condition doit tester var.environment")
+    need(all(e in cond for e in ('"dev"', '"staging"', '"prod"')), "validation : la condition n'accepte que dev, staging et prod (contains([...], var.environment))")
+    msg = literal(vals[0].attrs.get("error_message"))
+    need(msg and len(msg) >= 10, "validation : error_message, une phrase qui dit quoi corriger")
+    moved = [b for b in blocks if b.type == "moved"]
+    need(any(norm(b.attrs.get("from")) == "local_file.hello" and norm(b.attrs.get("to")) == "local_file.greeting" for b in moved),
+         "ajoutez moved { from = local_file.hello  to = local_file.greeting } : sinon le plan détruit puis recrée le fichier")
+    res = {tuple(b.labels): b for b in blocks if b.type == "resource" and len(b.labels) == 2}
+    need(("local_file", "greeting") in res and ("local_file", "hello") not in res, "gardez local_file.greeting, sans recréer local_file.hello")
+    db = res.get(("local_file", "db_config"))
+    need(db, "la ressource local_file.db_config doit rester")
+    lc = [b for b in db.blocks if b.type == "lifecycle"]
+    need(lc and lc[0].attrs.get("prevent_destroy", "").strip() == "true", "db_config : lifecycle { prevent_destroy = true }")
+    check_tf_workflow(os.path.join(".github", "workflows", "terraform.yml"))
+
+
+def check_tf_workflow(path: str) -> None:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _yaml import YamlError, load
+    text = read_text(path)
+    try:
+        doc = load(text)
+    except YamlError as e:
+        raise CheckError(f"{path} n'est pas un YAML valide : {e}") from None
+    need(isinstance(doc, dict) and isinstance(doc.get("jobs"), dict), f"{path} : un workflow avec un bloc jobs: est attendu")
+    on = doc.get("on")
+    on = {on: None} if isinstance(on, str) else on if isinstance(on, dict) else {k: None for k in on or []}
+    need("pull_request" in on, "workflow : le plan tourne sur chaque pull_request")
+    push = on.get("push")
+    need(isinstance(push, dict) and push.get("branches") == ["main"], "workflow : push sur branches: [main] pour appliquer après fusion")
+    perm = doc.get("permissions")
+    need(isinstance(perm, dict) and perm and all(v == "read" for v in perm.values()), "workflow : permissions en lecture seule au niveau du workflow (plus de write-all)")
+    runs = {}
+    for jid, job in doc["jobs"].items():
+        need(isinstance(job, dict), f"job {jid} invalide")
+        need(isinstance(job.get("timeout-minutes"), int) and 0 < job["timeout-minutes"] <= 30, f"workflow : timeout-minutes (30 au plus) sur le job {jid}")
+        steps = [st for st in job.get("steps") or [] if isinstance(st, dict)]
+        runs[jid] = " \n".join(str(st.get("run", "")) for st in steps)
+        for st in steps:
+            u = str(st.get("uses", ""))
+            if u.startswith("hashicorp/setup-terraform"):
+                need(re.fullmatch(r"hashicorp/setup-terraform@[0-9a-f]{40}", u), "workflow : épinglez hashicorp/setup-terraform sur un SHA complet de 40 caractères")
+        jp = job.get("permissions")
+        if isinstance(jp, dict) and jp.get("id-token") == "write":
+            need("terraform apply" in runs[jid], f"workflow : id-token: write est réservé au job qui applique (pas {jid})")
+    plan = [j for j, r in runs.items() if "terraform plan" in r]
+    need(plan, "workflow : un job lance terraform plan")
+    pr = runs[plan[0]]
+    for cmd in ("terraform fmt -check", "terraform init", "terraform validate"):
+        need(cmd in pr, f"workflow : le job {plan[0]} lance {cmd} avant le plan")
+    need(pr.index("terraform validate") < pr.index("terraform plan"), "workflow : validate avant plan")
+    applies = [j for j, r in runs.items() if "terraform apply" in r]
+    need(applies, "workflow : un job lance terraform apply après fusion")
+    for j in applies:
+        job = doc["jobs"][j]
+        need(j not in plan, f"workflow : le job {j} ne doit pas à la fois planifier pour la PR et appliquer : séparez plan et apply")
+        cond = re.sub(r"\s+", "", str(job.get("if", ""))).replace('"', "'")
+        need("github.ref=='refs/heads/main'" in cond, f"workflow : le job {j} n'applique que si github.ref == 'refs/heads/main'")
+        need(job.get("environment"), f"workflow : le job {j} porte environment: production (approbation, secrets dédiés)")
+        needs = job.get("needs")
+        needs = [needs] if isinstance(needs, str) else needs or []
+        need(plan[0] in needs, f"workflow : le job {j} attend le plan (needs: {plan[0]})")
+
+
 CHECKS = {
     "tf1": ([check_tf1], "main.tf est une configuration Terraform valide."),
     "tf2": ([check_tf2], "le contrat du module est correctement défini."),
     "tf3": ([check_tf3], "secret protégé et state exclu de Git."),
+    "tf4": ([check_tf4], "une seule ressource en for_each, des locals et un output calculé."),
+    "tf5": ([check_tf5], "module appelé selon son contrat, sources épinglées, state distant verrouillé."),
+    "tf6": ([check_tf6], "entrées validées, données protégées, renommage sans destruction et CI plan/apply."),
     # le boss est cumulatif : une phase ultérieure revérifie les précédentes
     "boss1": ([check_tf1], "phase 1 : la configuration de base est valide."),
     "boss2": ([check_tf1, check_tf2], "phase 2 : le module a un contrat clair."),
@@ -605,7 +796,7 @@ def main(argv: list[str]) -> int:
     except CheckError as e:
         print(f"ECHEC : {e}")
         return 1
-    except (RecursionError, OSError, ValueError) as e:
+    except (RecursionError, OSError, ValueError, AttributeError, TypeError) as e:
         print(f"ECHEC : fichier illisible ({type(e).__name__})")
         return 1
     print(f"OK : {success}")

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf4-q1",
+  "text": "Vous retirez le premier élément d'une liste utilisée avec count. Que fait le plan ?",
+  "options": [
+   "Rien",
+   "Il détruit seulement l'objet retiré",
+   "Il décale les index : les objets suivants sont détruits et recréés",
+   "Il échoue"
+  ],
+  "answer": 2,
+  "explain": "count repère par position : l'élément 1 devient 0, etc. for_each repère par clé et ne touche que l'objet retiré.",
+  "remedial_lesson_id": "tf4"
+ },
+ {
+  "id": "tf4-q2",
+  "text": "Dans une ressource avec for_each = var.environments (une map), que vaut each.key ?",
+  "options": [
+   "La valeur de l'environnement",
+   "Le nom de l'environnement, la clé de la map",
+   "L'index numérique",
+   "Le nom de la ressource"
+  ],
+  "answer": 1,
+  "explain": "each.key est la clé (dev, prod), each.value l'objet associé (replicas, debug).",
+  "remedial_lesson_id": "tf4"
+ },
+ {
+  "id": "tf4-q3",
+  "text": "for_each = var.noms, où noms est une list(string), est refusé. Pourquoi ?",
+  "options": [
+   "for_each n'accepte qu'une map ou un set : il faut toset(var.noms)",
+   "Les listes sont interdites dans Terraform",
+   "Il faut count",
+   "Il faut des guillemets"
+  ],
+  "answer": 0,
+  "explain": "Une liste peut contenir des doublons et a un ordre : for_each exige des clés uniques. toset() convertit.",
+  "remedial_lesson_id": "tf4"
+ },
+ {
+  "id": "tf4-q4",
+  "text": "À quoi sert un bloc locals ?",
+  "options": [
+   "À déclarer des entrées que l'appelant peut changer",
+   "À nommer une valeur calculée une fois et réutilisée dans le module",
+   "À stocker des secrets",
+   "À lire le state"
+  ],
+  "answer": 1,
+  "explain": "Un local factorise une expression interne (préfixe, tags communs). L'appelant ne peut pas le modifier : pour ça, c'est une variable.",
+  "remedial_lesson_id": "tf4"
+ },
+ {
+  "id": "tf4-q5",
+  "text": "Comment créer une ressource seulement si var.enable_debug est vrai ?",
+  "options": [
+   "for_each = var.enable_debug",
+   "count = var.enable_debug ? 1 : 0",
+   "lifecycle { enabled = var.enable_debug }",
+   "depends_on = [var.enable_debug]"
+  ],
+  "answer": 1,
+  "explain": "count à 0 ou 1 est l'idiome pour une ressource optionnelle. C'est le cas où count reste préférable à for_each.",
+  "remedial_lesson_id": "tf4"
+ }
+]

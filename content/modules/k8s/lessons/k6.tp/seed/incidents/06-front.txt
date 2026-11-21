@@ -1,0 +1,8 @@
+$ kubectl get svc front -n shop -o yaml | grep -A2 selector
+  selector:
+    app: frontend
+
+$ kubectl get pods -n shop -l tier=web --show-labels
+NAME                      READY   STATUS    LABELS
+front-6f5d8b7c9-r7tjk     1/1     Running   app=front,pod-template-hash=6f5d8b7c9,tier=web
+front-6f5d8b7c9-z3hfb     1/1     Running   app=front,pod-template-hash=6f5d8b7c9,tier=web

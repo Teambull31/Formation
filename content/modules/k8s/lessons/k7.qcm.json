@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k7-q1",
+  "text": "Dans Kustomize, à quoi sert un overlay ?",
+  "options": [
+   "À chiffrer les manifestes",
+   "À appliquer les différences d'un environnement (namespace, image, réplicas) sur une base commune",
+   "À installer un chart Helm",
+   "À remplacer kubectl"
+  ],
+  "answer": 1,
+  "explain": "La base contient ce qui est commun. Chaque overlay (dev, prod) la référence et ne décrit que ses écarts : pas de copie à maintenir.",
+  "remedial_lesson_id": "k7"
+ },
+ {
+  "id": "k7-q2",
+  "text": "Quelle commande affiche le YAML final d'un overlay sans rien appliquer ?",
+  "options": [
+   "kubectl apply -k overlays/prod --dry-run=server",
+   "kubectl kustomize overlays/prod",
+   "helm template overlays/prod",
+   "kubectl get kustomization"
+  ],
+  "answer": 1,
+  "explain": "kubectl kustomize rend le résultat sur la sortie standard. C'est ce qu'on relit en revue avant d'appliquer.",
+  "remedial_lesson_id": "k7"
+ },
+ {
+  "id": "k7-q3",
+  "text": "Quand préférer Helm à Kustomize ?",
+  "options": [
+   "Pour vos propres microservices",
+   "Pour installer un logiciel tiers empaqueté (base, contrôleur d'Ingress, supervision), avec une --version épinglée",
+   "Jamais, Helm est obsolète",
+   "Pour gérer le RBAC"
+  ],
+  "answer": 1,
+  "explain": "Les éditeurs publient des charts Helm paramétrables. Pour vos services, Kustomize reste plus simple à relire. Sans --version, Helm prend la dernière version du chart.",
+  "remedial_lesson_id": "k7"
+ },
+ {
+  "id": "k7-q4",
+  "text": "Quelle différence entre un Role et un ClusterRole ?",
+  "options": [
+   "Aucune",
+   "Un Role vaut dans un seul namespace, un ClusterRole dans tout le cluster",
+   "Un Role est pour les utilisateurs, un ClusterRole pour les pods",
+   "Un ClusterRole ne peut pas être lié"
+  ],
+  "answer": 1,
+  "explain": "Le Role et son RoleBinding confinent les droits à un namespace. Un ClusterRoleBinding étend les droits à tous les namespaces.",
+  "remedial_lesson_id": "k7"
+ },
+ {
+  "id": "k7-q5",
+  "text": "Comment vérifier que le compte deployer ne peut pas lire les secrets de prod ?",
+  "options": [
+   "kubectl get secrets",
+   "kubectl auth can-i get secrets -n prod --as=system:serviceaccount:prod:deployer",
+   "kubectl describe role deployer",
+   "helm status"
+  ],
+  "answer": 1,
+  "explain": "kubectl auth can-i interroge le RBAC en se faisant passer pour le sujet. On vérifie ce qui est permis et ce qui doit être refusé.",
+  "remedial_lesson_id": "k7"
+ }
+]

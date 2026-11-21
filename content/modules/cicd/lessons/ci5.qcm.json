@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci5-q1",
+  "text": "Pourquoi déployer le même artefact en préproduction puis en production, sans reconstruire ?",
+  "options": [
+   "Pour économiser des minutes de CI uniquement",
+   "Parce que GitHub interdit deux builds dans un workflow",
+   "Pour que ce qui part en production soit exactement ce qui a été testé",
+   "Parce que les environnements ne partagent pas de runner"
+  ],
+  "answer": 2,
+  "explain": "Reconstruire peut tirer une autre version d'une dépendance ou d'une image de base. On teste un artefact, on déploie cet artefact.",
+  "remedial_lesson_id": "ci5"
+ },
+ {
+  "id": "ci5-q2",
+  "text": "Comment une étape publie-t-elle une valeur lisible par un autre job ?",
+  "options": [
+   "echo \"::set-output name=version::1.0\"",
+   "export VERSION=1.0",
+   "echo \"version=1.0\" >> \"$GITHUB_OUTPUT\", puis outputs: au niveau du job",
+   "En l'écrivant dans un fichier du dépôt"
+  ],
+  "answer": 2,
+  "explain": "L'étape écrit dans $GITHUB_OUTPUT, le job la déclare dans outputs:, l'autre job la lit par needs.<job>.outputs.<nom>. ::set-output est désactivé, export ne survit pas au job.",
+  "remedial_lesson_id": "ci5"
+ },
+ {
+  "id": "ci5-q3",
+  "text": "Le job deploy-production a needs: deploy-staging et lit ${{ needs.build.outputs.version }}. Que se passe-t-il ?",
+  "options": [
+   "La valeur est vide : build doit figurer dans needs pour être lisible",
+   "Ça fonctionne, needs est transitif",
+   "Le workflow est refusé au chargement",
+   "GitHub lit la valeur depuis deploy-staging"
+  ],
+  "answer": 0,
+  "explain": "needs.<job> n'expose que les jobs listés directement. Il faut needs: [build, deploy-staging].",
+  "remedial_lesson_id": "ci5"
+ },
+ {
+  "id": "ci5-q4",
+  "text": "Quel intérêt d'un environnement GitHub production avec réviseurs obligatoires ?",
+  "options": [
+   "Le job attend qu'une personne approuve, et ses secrets ne sont lisibles que par les jobs de cet environnement",
+   "Il accélère le déploiement",
+   "Il remplace les tests",
+   "Il rend le dépôt privé"
+  ],
+  "answer": 0,
+  "explain": "L'environnement apporte une porte d'approbation, une restriction de branches et des secrets dédiés : le jeton de production n'est pas accessible aux autres workflows.",
+  "remedial_lesson_id": "ci5"
+ },
+ {
+  "id": "ci5-q5",
+  "text": "Pourquoi cancel-in-progress: false sur la concurrence d'un déploiement ?",
+  "options": [
+   "Pour lancer les déploiements en parallèle",
+   "Pour ne jamais couper un déploiement au milieu, ce qui laisserait la production dans un état inconnu",
+   "Parce que true est interdit sur un environnement",
+   "Pour garder les journaux plus longtemps"
+  ],
+  "answer": 1,
+  "explain": "En CI, annuler l'ancien run économise des minutes. Un déploiement interrompu peut laisser une migration à moitié appliquée : on sérialise sans annuler.",
+  "remedial_lesson_id": "ci5"
+ }
+]

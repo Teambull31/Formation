@@ -1,0 +1,16 @@
+{
+  "id": "k4-tp",
+  "title": "TP 4 : une base qui survit à ses pods",
+  "instructions_md": "Le fichier **db.yaml** fait tourner PostgreSQL dans un Deployment avec un volume `emptyDir` : au premier redémarrage, toutes les données sont perdues. Réécrivez-le :\n\n1. Remplacez le Deployment par un **StatefulSet** `db` (`apps/v1`, `serviceName: db`, 1 réplica, sélecteur cohérent avec les étiquettes du pod).\n2. Plus d'`emptyDir` : un `volumeClaimTemplates` nommé `data` (`ReadWriteOnce`, `storage: 10Gi`), monté sur `/var/lib/postgresql/data`.\n3. Image épinglée (pas `latest`), `POSTGRES_PASSWORD` lu depuis un Secret (`secretKeyRef`).\n4. Un **Service headless** `db` (`clusterIP: None`) qui sélectionne les pods de la base.\n5. Le CronJob `backup` : expression cron valide (`\"0 3 * * *\"`), `concurrencyPolicy: Forbid`, `backoffLimit` (5 au plus), `activeDeadlineSeconds`, `restartPolicy: OnFailure`.\n\nLe contrôle lit le YAML : aucun cluster n'est nécessaire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Changez `kind: Deployment` en `kind: StatefulSet`, ajoutez `serviceName: db` sous `spec:` et supprimez le bloc `volumes:` du pod.",
+    "`volumeClaimTemplates:` se place au même niveau que `template:`. Son `metadata.name` (`data`) doit être celui du `volumeMounts`.",
+    "Le Service headless : `kind: Service`, `name: db`, `spec.clusterIP: None`, `selector: app: db`, séparé par `---`. Dans le CronJob, `backoffLimit` et `activeDeadlineSeconds` vont sous `jobTemplate.spec`."
+  ],
+  "timeout_s": 20,
+  "workspace": "k4",
+  "seed": [
+    "seed/db.yaml"
+  ]
+}

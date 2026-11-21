@@ -1,0 +1,20 @@
+{
+  "id": "an4-tp",
+  "title": "TP 4 : en faire un rôle",
+  "instructions_md": "**site.yml** contient tout. Transformez-le en rôle `nginx` réutilisable :\n\n1. **roles/nginx/tasks/main.yml** : les trois tâches (paquets, comptes, template) ; le template cherche `nginx.conf.j2` dans **roles/nginx/templates/** (déplacez-y le fichier).\n2. **roles/nginx/handlers/main.yml** : le handler `Recharger nginx`.\n3. **roles/nginx/defaults/main.yml** : `nginx_port` (et `nginx_sites`) par défaut, surchargeables par group_vars.\n4. **roles/nginx/meta/main.yml** : `galaxy_info` avec une `description`.\n5. **site.yml** : plus de `tasks` ni de `handlers`, seulement `roles: - role: nginx`.\n6. **requirements.yml** : chaque collection a une `version` épinglée.\n\nAstuce : `ansible-galaxy role init roles/nginx` crée l'arborescence.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Dans tasks/main.yml, le fichier est directement une liste de tâches (`- name: ...`), sans `hosts:` ni `tasks:`.",
+    "Dans un rôle, `src: nginx.conf.j2` suffit : Ansible cherche dans `roles/nginx/templates/`. Faites `mkdir -p roles/nginx/templates && mv templates/nginx.conf.j2 roles/nginx/templates/`.",
+    "requirements.yml : `- name: community.general` puis `version: \"9.4.0\"` indenté dessous ; même chose pour ansible.posix (`1.6.2`)."
+  ],
+  "timeout_s": 20,
+  "workspace": "an4",
+  "seed": [
+    "seed/group_vars",
+    "seed/inventory.ini",
+    "seed/requirements.yml",
+    "seed/site.yml",
+    "seed/templates"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "k6-tp",
+  "title": "TP 6 : la garde de nuit",
+  "instructions_md": "Il est 3 h du matin, le namespace `shop` est en feu. Le dossier **incidents/** contient les sorties de `kubectl` relevées par l'astreinte.\n\n1. Lisez chaque fichier, dans l'ordre (`cat incidents/01-get-pods.txt`, puis les suivants).\n2. Dans **diagnostic.yaml**, donnez pour chaque composant (`api`, `worker`, `batch`, `cache`, `front`) une cause parmi : `image`, `application`, `planification`, `memoire`, `selecteur`.\n3. Corrigez **manifests.yaml** :\n   - `api` : un tag d'image qui existe dans le registre ;\n   - `worker` : la variable manquante, lue depuis le Secret existant ;\n   - `batch` : une demande de mémoire qu'un nœud peut satisfaire (4Gi au plus) ;\n   - `cache` : une limite de mémoire qui ne tue plus le conteneur (128Mi au moins) ;\n   - `front` : un Service qui trouve enfin ses pods.\n\nLe contrôle lit vos deux fichiers : aucun cluster n'est nécessaire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "La colonne STATUS de 01-get-pods.txt donne la famille : ImagePullBackOff, CrashLoopBackOff, Pending. Un Service sans endpoints alors que ses pods tournent, c'est un sélecteur.",
+    "`cache` est aussi en CrashLoopBackOff, mais son Last State dit OOMKilled (code 137) : c'est la mémoire, pas l'application. `worker`, lui, plante sur un KeyError.",
+    "Pour worker : `- name: DATABASE_URL` avec `valueFrom: secretKeyRef: name: worker-db key: url`. Pour api, la liste des tags est dans 02-api.txt (`1.27.O` contient la lettre O, pas un zéro)."
+  ],
+  "timeout_s": 20,
+  "workspace": "k6",
+  "seed": [
+    "seed/incidents",
+    "seed/manifests.yaml",
+    "seed/diagnostic.yaml"
+  ]
+}

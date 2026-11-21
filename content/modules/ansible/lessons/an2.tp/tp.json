@@ -1,0 +1,17 @@
+{
+  "id": "an2-tp",
+  "title": "TP 2 : relancer sans rien casser",
+  "instructions_md": "**site.yml** écrit sa configuration avec `echo`, redémarre nginx à chaque lancement et déclare son port dans le playbook. Rendez-le idempotent :\n\n1. Déplacez `nginx_port` dans **group_vars/web.yml** (à créer) et retirez-le de `vars:`.\n2. Écrivez `/etc/nginx/conf.d/app.conf` avec `ansible.builtin.copy` (`content:`), avec `owner`, `group` et `mode: \"0644\"` entre guillemets.\n3. Plus de tâche `state: restarted` : la tâche de configuration **notifie** un handler `Recharger nginx` (`ansible.builtin.service`, `state: reloaded`) dans une section `handlers:`.\n4. La tâche `nginx -v` ne change rien : `changed_when: false`.\n\nLe contrôle lit les fichiers sans se connecter à aucun serveur.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`mkdir -p group_vars` puis un fichier `group_vars/web.yml` contenant `nginx_port: 8080`.",
+    "`ansible.builtin.copy:` avec `content: \"server {{ '{' }} listen {{ nginx_port }}; }\\n\"` fonctionne aussi bien que `content: \"server { listen {{ nginx_port }}; }\\n\"` : gardez les guillemets autour de la valeur.",
+    "La section `handlers:` se place au même niveau que `tasks:`. Le texte de `notify:` doit être exactement le `name` du handler."
+  ],
+  "timeout_s": 20,
+  "workspace": "an2",
+  "seed": [
+    "seed/inventory.ini",
+    "seed/site.yml"
+  ]
+}

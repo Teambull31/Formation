@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci4-q1",
+  "text": "Quelle différence principale entre une action composite et un workflow réutilisable ?",
+  "options": [
+   "L'action composite regroupe des étapes dans un job ; le workflow réutilisable regroupe des jobs entiers",
+   "L'action composite est plus rapide car elle n'utilise pas de runner",
+   "Le workflow réutilisable ne peut pas recevoir d'entrées",
+   "Il n'y en a aucune, ce sont deux noms pour la même chose"
+  ],
+  "answer": 0,
+  "explain": "Une action composite s'insère dans les steps d'un job existant. Un workflow réutilisable (on: workflow_call) apporte ses propres jobs, son runner, et peut enchaîner plusieurs jobs.",
+  "remedial_lesson_id": "ci4"
+ },
+ {
+  "id": "ci4-q2",
+  "text": "Un job qui appelle un workflow réutilisable avec uses: peut-il aussi avoir des steps ?",
+  "options": [
+   "Oui, ses steps s'exécutent après le workflow appelé",
+   "Oui, si runs-on est précisé",
+   "Non : GitHub refuse un job qui mélange uses et steps",
+   "Non, mais il peut avoir des services"
+  ],
+  "answer": 2,
+  "explain": "Le job appelant délègue tout au workflow appelé : ni runs-on ni steps. Il garde needs, if, strategy, permissions, with et secrets.",
+  "remedial_lesson_id": "ci4"
+ },
+ {
+  "id": "ci4-q3",
+  "text": "Pourquoi l'étape uses: ./.github/actions/setup échoue-t-elle si elle est placée avant actions/checkout ?",
+  "options": [
+   "Parce que les actions locales sont interdites sur ubuntu-latest",
+   "Parce que le fichier action.yml n'est pas encore présent sur le runner",
+   "Parce qu'une action locale doit être épinglée sur un SHA",
+   "Parce que setup est un nom réservé"
+  ],
+  "answer": 1,
+  "explain": "Le runner démarre vide. Une action locale est lue dans les fichiers du dépôt : tant que checkout n'a pas tourné, le dossier .github/actions n'existe pas.",
+  "remedial_lesson_id": "ci4"
+ },
+ {
+  "id": "ci4-q4",
+  "text": "Que manque-t-il à cette étape d'une action composite : « - run: pip install -r requirements.txt » ?",
+  "options": [
+   "with: cache: pip",
+   "Un id",
+   "shell: bash",
+   "timeout-minutes"
+  ],
+  "answer": 2,
+  "explain": "Dans une action composite, chaque étape run doit déclarer son shell. Sans shell, l'action est invalide et le job échoue au chargement.",
+  "remedial_lesson_id": "ci4"
+ },
+ {
+  "id": "ci4-q5",
+  "text": "Pourquoi préférer une liste explicite de secrets à secrets: inherit ?",
+  "options": [
+   "inherit est plus lent",
+   "inherit transmet tous les secrets du dépôt, y compris ceux dont le workflow n'a pas besoin",
+   "inherit ne fonctionne pas avec les matrices",
+   "inherit expose les secrets dans les journaux"
+  ],
+  "answer": 1,
+  "explain": "Moindre privilège : le workflow appelé ne reçoit que ce qu'il utilise. Un workflow compromis ne pourra pas lire le jeton de production s'il ne l'a jamais reçu.",
+  "remedial_lesson_id": "ci4"
+ }
+]

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci6-q1",
+  "text": "Deux jobs doivent partager le dossier dist/. Que faire ?",
+  "options": [
+   "Rien, les jobs partagent le disque",
+   "upload-artifact dans le premier, download-artifact avec le même name dans le second",
+   "Commiter dist/ dans le dépôt",
+   "Utiliser une variable d'environnement"
+  ],
+  "answer": 1,
+  "explain": "Chaque job a sa machine. Les artefacts transportent des fichiers entre jobs ; le name doit être identique des deux côtés.",
+  "remedial_lesson_id": "ci6"
+ },
+ {
+  "id": "ci6-q2",
+  "text": "Qu'apporte OIDC par rapport à une clé d'accès stockée dans les secrets ?",
+  "options": [
+   "Une clé plus longue",
+   "Des identifiants temporaires obtenus à chaque run, sans aucun secret stocké dans GitHub",
+   "Le chiffrement des journaux",
+   "La possibilité de déployer depuis un fork"
+  ],
+  "answer": 1,
+  "explain": "GitHub signe un jeton décrivant le workflow ; le cloud le vérifie et donne des droits valables quelques minutes. Rien de durable ne peut fuir.",
+  "remedial_lesson_id": "ci6"
+ },
+ {
+  "id": "ci6-q3",
+  "text": "Où placer id-token: write ?",
+  "options": [
+   "Au niveau du workflow, pour tous les jobs",
+   "Au niveau du seul job qui se connecte au cloud",
+   "Dans les secrets du dépôt",
+   "Dans le with: de checkout"
+  ],
+  "answer": 1,
+  "explain": "Moindre privilège : seul le job qui demande un jeton OIDC en a besoin. Les autres jobs, qui exécutent des tests ou du code tiers, ne doivent pas pouvoir l'obtenir.",
+  "remedial_lesson_id": "ci6"
+ },
+ {
+  "id": "ci6-q4",
+  "text": "Côté cloud, qu'est-ce qui empêche n'importe quel dépôt GitHub d'assumer votre rôle OIDC ?",
+  "options": [
+   "Rien, c'est le principe d'OIDC",
+   "La politique de confiance du rôle, qui restreint le dépôt et la branche ou le tag autorisés",
+   "Le SHA de l'action",
+   "Le paramètre aws-region"
+  ],
+  "answer": 1,
+  "explain": "Le jeton contient le dépôt, la branche ou le tag. La politique de confiance doit filtrer ces champs ; sans filtre, tout GitHub peut assumer le rôle.",
+  "remedial_lesson_id": "ci6"
+ },
+ {
+  "id": "ci6-q5",
+  "text": "Vous avez publié v1.2.0 avec un bug. Quelle est la bonne pratique ?",
+  "options": [
+   "Supprimer et recréer le tag v1.2.0 sur le correctif",
+   "Publier v1.2.1 avec la correction",
+   "Publier v1.2.0-fix sur la même release",
+   "Modifier les fichiers de la release à la main"
+  ],
+  "answer": 1,
+  "explain": "Un tag publié ne bouge pas : d'autres l'ont peut-être déjà téléchargé. La correction prend un nouveau numéro de correctif selon SemVer.",
+  "remedial_lesson_id": "ci6"
+ }
+]

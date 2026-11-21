@@ -1,0 +1,11 @@
+# Géré par Ansible : toute modification à la main sera écrasée
+events {}
+http {
+{% for site in nginx_sites %}
+  server {
+    listen {{ nginx_port }};
+    server_name {{ site.domain }};
+    root /var/www/{{ site.name }};
+  }
+{% endfor %}
+}

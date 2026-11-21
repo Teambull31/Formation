@@ -1,0 +1,19 @@
+{
+  "id": "ci5-tp",
+  "title": "TP 5 : une chaîne de déploiement",
+  "instructions_md": "Le fichier **.github/workflows/deploy.yml** déploie n'importe quoi, n'importe quand. Réparez-le :\n\n1. Déclencheurs : `push` sur la branche `main` uniquement (`branches: [main]`) et `workflow_dispatch`. Plus de `pull_request`.\n2. Le job **build** expose un output `version` alimenté par `${{ steps.meta.outputs.version }}` ; l'étape `meta` écrit `version=...` dans `$GITHUB_OUTPUT` (fini `::set-output`).\n3. **deploy-staging** attend build (`needs`), porte `environment: staging` et lit la version par `env: VERSION: ${{ needs.build.outputs.version }}`.\n4. **deploy-production** attend build **et** deploy-staging, porte l'environnement `production`, ne tourne que si `github.ref == 'refs/heads/main'`, lit la version de la même façon.\n5. La concurrence de production ne doit **jamais** annuler un déploiement en cours.\n\nLe contrôle lit le fichier, sans rien exécuter.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "`on:` contient `push:` avec `branches: [main]`, et `workflow_dispatch:` seul sur sa ligne.",
+    "Sous `build:`, ajoutez `outputs:` puis `version: ${{ steps.meta.outputs.version }}`. L'étape devient `run: echo \"version=1.0.${GITHUB_RUN_NUMBER}\" >> \"$GITHUB_OUTPUT\"`.",
+    "`needs.build.outputs` n'est lisible que si `build` est listé dans `needs` : production a besoin de `needs: [build, deploy-staging]`. Et `cancel-in-progress: false`."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci5",
+  "seed": [
+    "seed/app.py",
+    "seed/test_app.py",
+    "seed/requirements.txt",
+    "seed/.github"
+  ]
+}

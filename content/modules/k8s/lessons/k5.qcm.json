@@ -1,0 +1,67 @@
+[
+ {
+  "id": "k5-q1",
+  "text": "Que faut-il, en plus du manifeste Ingress, pour qu'il route du trafic ?",
+  "options": [
+   "Un Service de type LoadBalancer par application",
+   "Un contrôleur d'Ingress installé dans le cluster (ingress-nginx, Traefik)",
+   "Une NetworkPolicy allow-all",
+   "Rien, Kubernetes le gère seul"
+  ],
+  "answer": 1,
+  "explain": "L'Ingress n'est qu'une configuration. Le contrôleur, choisi par ingressClassName, la lit et route réellement les requêtes.",
+  "remedial_lesson_id": "k5"
+ },
+ {
+  "id": "k5-q2",
+  "text": "Pourquoi maxUnavailable: 0 avec une readinessProbe donne-t-il une mise à jour sans coupure ?",
+  "options": [
+   "Parce que les anciens pods ne sont retirés qu'une fois les nouveaux déclarés prêts",
+   "Parce que le trafic est mis en pause",
+   "Parce que Kubernetes double la mémoire",
+   "Parce que l'Ingress met les requêtes en file"
+  ],
+  "answer": 0,
+  "explain": "Le Deployment crée un nouveau pod (maxSurge), attend qu'il passe sa readinessProbe, puis seulement retire un ancien. La capacité ne baisse jamais.",
+  "remedial_lesson_id": "k5"
+ },
+ {
+  "id": "k5-q3",
+  "text": "Un HPA cible 70 % de CPU mais ne fait jamais rien. Cause la plus probable ?",
+  "options": [
+   "maxReplicas trop haut",
+   "Le conteneur n'a pas de requests.cpu, le pourcentage n'a pas de base",
+   "Le Service est en ClusterIP",
+   "Le PodDisruptionBudget bloque"
+  ],
+  "answer": 1,
+  "explain": "L'utilisation est calculée par rapport à requests.cpu. Sans requests (ou sans metrics-server), l'HPA affiche <unknown> et n'agit pas.",
+  "remedial_lesson_id": "k5"
+ },
+ {
+  "id": "k5-q4",
+  "text": "Pourquoi retirer spec.replicas d'un Deployment piloté par un HPA ?",
+  "options": [
+   "Parce que c'est interdit par l'API",
+   "Parce que chaque kubectl apply remettrait le nombre fixe et écraserait la décision de l'HPA",
+   "Pour économiser de la mémoire",
+   "Pour activer le RollingUpdate"
+  ],
+  "answer": 1,
+  "explain": "Le manifeste et l'HPA se battraient : l'HPA monte à 8 pendant un pic, un apply redescend à 3. Sans replicas, l'apply laisse la valeur de l'HPA.",
+  "remedial_lesson_id": "k5"
+ },
+ {
+  "id": "k5-q5",
+  "text": "À quoi sert un PodDisruptionBudget avec minAvailable: 1 ?",
+  "options": [
+   "À limiter le CPU",
+   "À empêcher qu'une maintenance volontaire (kubectl drain) n'expulse tous les pods en même temps",
+   "À redémarrer les pods en échec",
+   "À forcer la répartition sur plusieurs zones"
+  ],
+  "answer": 1,
+  "explain": "Le PDB protège des perturbations volontaires : le drain attend qu'un pod soit disponible ailleurs avant d'expulser le dernier. Il ne protège pas d'une panne de nœud.",
+  "remedial_lesson_id": "k5"
+ }
+]

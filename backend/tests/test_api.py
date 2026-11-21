@@ -38,6 +38,14 @@ def test_lessons_index_lists_titles_only(client):
     assert "l1" in ids and "body_md" not in r.text and "answer" not in r.text
 
 
+def test_fiche_listed_and_downloadable(client):
+    mods = client.get("/api/lessons").json()
+    assert [m["fiche"] for m in mods] == [True]
+    r = client.get(f"/api/fiche/{mods[0]['id']}")
+    assert r.status_code == 200 and r.json()["body_md"].startswith("# Fiche")
+    assert client.get("/api/fiche/nope").status_code == 404
+
+
 def test_unknown_lesson_404(client):
     assert client.get("/api/lesson/nope").status_code == 404
 

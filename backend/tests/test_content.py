@@ -113,3 +113,20 @@ def test_workspace_must_be_relative_and_safe(tmp_path, ws):
     _tp_edit(d, workspace=ws)
     with pytest.raises(ModuleError):
         load_module(d)
+
+
+def test_order_and_fiche_parsed(tmp_path):
+    import json
+    import shutil
+    from pathlib import Path
+    src = Path(__file__).parent / "fixtures" / "demo_module"
+    d = tmp_path / "m"
+    shutil.copytree(src, d)
+    meta = json.loads((d / "module.json").read_text(encoding="utf-8"))
+    m = load_module(d)
+    assert m.order == 100 and m.fiche_md.startswith("# Fiche")
+    (d / "module.json").write_text(json.dumps({**meta, "order": 5}), encoding="utf-8")
+    assert load_module(d).order == 5
+    (d / "module.json").write_text(json.dumps({**meta, "order": "5"}), encoding="utf-8")
+    with pytest.raises(ModuleError, match="order"):
+        load_module(d)

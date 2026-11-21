@@ -1,0 +1,12 @@
+- name: Base de données
+  hosts: db
+  become: true
+  tasks:
+    - name: Installer PostgreSQL
+      ansible.builtin.apt:
+        name: postgresql
+        state: present
+    - name: Créer l'utilisateur de la base
+      community.postgresql.postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"

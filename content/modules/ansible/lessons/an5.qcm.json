@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an5-q1",
+  "text": "Comment reconnaît-on un fichier chiffré par Ansible Vault ?",
+  "options": [
+   "Il se termine par .vault",
+   "Sa première ligne est $ANSIBLE_VAULT;1.1;AES256",
+   "Il est en base64",
+   "Il est dans .gitignore"
+  ],
+  "answer": 1,
+  "explain": "L'en-tête indique le format et l'algorithme ; la suite est de l'hexadécimal illisible sans le mot de passe du coffre.",
+  "remedial_lesson_id": "an5"
+ },
+ {
+  "id": "an5-q2",
+  "text": "Pourquoi le motif db_password: \"{{ vault_db_password }}\" dans un vars.yml en clair ?",
+  "options": [
+   "Pour aller plus vite",
+   "On voit quelles variables existent et d'où vient leur valeur sans ouvrir le coffre",
+   "Parce qu'un coffre ne peut contenir qu'une variable",
+   "Pour éviter no_log"
+  ],
+  "answer": 1,
+  "explain": "Les relecteurs voient la structure ; seul le secret est chiffré. grep vault_ liste tous les secrets du projet.",
+  "remedial_lesson_id": "an5"
+ },
+ {
+  "id": "an5-q3",
+  "text": "À quoi sert no_log: true ?",
+  "options": [
+   "À désactiver les journaux du serveur",
+   "À masquer les paramètres et le résultat d'une tâche dans la sortie, même en cas d'erreur",
+   "À chiffrer la tâche",
+   "À accélérer la tâche"
+  ],
+  "answer": 1,
+  "explain": "Sans no_log, une erreur ou -v affiche le mot de passe, qui finit dans les journaux de la CI.",
+  "remedial_lesson_id": "an5"
+ },
+ {
+  "id": "an5-q4",
+  "text": "Quel risque avec host_key_checking = False ?",
+  "options": [
+   "Aucun",
+   "Ansible accepte n'importe quel serveur : un attaquant au milieu peut se faire passer pour lui et recevoir vos secrets",
+   "Les connexions sont plus lentes",
+   "Vault ne fonctionne plus"
+  ],
+  "answer": 1,
+  "explain": "La vérification de l'empreinte SSH prouve l'identité du serveur. On alimente known_hosts au lieu de la désactiver.",
+  "remedial_lesson_id": "an5"
+ },
+ {
+  "id": "an5-q5",
+  "text": "Où ranger le mot de passe du coffre ?",
+  "options": [
+   "Dans le dépôt, à côté du vault.yml",
+   "Hors du dépôt (fichier en chmod 600 exclu par .gitignore), ou dans les secrets de la CI",
+   "Dans ansible.cfg",
+   "Dans l'inventaire"
+  ],
+  "answer": 1,
+  "explain": "Coffre et mot de passe ensemble dans Git reviendraient à laisser la clé sur la porte.",
+  "remedial_lesson_id": "an5"
+ }
+]

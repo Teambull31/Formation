@@ -137,7 +137,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                 out.append((d, load_module(d)))
             except ModuleError:
                 pass
-        return out
+        return sorted(out, key=lambda dm: (dm[0].name.startswith("esp"), dm[1].order))  # tri stable : nom ensuite
 
     def find_lesson(lid: str):
         for d, m in modules():
@@ -204,9 +204,16 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/lessons")
     def lessons():
-        return [{"id": m.id, "title": m.title,
+        return [{"id": m.id, "title": m.title, "fiche": m.fiche_md is not None,
                  "lessons": [{"id": les.id, "title": les.title, "minutes": les.minutes} for les in m.lessons]}
                 for _, m in modules()]
+
+    @app.get("/api/fiche/{module_id}")
+    def fiche(module_id: str):
+        for _, m in modules():
+            if m.id == module_id and m.fiche_md is not None:
+                return {"id": m.id, "title": m.title, "body_md": m.fiche_md}
+        raise HTTPException(404, "Fiche inconnue")
 
     @app.get("/api/lesson/{lesson_id}")
     def lesson(lesson_id: str):

@@ -1,0 +1,19 @@
+{
+  "id": "ci6-tp",
+  "title": "TP 6 : publier une release sans clé",
+  "instructions_md": "Le fichier **.github/workflows/release.yml** publie avec une clé cloud statique et tous les droits. Sécurisez-le :\n\n1. Déclenchement sur les tags `v*` (`push: tags: [\"v*\"]`).\n2. Au niveau du workflow : `permissions: contents: read` (plus de `write-all`).\n3. **build** téléverse `dist/` avec `actions/upload-artifact@v4` (`name: dist`, `retention-days` de 30 au plus).\n4. **publish** attend build, télécharge le même artefact avec `actions/download-artifact@v4`, et reçoit au niveau du job `contents: write` et `id-token: write`.\n5. Connexion au cloud par OIDC : `aws-actions/configure-aws-credentials` épinglé sur un SHA de 40 caractères, avec `role-to-assume`. **Aucune** clé `aws-access-key-id` ni `aws-secret-access-key`.\n6. Une étape crée la release avec `gh release create \"$GITHUB_REF_NAME\" dist/*` et `GH_TOKEN: ${{ github.token }}` dans `env:`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Supprimez `aws-access-key-id` et `aws-secret-access-key`, remplacez-les par `role-to-assume: arn:aws:iam::123456789012:role/release`.",
+    "Le SHA d'exemple de la leçon convient : `aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502`.",
+    "Les `permissions:` du job publish se placent au même niveau que `runs-on:`, avec `contents: write` et `id-token: write`."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci6",
+  "seed": [
+    "seed/app.py",
+    "seed/test_app.py",
+    "seed/requirements.txt",
+    "seed/.github"
+  ]
+}

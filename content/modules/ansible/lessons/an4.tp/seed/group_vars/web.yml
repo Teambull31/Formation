@@ -1,0 +1,14 @@
+nginx_sites:
+  - name: shop
+    domain: shop.example.test
+  - name: blog
+    domain: blog.example.test
+base_packages:
+  - nginx
+  - curl
+  - htop
+admins:
+  - name: alice
+    groups: sudo
+  - name: bob
+    groups: sudo

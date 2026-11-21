@@ -1,0 +1,16 @@
+{
+  "id": "k5-tp",
+  "title": "TP 5 : en production derrière un Ingress",
+  "instructions_md": "Le fichier **web.yaml** expose l'application par un LoadBalancer et coupe le service à chaque mise à jour. Mettez-le en production :\n\n1. Deployment : `strategy` RollingUpdate avec `maxUnavailable: 0` et `maxSurge: 1`, une `readinessProbe` HTTP sur le port 8000, et **plus de `spec.replicas`** (l'HPA décidera).\n2. Service `web` de type `ClusterIP` (port 80 vers 8000).\n3. Un **Ingress** `networking.k8s.io/v1` : `ingressClassName: nginx`, host `app.example.test`, chemin `/` en `pathType: Prefix` vers le Service `web` port 80, et un bloc `tls` (même host, `secretName: web-tls`).\n4. Un **HorizontalPodAutoscaler** `autoscaling/v2` sur le Deployment `web` : `minReplicas: 2`, `maxReplicas: 10`, CPU à 70 %.\n5. Un **PodDisruptionBudget** `policy/v1` avec `minAvailable: 1` qui sélectionne les pods `app: web`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Retirez `type: LoadBalancer` (ClusterIP est le défaut) et la ligne `replicas: 3`.",
+    "`strategy:` se place sous `spec:` du Deployment, à côté de `selector:`. La readinessProbe se place dans le conteneur : `httpGet: path: /health port: 8000`.",
+    "Ajoutez trois documents séparés par `---` : Ingress, HorizontalPodAutoscaler, PodDisruptionBudget. Dans l'Ingress, le port du backend s'écrit `port: number: 80`."
+  ],
+  "timeout_s": 20,
+  "workspace": "k5",
+  "seed": [
+    "seed/web.yaml"
+  ]
+}
