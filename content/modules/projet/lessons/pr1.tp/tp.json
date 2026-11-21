@@ -1,0 +1,17 @@
+{
+  "id": "pr1-tp",
+  "title": "TP 1 : l'application et sa CI",
+  "instructions_md": "Créez un dépôt GitHub **commandes** (public : c'est votre vitrine) et travaillez dans le dossier du TP, qui deviendra ce dépôt.\n\n1. Lancez les tests en local : `pip install -r requirements.txt && python3 -m pytest -q app`.\n2. Écrivez **.github/workflows/ci.yml** :\n   - déclenché sur `push` vers `main` et sur `pull_request` ;\n   - `permissions: contents: read` au niveau du workflow ;\n   - un job `test` borné (`timeout-minutes`), qui fait checkout, `setup-python` avec une version **entre guillemets**, `pip install -r requirements.txt` puis `pytest`.\n3. Poussez : `git init -b main && git add . && git commit -m \"feat: api et ci\" && git remote add origin <url> && git push -u origin main`.\n4. Ouvrez une pull request qui casse un test : la CI doit devenir rouge.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Partez du workflow de la leçon ci1 : on: push + pull_request, un seul job test.",
+    "python-version: \"3.12\" entre guillemets ; `pip install -r requirements.txt` puis `pytest -q` en deux étapes run:.",
+    "timeout-minutes: 10 au niveau du job, permissions: contents: read au premier niveau du fichier."
+  ],
+  "timeout_s": 20,
+  "workspace": "fil-rouge",
+  "seed": [
+    "seed/app",
+    "seed/requirements.txt"
+  ]
+}

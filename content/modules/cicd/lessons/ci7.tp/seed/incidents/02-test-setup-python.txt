@@ -1,0 +1,8 @@
+Run actions/setup-python@v5
+  with:
+    python-version: 3.1
+    check-latest: false
+Installed versions
+  Version 3.1 was not found in the local cache
+  Error: The version '3.1' with architecture 'x64' was not found for Ubuntu 24.04.
+  The list of all available versions can be found here: https://raw.githubusercontent.com/actions/python-versions/main/versions-manifest.json

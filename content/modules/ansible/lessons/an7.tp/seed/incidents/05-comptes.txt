@@ -1,0 +1,6 @@
+Journal public de la CI (job deploy, lancé avec -v), ligne 412 :
+
+TASK [Créer le compte applicatif] ****************************
+fatal: [db1]: FAILED! => {"changed": false, "invocation": {"module_args": {"name": "shop", "password": "Hx9-REDACTED-POUR-LE-TP", "login_host": "localhost"}}, "msg": "unable to connect to database"}
+
+Le mot de passe de la base est désormais lisible par toute personne ayant accès aux journaux.

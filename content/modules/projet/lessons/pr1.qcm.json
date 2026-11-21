@@ -1,0 +1,67 @@
+[
+ {
+  "id": "pr1-q1",
+  "text": "Pourquoi un projet fil rouge plutôt que des exercices isolés ?",
+  "options": [
+   "C'est plus court",
+   "Les briques doivent s'emboîter : l'image de la CI est celle de Kubernetes, l'output Terraform nourrit Ansible",
+   "Pour éviter les tests",
+   "Parce que GitHub l'exige"
+  ],
+  "answer": 1,
+  "explain": "En entreprise, la difficulté est l'assemblage. Un seul dépôt cohérent montre que vous savez relier les outils.",
+  "remedial_lesson_id": "pr1"
+ },
+ {
+  "id": "pr1-q2",
+  "text": "La CI doit tourner sur quels événements pour protéger main ?",
+  "options": [
+   "Seulement push sur main",
+   "pull_request et push sur main",
+   "schedule",
+   "workflow_dispatch seul"
+  ],
+  "answer": 1,
+  "explain": "pull_request teste avant la fusion ; push sur main vérifie le résultat fusionné.",
+  "remedial_lesson_id": "pr1"
+ },
+ {
+  "id": "pr1-q3",
+  "text": "Pourquoi écrire python-version: \"3.12\" entre guillemets ?",
+  "options": [
+   "Pour le style",
+   "Sans guillemets, YAML lit un nombre : 3.10 deviendrait 3.1",
+   "Pour activer le cache",
+   "GitHub l'impose"
+  ],
+  "answer": 1,
+  "explain": "Toute version est une chaîne en YAML.",
+  "remedial_lesson_id": "pr1"
+ },
+ {
+  "id": "pr1-q4",
+  "text": "À quoi sert de casser volontairement un test dans une PR ?",
+  "options": [
+   "À rien",
+   "Vérifier que la CI bloque vraiment une régression",
+   "Gagner de l'XP",
+   "Tester le cache"
+  ],
+  "answer": 1,
+  "explain": "Une CI qu'on n'a jamais vue rouge n'a pas prouvé qu'elle protège.",
+  "remedial_lesson_id": "pr1"
+ },
+ {
+  "id": "pr1-q5",
+  "text": "Que doit contenir un dépôt vitrine pour un recruteur ?",
+  "options": [
+   "Du code sans explication",
+   "Une CI verte, un README clair et un historique de commits lisible",
+   "Le plus de fichiers possible",
+   "Des secrets de démonstration"
+  ],
+  "answer": 1,
+  "explain": "Le recruteur lit le README, regarde la CI et parcourt l'historique.",
+  "remedial_lesson_id": "pr1"
+ }
+]

@@ -1,0 +1,13 @@
+Hier : servers = ["web-1", "web-2", "web-3"]. Aujourd'hui, web-2 a été retiré de la liste.
+
+  # local_file.server[1] must be replaced
+-/+ resource "local_file" "server" {
+      ~ filename = "./out/web-2.conf" -> "./out/web-3.conf" # forces replacement
+    }
+
+  # local_file.server[2] will be destroyed
+  - resource "local_file" "server" {
+      - filename = "./out/web-3.conf" -> null
+    }
+
+Plan: 2 to add, 0 to change, 3 to destroy.

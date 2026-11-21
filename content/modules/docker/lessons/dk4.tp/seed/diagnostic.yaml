@@ -1,0 +1,6 @@
+# Pour chaque composant, une cause parmi : contexte, ecoute, memoire, volume, version
+build: ?
+api: ?
+worker: ?
+db: ?
+proxy: ?

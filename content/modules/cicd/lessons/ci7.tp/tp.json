@@ -1,0 +1,19 @@
+{
+  "id": "ci7-tp",
+  "title": "TP 7 : le lundi rouge",
+  "instructions_md": "Lundi, 9 h : le pipeline est rouge, la production renvoie des 500 et personne ne sait pourquoi. Le dossier **incidents/** contient ce que l'équipe a relevé.\n\n1. Lisez chaque fichier, dans l'ordre (`cat incidents/01-pull-request.txt`, puis les suivants).\n2. Dans **diagnostic.yaml**, donnez pour chaque composant (`version-python`, `cache`, `deploy`, `release`, `pull-request`) une cause parmi : `yaml`, `cache`, `dependance`, `permissions`, `declencheur`.\n3. Réparez **.github/workflows/ci.yml** :\n   - les pull requests et la branche `main` déclenchent la CI (les tags `v*` aussi) ;\n   - `setup-python` reçoit vraiment Python 3.10 ;\n   - la clé de cache change quand `requirements/base.txt` change ;\n   - `deploy` attend que les tests passent ;\n   - `release` peut créer la release, sans donner l'écriture aux autres jobs.\n\nLe contrôle lit vos deux fichiers : aucun accès à GitHub n'est nécessaire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Une pull request sans aucun check : regardez le bloc on:. La branche par défaut a été renommée de master en main.",
+    "`3.10` sans guillemets est un nombre en YAML, il devient 3.1. La clé `pip-Linux-` se termine vide : hashFiles ne trouve pas le fichier demandé.",
+    "deploy a démarré avant la fin de test : `needs: [test]`. Le 403 de la release vient des permissions du GITHUB_TOKEN : `permissions: contents: write` sur le seul job release."
+  ],
+  "timeout_s": 20,
+  "workspace": "ci7",
+  "seed": [
+    "seed/incidents",
+    "seed/.github",
+    "seed/requirements",
+    "seed/diagnostic.yaml"
+  ]
+}

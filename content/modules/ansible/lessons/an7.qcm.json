@@ -1,0 +1,67 @@
+[
+ {
+  "id": "an7-q1",
+  "text": "Au deuxième lancement sans changement, une tâche affiche encore changed. Que signifie ce symptôme ?",
+  "options": [
+   "Rien, c'est normal",
+   "La tâche n'est pas idempotente : elle agit au lieu de décrire un état",
+   "Le serveur est lent",
+   "Le cache des facts est vide"
+  ],
+  "answer": 1,
+  "explain": "Un playbook idempotent donne changed=0 au deuxième passage. Une commande qui ajoute ou écrit à chaque fois doit devenir un module à état (copy, lineinfile, template).",
+  "remedial_lesson_id": "an7"
+ },
+ {
+  "id": "an7-q2",
+  "text": "« The requested handler 'recharger nginx' was not found ». Cause ?",
+  "options": [
+   "nginx n'est pas installé",
+   "Le notify ne correspond pas exactement au name du handler",
+   "Le handler est dans un rôle",
+   "Le serveur est injoignable"
+  ],
+  "answer": 1,
+  "explain": "La correspondance est exacte, majuscules comprises. On peut aussi utiliser listen: pour un nom stable.",
+  "remedial_lesson_id": "an7"
+ },
+ {
+  "id": "an7-q3",
+  "text": "UNREACHABLE « No route to host » sur un seul hôte. Première vérification ?",
+  "options": [
+   "Réinstaller Ansible",
+   "L'adresse ansible_host de l'hôte dans l'inventaire, comparée à la source (Terraform, cloud)",
+   "Le mot de passe sudo",
+   "La version de Python du nœud de contrôle"
+  ],
+  "answer": 1,
+  "explain": "UNREACHABLE = SSH n'a pas abouti. Adresse, utilisateur, clé et pare-feu, dans cet ordre. ansible-inventory --host db1 montre ce qu'Ansible utilise.",
+  "remedial_lesson_id": "an7"
+ },
+ {
+  "id": "an7-q4",
+  "text": "Un mot de passe apparaît dans le journal d'un job en échec. Que manque-t-il ?",
+  "options": [
+   "Un fichier .gitignore",
+   "no_log: true sur la tâche qui manipule le secret",
+   "Un handler",
+   "become: true"
+  ],
+  "answer": 1,
+  "explain": "Les arguments d'un module sont affichés en cas d'échec ou en -v. no_log masque la tâche ; le secret exposé doit en plus être changé.",
+  "remedial_lesson_id": "an7"
+ },
+ {
+  "id": "an7-q5",
+  "text": "Un mot de passe a fuité dans un journal de CI. Que faire en premier, une fois no_log ajouté ?",
+  "options": [
+   "Rien, no_log suffit",
+   "Changer le mot de passe et purger ou restreindre le journal",
+   "Supprimer le dépôt",
+   "Désactiver la CI"
+  ],
+  "answer": 1,
+  "explain": "no_log protège les prochains runs, pas le passé. Un secret exposé est compromis : on le fait tourner.",
+  "remedial_lesson_id": "an7"
+ }
+]

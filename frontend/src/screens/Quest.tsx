@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Plan from './Plan'
 import { announceRest, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Team } from '../api'
 
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
@@ -38,6 +39,7 @@ export default function Quest({ onStart, onReview }: { onStart: (lessonId: strin
 
   return (
     <section className="screen wrap">
+      <Plan onStart={(id) => onStart(id, 'lesson', false)} />
       <div className="card">
         <p className="tag">Rang actuel</p>
         <h2>{team ? team.rank : '…'}</h2>

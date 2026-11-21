@@ -22,6 +22,27 @@
       "check": "bash \"$LESSON_DIR/phase3_check.sh\"",
       "remedial_lesson_id": "tf3",
       "timeout_s": 25
+    },
+    {
+      "pattern_id": "boucle_par_position",
+      "label": "Phase 4 : dans tfboss-boucles/, une seule ressource local_file en for_each sur var.environments (map d'objets sans default), un bloc locals utilisé et un output config_files calculé par une expression for",
+      "check": "bash \"$LESSON_DIR/phase4_check.sh\"",
+      "remedial_lesson_id": "tf4",
+      "timeout_s": 30
+    },
+    {
+      "pattern_id": "module_non_epingle",
+      "label": "Phase 5 : dans tfboss-module/, un module web (./modules/app) appelé selon son contrat, des sources épinglées et un backend s3 chiffré et verrouillé, sans clé",
+      "check": "bash \"$LESSON_DIR/phase5_check.sh\"",
+      "remedial_lesson_id": "tf5",
+      "timeout_s": 30
+    },
+    {
+      "pattern_id": "plan_destructeur",
+      "label": "Phase 6 : dans tfboss-ci/, environment validé, db_config en prevent_destroy, moved de local_file.hello vers local_file.greeting et une CI qui planifie sur PR et applique sur main",
+      "check": "bash \"$LESSON_DIR/phase6_check.sh\"",
+      "remedial_lesson_id": "tf6",
+      "timeout_s": 30
     }
   ]
 }

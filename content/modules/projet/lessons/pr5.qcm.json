@@ -1,0 +1,67 @@
+[
+ {
+  "id": "pr5-q1",
+  "text": "Pourquoi serial: 1 dans le playbook du projet ?",
+  "options": [
+   "Pour aller plus vite",
+   "Un seul serveur à la fois : une mauvaise version n'arrête pas tout le service",
+   "C'est obligatoire",
+   "Pour les journaux"
+  ],
+  "answer": 1,
+  "explain": "Le déploiement progressif limite l'impact d'une erreur.",
+  "remedial_lesson_id": "pr5"
+ },
+ {
+  "id": "pr5-q2",
+  "text": "Le service n'est pas redémarré après le changement du template. Cause probable ?",
+  "options": [
+   "Docker absent",
+   "Le notify ne correspond pas exactement au name du handler",
+   "Le README",
+   "Le serveur est en Debian"
+  ],
+  "answer": 1,
+  "explain": "La correspondance est exacte, majuscules comprises.",
+  "remedial_lesson_id": "pr5"
+ },
+ {
+  "id": "pr5-q3",
+  "text": "Que doit dire la section Déployer du README ?",
+  "options": [
+   "Rien",
+   "Les étapes réelles, dans l'ordre : CI, Kubernetes, Terraform, Ansible",
+   "L'historique Git",
+   "Les mots de passe"
+  ],
+  "answer": 1,
+  "explain": "Un nouveau venu doit pouvoir déployer en suivant le README.",
+  "remedial_lesson_id": "pr5"
+ },
+ {
+  "id": "pr5-q4",
+  "text": "Dans un entretien, comment présenter ce projet ?",
+  "options": [
+   "Lire le code ligne à ligne",
+   "Le problème, l'architecture, un choix difficile et ce que vous feriez ensuite",
+   "Montrer seulement le README",
+   "Dire que tout est parfait"
+  ],
+  "answer": 1,
+  "explain": "Les recruteurs cherchent votre raisonnement : choix, compromis, suites possibles.",
+  "remedial_lesson_id": "pr5"
+ },
+ {
+  "id": "pr5-q5",
+  "text": "Quelle est la meilleure preuve que le projet fonctionne ?",
+  "options": [
+   "Le nombre de lignes",
+   "Une CI verte sur main et une commande de vérification qui répond (curl /healthz)",
+   "Des captures d'écran",
+   "Un long README"
+  ],
+  "answer": 1,
+  "explain": "Une preuve exécutable vaut mieux qu'une description.",
+  "remedial_lesson_id": "pr5"
+ }
+]

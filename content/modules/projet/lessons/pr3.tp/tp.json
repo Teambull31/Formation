@@ -1,0 +1,14 @@
+{
+  "id": "pr3-tp",
+  "title": "TP 3 : déployer sur Kubernetes",
+  "instructions_md": "Créez le dossier **k8s/** :\n\n1. **deployment.yaml** : 2 réplicas, l'image `ghcr.io/...:<sha>` publiée par la CI, `containerPort: 8000`, requests et limits CPU et mémoire, `readinessProbe` et `livenessProbe` sur `/healthz`, `runAsNonRoot: true` au niveau du pod et `allowPrivilegeEscalation: false` sur le conteneur.\n2. **service.yaml** : un Service dont le sélecteur trouve les pods.\n3. **kustomization.yaml** : qui liste les deux fichiers.\n4. Avec kind : `kind create cluster --name formation && kubectl apply -k k8s/ && kubectl rollout status deploy/commandes`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Repartez des manifestes de k1 à k3 : mêmes clés, autre image.",
+    "Les étiquettes `app: commandes` doivent être identiques dans selector.matchLabels, template.metadata.labels et le selector du Service.",
+    "Les deux sondes : `httpGet: { path: /healthz, port: 8000 }`. kustomization.yaml : `resources: [deployment.yaml, service.yaml]`."
+  ],
+  "timeout_s": 20,
+  "workspace": "fil-rouge",
+  "seed": []
+}

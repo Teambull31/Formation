@@ -90,10 +90,12 @@ def reminder_due(db: sqlite3.Connection, today: date) -> bool:
                           (day, day)).fetchone()
 
 
-def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush) -> int:
+def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, plan_line: str | None = None) -> int:
     if not reminder_due(db, today):
         return 0
     body = f"Ta série de {streak} jours t'attend : 15 minutes suffisent." if streak else "15 minutes aujourd'hui, et la série démarre."
+    if plan_line:
+        body = f"{plan_line}. {body}"
     n = send_all(db, "Formation : quête du jour", body, sender=sender)
     if n:
         _put(db, "last_reminder", today.isoformat())

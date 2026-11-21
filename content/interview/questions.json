@@ -381,5 +381,383 @@
    ]
   ],
   "model_answer": "Je pars de leur problème (déploiements risqués, pannes, sauvegardes douteuses) plutôt que des outils. Je parle en risque et en coût : une heure d'arrêt, une perte de données, du temps perdu en manipulations manuelles. Je montre comment l'automatisation et une infrastructure fiable réduisent ces risques, avec un exemple concret et mesurable, par exemple un déploiement qui passe de deux heures à cinq minutes."
+ },
+ {
+  "id": "iv-16-gha-secrets",
+  "role": "DevOps",
+  "question": "Comment sécurisez-vous un pipeline GitHub Actions ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "permissions minimales",
+    "permissions|moindre privilege"
+   ],
+   [
+    "actions tierces épinglées sur un SHA",
+    "sha"
+   ],
+   [
+    "secrets hors du code",
+    "secrets"
+   ],
+   [
+    "injection par les entrées de PR",
+    "injection|pull request|github.event"
+   ],
+   [
+    "OIDC plutôt que des clés statiques",
+    "oidc"
+   ]
+  ],
+  "model_answer": "Je mets permissions: contents: read au niveau du workflow et j'ouvre l'écriture seulement au job qui publie. J'épingle les actions tierces sur un SHA complet, car un tag peut être déplacé. Les secrets restent dans les secrets du dépôt ou de l'environnement, passés par env:, jamais écrits dans un run:. Je me méfie de l'injection : un titre de pull request ou github.event dans un script peut exécuter du shell. Pour le cloud, j'utilise OIDC avec un rôle limité plutôt que des clés statiques."
+ },
+ {
+  "id": "iv-17-gha-panne",
+  "role": "DevOps",
+  "question": "La CI est rouge un lundi matin et personne ne sait pourquoi. Comment procédez-vous ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "identifier job, étape et commit",
+    "etape|job|commit"
+   ],
+   [
+    "lire la première erreur",
+    "premiere erreur"
+   ],
+   [
+    "classer la panne",
+    "famille|classer|cause"
+   ],
+   [
+    "une correction à la fois",
+    "une chose a la fois|une correction a la fois"
+   ],
+   [
+    "plus de journaux en mode débogage",
+    "debug|debogage"
+   ]
+  ],
+  "model_answer": "Je regarde d'abord quel job, quelle étape et quel commit ont cassé, et sur quel déclencheur. Je lis la première erreur de l'étape rouge, pas la dernière ligne. Je classe la cause dans une famille : déclencheur, YAML, cache, dépendance entre jobs, permissions ou secret. Je corrige une chose à la fois et je relance. Si ce n'est pas clair, je relance avec le mode debug pour voir les commandes internes, puis je note la cause dans la PR."
+ },
+ {
+  "id": "iv-18-k8s-crashloop",
+  "role": "DevOps",
+  "question": "Un pod est en CrashLoopBackOff. Comment trouvez-vous la cause ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "describe et les Events",
+    "describe|events"
+   ],
+   [
+    "logs --previous",
+    "previous"
+   ],
+   [
+    "OOMKilled et code 137",
+    "oom|137"
+   ],
+   [
+    "sondes et configuration",
+    "sonde|probe|liveness|variable|secret"
+   ]
+  ],
+  "model_answer": "Je commence par kubectl describe pod pour lire les Events et le Last State. Ensuite kubectl logs --previous montre les journaux du conteneur qui vient de mourir. Si le Last State dit OOMKilled avec le code 137, c'est la limite mémoire. Sinon je cherche côté application : une variable ou un secret manquant, ou une sonde liveness trop agressive qui tue un conteneur lent à démarrer."
+ },
+ {
+  "id": "iv-19-k8s-zero-downtime",
+  "role": "DevOps",
+  "question": "Comment mettez-vous à jour une application sur Kubernetes sans coupure ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "rolling update",
+    "rolling"
+   ],
+   [
+    "readiness probe",
+    "readiness"
+   ],
+   [
+    "maxUnavailable à 0",
+    "maxunavailable"
+   ],
+   [
+    "PodDisruptionBudget",
+    "poddisruptionbudget|pdb"
+   ],
+   [
+    "retour arrière",
+    "rollout undo|retour arriere|rollback"
+   ]
+  ],
+  "model_answer": "J'utilise un rolling update avec maxUnavailable à 0 et maxSurge à 1 : un nouveau pod démarre avant qu'un ancien parte. La readiness probe empêche d'envoyer du trafic à un pod pas encore prêt. Un PodDisruptionBudget garde des réplicas pendant les maintenances de nœuds. Je surveille avec kubectl rollout status et, si ça se passe mal, kubectl rollout undo fait le retour arrière."
+ },
+ {
+  "id": "iv-20-k8s-requests",
+  "role": "DevOps",
+  "question": "À quoi servent requests et limits dans Kubernetes ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "requests pour la planification",
+    "planif|scheduler|placement"
+   ],
+   [
+    "limits plafond",
+    "plafond|maximum|limite"
+   ],
+   [
+    "mémoire dépassée : OOMKilled",
+    "oom"
+   ],
+   [
+    "CPU dépassé : ralenti",
+    "throttl|ralenti|bride"
+   ]
+  ],
+  "model_answer": "Les requests servent à la planification : le scheduler place le pod sur un nœud qui a cette capacité libre. Les limits sont un plafond. Au-delà de la limite mémoire, le conteneur est tué, OOMKilled. Au-delà de la limite CPU, il est seulement ralenti, bridé par throttling. Sans requests, le cluster place les pods à l'aveugle."
+ },
+ {
+  "id": "iv-21-k8s-rbac",
+  "role": "DevOps",
+  "question": "Comment limitez-vous ce qu'une application peut faire dans un cluster Kubernetes ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "ServiceAccount dédié",
+    "serviceaccount"
+   ],
+   [
+    "Role et RoleBinding",
+    "rolebinding|role"
+   ],
+   [
+    "verbes et ressources minimaux",
+    "verbe|get|list|moindre"
+   ],
+   [
+    "NetworkPolicy",
+    "networkpolicy|reseau"
+   ],
+   [
+    "securityContext non-root",
+    "runasnonroot|non-root|securitycontext"
+   ]
+  ],
+  "model_answer": "Chaque application a son ServiceAccount dédié. Je lui donne un Role limité au namespace avec les seuls verbes nécessaires, par exemple get et list sur les configmaps, relié par un RoleBinding. Je ferme le réseau avec une NetworkPolicy qui refuse tout par défaut. Enfin le securityContext impose runAsNonRoot et retire les capacités Linux."
+ },
+ {
+  "id": "iv-22-tf-state",
+  "role": "DevOps",
+  "question": "Pourquoi stocker le state Terraform à distance, et quels risques présente-t-il ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "travail en équipe",
+    "equipe|partage"
+   ],
+   [
+    "verrou contre deux apply",
+    "verrou|lock"
+   ],
+   [
+    "contient des secrets",
+    "secret|sensible"
+   ],
+   [
+    "chiffrement et accès restreint",
+    "chiffr|encrypt|acces"
+   ],
+   [
+    "jamais dans Git",
+    "git"
+   ]
+  ],
+  "model_answer": "Le state décrit ce que Terraform gère. En local, chacun aurait sa version : un backend distant permet le travail en équipe. Le verrou empêche deux apply simultanés de corrompre le state. Le state contient des valeurs sensibles, même les secrets marqués sensitive, donc il est chiffré, avec un accès restreint, et il ne va jamais dans Git."
+ },
+ {
+  "id": "iv-23-tf-plan",
+  "role": "DevOps",
+  "question": "Le plan Terraform annonce des destructions inattendues. Que faites-vous ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "ne pas appliquer",
+    "ne pas appliquer|pas d'apply|n'applique pas"
+   ],
+   [
+    "lire forces replacement",
+    "forces replacement"
+   ],
+   [
+    "moved pour un renommage",
+    "moved"
+   ],
+   [
+    "count vers for_each",
+    "for_each|count"
+   ],
+   [
+    "prevent_destroy",
+    "prevent_destroy"
+   ]
+  ],
+  "model_answer": "Je n'applique pas. Je lis chaque ressource en -/+ et la ligne forces replacement qui dit quel attribut déclenche le remplacement. Souvent c'est un renommage sans bloc moved, ou une liste en count où retirer un élément décale les index : for_each sur des clés règle ça. Pour les données critiques, prevent_destroy bloque toute destruction accidentelle."
+ },
+ {
+  "id": "iv-24-tf-modules",
+  "role": "DevOps",
+  "question": "Comment structurez-vous un projet Terraform pour plusieurs environnements ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "modules réutilisables",
+    "module"
+   ],
+   [
+    "un state par environnement",
+    "state|backend|key"
+   ],
+   [
+    "variables et tfvars",
+    "tfvars|variable"
+   ],
+   [
+    "versions épinglées",
+    "version|ref="
+   ],
+   [
+    "CI plan puis apply",
+    "plan|ci"
+   ]
+  ],
+  "model_answer": "Je mets la logique dans des modules réutilisables avec un contrat clair de variables et d'outputs. Chaque environnement a son dossier ou son fichier tfvars et surtout son propre state, avec une key distincte dans le backend. Les providers et les modules ont des versions épinglées, ?ref= pour Git. La CI lance plan sur la pull request et apply seulement après fusion, avec une approbation pour la production."
+ },
+ {
+  "id": "iv-25-ansible-idempotence",
+  "role": "DevOps",
+  "question": "Comment garantissez-vous qu'un playbook Ansible est idempotent ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "modules à état",
+    "module|state"
+   ],
+   [
+    "éviter shell ou les encadrer",
+    "shell|command|creates|changed_when"
+   ],
+   [
+    "deuxième passage changed=0",
+    "changed=0|deuxieme"
+   ],
+   [
+    "check et diff",
+    "check|diff"
+   ]
+  ],
+  "model_answer": "J'utilise des modules qui décrivent un état, avec state: present ou un template, plutôt que shell. Quand une commande est inévitable, je l'encadre avec creates ou changed_when. Le test simple est le deuxième passage : il doit afficher changed=0 partout. Avant de toucher la production, --check --diff montre ce qui changerait."
+ },
+ {
+  "id": "iv-26-ansible-vault",
+  "role": "DevOps",
+  "question": "Comment gérez-vous les secrets dans un projet Ansible ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "Ansible Vault",
+    "vault"
+   ],
+   [
+    "mot de passe du coffre hors dépôt",
+    "hors du depot|hors depot|vault-password-file|secret de la ci"
+   ],
+   [
+    "no_log",
+    "no_log"
+   ],
+   [
+    "changer un secret exposé",
+    "changer|rotation|faire tourner"
+   ]
+  ],
+  "model_answer": "Les secrets sont chiffrés avec Ansible Vault, dans un vault.yml référencé par des variables claires. Le mot de passe du coffre reste hors du dépôt : un fichier lu par --vault-password-file, ou un secret de la CI. Les tâches qui manipulent un secret ont no_log: true, sinon -v ou une erreur l'affichent. Un secret qui a fuité dans un journal, je le fais changer, la rotation n'est pas optionnelle."
+ },
+ {
+  "id": "iv-27-ansible-rolling",
+  "role": "DevOps",
+  "question": "Comment mettez-vous à jour 50 serveurs avec Ansible sans coupure ?",
+  "time_limit": 120,
+  "keywords": [
+   [
+    "serial par lots",
+    "serial"
+   ],
+   [
+    "arrêt au premier échec",
+    "max_fail_percentage"
+   ],
+   [
+    "sortir du répartiteur",
+    "repartiteur|load balancer|drain"
+   ],
+   [
+    "vérification de santé",
+    "sante|health|until"
+   ]
+  ],
+  "model_answer": "J'utilise serial pour avancer par lots, par exemple 1 serveur puis 10 %, avec max_fail_percentage à 0 pour s'arrêter au premier échec. En pre_tasks je sors le serveur du répartiteur avec delegate_to localhost. Après le déploiement, une vérification de santé avec uri et until attend que l'application réponde, puis seulement je le remets en service."
+ },
+ {
+  "id": "iv-28-tf-vs-ansible",
+  "role": "DevOps",
+  "question": "Terraform ou Ansible : lequel utilisez-vous, et pour quoi ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "Terraform pour l'infrastructure",
+    "infrastructure"
+   ],
+   [
+    "Ansible pour la configuration",
+    "configur"
+   ],
+   [
+    "state contre sans state",
+    "state"
+   ],
+   [
+    "reliés par l'inventaire",
+    "inventaire"
+   ]
+  ],
+  "model_answer": "Les deux, pour des rôles différents. Terraform gère le cycle de vie de l'infrastructure : réseaux, machines, bases managées, avec un state qui mémorise ce qu'il a créé. Ansible configure l'intérieur des machines, sans state, en SSH. Le pont est l'inventaire : Terraform expose les adresses en output, ou un inventaire dynamique interroge le cloud."
+ },
+ {
+  "id": "iv-29-docker-debug",
+  "role": "DevOps",
+  "question": "Un conteneur s'arrête dès son démarrage. Comment diagnostiquez-vous ?",
+  "time_limit": 90,
+  "keywords": [
+   [
+    "docker logs",
+    "logs"
+   ],
+   [
+    "code de sortie",
+    "code|137|exit"
+   ],
+   [
+    "inspect OOMKilled",
+    "inspect|oom"
+   ],
+   [
+    "tester depuis l'intérieur",
+    "exec|interieur|0.0.0.0"
+   ]
+  ],
+  "model_answer": "Je lis docker logs pour la dernière ligne avant l'arrêt, puis le code de sortie : 137 veut dire SIGKILL, souvent la mémoire, ce que docker inspect confirme avec OOMKilled. Un code 0 signale un CMD qui n'est pas un serveur. S'il tourne mais ne répond pas, je teste avec docker exec depuis l'intérieur : s'il répond dedans et pas dehors, il écoute sur 127.0.0.1 au lieu de 0.0.0.0."
  }
 ]

@@ -1,0 +1,67 @@
+[
+ {
+  "id": "ci7-q1",
+  "text": "Un job échoue avec 50 lignes de journal rouge. Par où commencer ?",
+  "options": [
+   "Relancer jusqu'à ce que ça passe",
+   "La première erreur de l'étape en échec, pas la dernière ligne",
+   "Supprimer le cache",
+   "Lire le workflow de haut en bas"
+  ],
+  "answer": 1,
+  "explain": "Les erreurs suivantes sont souvent des conséquences de la première. On cherche la première ligne Error de l'étape rouge.",
+  "remedial_lesson_id": "ci7"
+ },
+ {
+  "id": "ci7-q2",
+  "text": "python-version: 3.10 installe Python 3.1. Pourquoi ?",
+  "options": [
+   "Un bug de setup-python",
+   "YAML lit 3.10 comme le nombre 3.1 : il faut des guillemets",
+   "La version 3.10 n'existe plus",
+   "Le runner est trop ancien"
+  ],
+  "answer": 1,
+  "explain": "Sans guillemets, YAML convertit 3.10 en flottant 3.1. Toute version doit s'écrire en chaîne : \"3.10\".",
+  "remedial_lesson_id": "ci7"
+ },
+ {
+  "id": "ci7-q3",
+  "text": "Une pull request n'a lancé aucun check. Cause la plus probable ?",
+  "options": [
+   "Le runner est saturé",
+   "Le bloc on: ne contient pas pull_request ou vise une mauvaise branche",
+   "Le dépôt est privé",
+   "Le cache est plein"
+  ],
+  "answer": 1,
+  "explain": "Aucun run du tout signifie que le déclencheur ne correspond pas : on:, branches, paths ou un workflow placé hors de .github/workflows.",
+  "remedial_lesson_id": "ci7"
+ },
+ {
+  "id": "ci7-q4",
+  "text": "HTTP 403 « Resource not accessible by integration » sur gh release create. Que corriger ?",
+  "options": [
+   "Créer un jeton personnel avec tous les droits",
+   "Donner permissions: contents: write au job qui publie",
+   "Rendre le dépôt public",
+   "Désactiver la protection de branche"
+  ],
+  "answer": 1,
+  "explain": "Le GITHUB_TOKEN n'a que les droits déclarés. On ajoute contents: write au seul job qui en a besoin, le reste reste en lecture.",
+  "remedial_lesson_id": "ci7"
+ },
+ {
+  "id": "ci7-q5",
+  "text": "Comment obtenir des journaux plus détaillés d'un run en échec ?",
+  "options": [
+   "Ajouter set -x partout et pousser",
+   "« Re-run jobs » avec « Enable debug logging », ou le secret ACTIONS_STEP_DEBUG à true",
+   "Lancer le workflow en local avec sudo",
+   "Contacter le support GitHub"
+  ],
+  "answer": 1,
+  "explain": "Le mode débogage affiche les commandes internes des actions. Il se coupe ensuite pour ne pas alourdir les journaux.",
+  "remedial_lesson_id": "ci7"
+ }
+]

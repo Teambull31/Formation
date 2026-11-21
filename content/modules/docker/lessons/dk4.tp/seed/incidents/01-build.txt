@@ -1,0 +1,12 @@
+$ docker compose build api
+ => [internal] load .dockerignore                                    0.0s
+ => [internal] load build context                                    0.1s
+ => => transferring context: 412B                                    0.0s
+ => ERROR [3/6] COPY app/requirements.txt .                          0.0s
+------
+ > [3/6] COPY app/requirements.txt .:
+------
+failed to solve: failed to compute cache key: "/app/requirements.txt": not found
+
+$ ls app/
+main.py  requirements.txt

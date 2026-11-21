@@ -1,0 +1,8 @@
+Hier, tout fonctionnait. Ce matin, après docker compose pull :
+
+$ docker compose logs proxy | tail -3
+nginx: [emerg] unknown directive "http2_push_preload" in /etc/nginx/conf.d/default.conf:12
+nginx: configuration file /etc/nginx/nginx.conf test failed
+
+$ docker image inspect nginx:latest --format '{{.Created}}'
+2026-11-20T23:14:02Z        (publiée cette nuit)

@@ -766,6 +766,49 @@ def check_tf_workflow(path: str) -> None:
         need(plan[0] in needs, f"workflow : le job {j} attend le plan (needs: {plan[0]})")
 
 
+# ---- tf7 : répare la panne ----
+
+TF7_CAUSES = {"provider": "version", "tfvars": "validation", "logs": "renommage", "servers": "index", "config": "derive"}
+
+
+def check_tf7() -> None:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # avant le _yaml du système (PyYAML)
+    from _yaml import YamlError, load
+    try:
+        diag = load(read_text("diagnostic.yaml"))
+    except YamlError as e:
+        raise CheckError(f"diagnostic.yaml n'est pas un YAML valide : {e}") from None
+    need(isinstance(diag, dict), "diagnostic.yaml : une correspondance composant: cause est attendue")
+    for comp, cause in TF7_CAUSES.items():
+        got = str(diag.get(comp, "?")).strip().lower()
+        need(got != "?", f"diagnostic.yaml : donnez une cause pour {comp}")
+        need(got == cause, f"diagnostic.yaml : la cause de {comp} n'est pas la bonne, relisez le fichier d'incident correspondant")
+    blocks = module_blocks()
+    tf = [b for b in blocks if b.type == "terraform"]
+    need(tf, "main.tf : gardez le bloc terraform")
+    rp = [b for b in tf[0].blocks if b.type == "required_providers"]
+    need(rp and rp[0].attrs.get("local"), "main.tf : gardez le provider local dans required_providers")
+    ver = literal(parse_object(rp[0].attrs["local"]).get("version")) or ""
+    need(version_ok(ver) and re.match(r"(~>|>=|=)?\s*2\.", ver),
+         "provider : aucune version 9.x n'existe, la dernière est 2.5.2 : version = \"~> 2.5\"")
+    env = literal(parse_file("prod.tfvars").attrs.get("environment"))
+    need(env in ("dev", "staging", "prod"), "prod.tfvars : environment doit respecter la validation (dev, staging ou prod), pas la variable à affaiblir")
+    var = [b for b in parse_file("variables.tf").blocks if b.type == "variable" and b.labels == ["environment"]]
+    need(var and [b for b in var[0].blocks if b.type == "validation"], "variables.tf : gardez la validation de environment")
+    res = {tuple(b.labels): b for b in blocks if b.type == "resource" and len(b.labels) == 2}
+    need(("local_file", "journaux") in res and ("local_file", "logs") not in res, "gardez le nouveau nom local_file.journaux")
+    need(any(b.type == "moved" and norm(b.attrs.get("from")) == "local_file.logs" and norm(b.attrs.get("to")) == "local_file.journaux"
+             for b in blocks),
+         "logs : sans moved { from = local_file.logs  to = local_file.journaux }, le plan détruit puis recrée le fichier")
+    srv = res.get(("local_file", "server"))
+    need(srv, "gardez la ressource local_file.server")
+    need("count" not in srv.attrs, "servers : count repère par position, retirer web-2 décale web-3 : utilisez for_each = toset(var.servers)")
+    need("var.servers" in code_of(srv.attrs.get("for_each", "")), "servers : for_each = toset(var.servers)")
+    need("each." in code_of(srv.attrs.get("filename", "")), "servers : filename doit utiliser each.key")
+    need(("local_file", "config") in res, "config : gardez local_file.config, le prochain apply le recrée (la dérive se corrige par le code, pas à la main)")
+    assert_no_hardcoded_secret()
+
+
 CHECKS = {
     "tf1": ([check_tf1], "main.tf est une configuration Terraform valide."),
     "tf2": ([check_tf2], "le contrat du module est correctement défini."),
@@ -773,6 +816,7 @@ CHECKS = {
     "tf4": ([check_tf4], "une seule ressource en for_each, des locals et un output calculé."),
     "tf5": ([check_tf5], "module appelé selon son contrat, sources épinglées, state distant verrouillé."),
     "tf6": ([check_tf6], "entrées validées, données protégées, renommage sans destruction et CI plan/apply."),
+    "tf7": ([check_tf7], "les cinq pannes sont diagnostiquées et le plan ne détruit plus rien."),
     # le boss est cumulatif : une phase ultérieure revérifie les précédentes
     "boss1": ([check_tf1], "phase 1 : la configuration de base est valide."),
     "boss2": ([check_tf1, check_tf2], "phase 2 : le module a un contrat clair."),

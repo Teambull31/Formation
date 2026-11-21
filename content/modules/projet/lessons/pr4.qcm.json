@@ -1,0 +1,67 @@
+[
+ {
+  "id": "pr4-q1",
+  "text": "Pourquoi un backend distant même pour un projet personnel ?",
+  "options": [
+   "Pour la vitesse",
+   "Le state ne vit pas sur un seul poste, il est verrouillé et chiffré",
+   "Pour éviter le plan",
+   "Parce que local ne marche pas"
+  ],
+  "answer": 1,
+  "explain": "Un state local se perd avec le poste et ne se partage pas.",
+  "remedial_lesson_id": "pr4"
+ },
+ {
+  "id": "pr4-q2",
+  "text": "Quel fichier doit rester versionné dans infra/ ?",
+  "options": [
+   "terraform.tfstate",
+   "Le fichier de verrouillage .terraform.lock.hcl",
+   "Le dossier .terraform/",
+   "Les tfvars de production"
+  ],
+  "answer": 1,
+  "explain": "Le lock fige les versions des providers pour toute l'équipe.",
+  "remedial_lesson_id": "pr4"
+ },
+ {
+  "id": "pr4-q3",
+  "text": "Comment Ansible saura-t-il quels serveurs configurer ?",
+  "options": [
+   "En les devinant",
+   "Par un output Terraform (ou un inventaire dynamique)",
+   "Par le README",
+   "Par Docker"
+  ],
+  "answer": 1,
+  "explain": "L'output est le contrat entre l'infrastructure et la configuration.",
+  "remedial_lesson_id": "pr4"
+ },
+ {
+  "id": "pr4-q4",
+  "text": "Pourquoi valider var.environment ?",
+  "options": [
+   "Pour le style",
+   "Une faute de frappe (production au lieu de prod) échoue tout de suite au plan",
+   "Pour accélérer",
+   "Terraform l'exige"
+  ],
+  "answer": 1,
+  "explain": "La validation arrête une erreur avant qu'elle ne crée des ressources mal nommées.",
+  "remedial_lesson_id": "pr4"
+ },
+ {
+  "id": "pr4-q5",
+  "text": "Où mettre les identifiants du cloud pour le backend ?",
+  "options": [
+   "Dans main.tf",
+   "Dans l'environnement ou via OIDC, jamais dans le code",
+   "Dans le README",
+   "Dans un tfvars versionné"
+  ],
+  "answer": 1,
+  "explain": "Un identifiant dans le code finit dans Git et dans le state.",
+  "remedial_lesson_id": "pr4"
+ }
+]

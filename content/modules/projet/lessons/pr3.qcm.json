@@ -1,0 +1,67 @@
+[
+ {
+  "id": "pr3-q1",
+  "text": "La CI publie ghcr.io/moi/commandes:3f2a9c1. Que mettre dans le Deployment ?",
+  "options": [
+   "commandes:latest",
+   "Exactement cette image, avec ce SHA",
+   "Une image Docker Hub",
+   "Rien, Kubernetes devine"
+  ],
+  "answer": 1,
+  "explain": "Le Deployment référence l'artefact construit et testé par la CI : c'est le lien entre les deux.",
+  "remedial_lesson_id": "pr3"
+ },
+ {
+  "id": "pr3-q2",
+  "text": "Pourquoi une readinessProbe sur /healthz ?",
+  "options": [
+   "Pour redémarrer le pod",
+   "Pour n'envoyer du trafic qu'aux pods prêts",
+   "Pour les journaux",
+   "Pour la mémoire"
+  ],
+  "answer": 1,
+  "explain": "Readiness filtre le trafic ; liveness redémarre un conteneur bloqué.",
+  "remedial_lesson_id": "pr3"
+ },
+ {
+  "id": "pr3-q3",
+  "text": "Le Service ne trouve aucun pod. Première vérification ?",
+  "options": [
+   "La version de Kubernetes",
+   "Le sélecteur du Service face aux étiquettes du modèle de pod",
+   "Le nombre de nœuds",
+   "Le registre"
+  ],
+  "answer": 1,
+  "explain": "Un sélecteur qui ne correspond pas donne un Service sans endpoints.",
+  "remedial_lesson_id": "pr3"
+ },
+ {
+  "id": "pr3-q4",
+  "text": "À quoi sert kustomization.yaml ici ?",
+  "options": [
+   "À chiffrer",
+   "Lister les manifestes et permettre kubectl apply -k, puis des variantes par environnement",
+   "À remplacer le Deployment",
+   "À créer le cluster"
+  ],
+  "answer": 1,
+  "explain": "Kustomize assemble les ressources et superpose des différences par environnement.",
+  "remedial_lesson_id": "pr3"
+ },
+ {
+  "id": "pr3-q5",
+  "text": "Pourquoi kind pour ce TP ?",
+  "options": [
+   "Il est payant",
+   "Un vrai cluster Kubernetes local, dans Docker, jetable",
+   "Il remplace kubectl",
+   "Il n'a pas d'API"
+  ],
+  "answer": 1,
+  "explain": "kind crée un cluster complet en une commande, idéal pour tester.",
+  "remedial_lesson_id": "pr3"
+ }
+]

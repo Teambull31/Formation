@@ -1,0 +1,20 @@
+{
+  "id": "tf7-tp",
+  "title": "TP 7 : le plan qui veut tout détruire",
+  "instructions_md": "La CI de l'infrastructure est bloquée et le dernier plan annonce **3 destructions**. Personne n'ose lancer `apply`. Le dossier **incidents/** contient les sorties relevées.\n\n1. Lisez chaque fichier (`cat incidents/01-init.txt`, puis les suivants).\n2. Dans **diagnostic.yaml**, donnez pour chaque composant (`provider`, `tfvars`, `logs`, `servers`, `config`) une cause parmi : `renommage`, `index`, `version`, `validation`, `derive`.\n3. Réparez le code :\n   - `terraform init` trouve une version existante du provider local ;\n   - **prod.tfvars** respecte la validation (sans affaiblir la validation) ;\n   - le renommage de `logs` en `journaux` ne détruit plus rien ;\n   - retirer un serveur de la liste ne décale plus les autres ;\n   - `config` : rien à réparer dans le code, mais à diagnostiquer.\n\nLe contrôle lit vos fichiers. Si `terraform` est installé, vérifiez pour de vrai : `terraform init && terraform plan -var-file=prod.tfvars`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "« no available releases match ~> 9.0 » : la contrainte vise une version qui n'existe pas. La liste des versions est dans 01-init.txt.",
+    "« is not in configuration » + « will be created » sous un autre nom : un renommage sans bloc moved. Un décalage [1] → [2] après un retrait au milieu : count indexe par position.",
+    "`for_each = toset(var.servers)` et `filename = \"${local.out_dir}/${each.key}.conf\"`. `moved { from = local_file.logs  to = local_file.journaux }`. La dérive de config vient d'une suppression à la main : le prochain apply la répare."
+  ],
+  "timeout_s": 20,
+  "workspace": "tf7",
+  "seed": [
+    "seed/incidents",
+    "seed/main.tf",
+    "seed/variables.tf",
+    "seed/prod.tfvars",
+    "seed/diagnostic.yaml"
+  ]
+}

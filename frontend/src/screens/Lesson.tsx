@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, checkTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
+  answerQcm, audioUrl, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
@@ -99,6 +99,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
   const [hint, setHint] = useState('')
   const [level, setLevel] = useState(1)
   const [check, setCheck] = useState<{ passed: boolean; output: string } | null>(null)
+  const [real, setReal] = useState<{ passed: boolean; output: string } | null>(null)
   const [done, setDone] = useState<string[]>(initiallyDone && kind ? [kind] : [])
   const [answered, setAnswered] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -159,11 +160,14 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
                   checkTp(tp.id).then((r) => { setCheck(r); if (r.passed) return mark('tp') }).catch(guard))}>Vérifier</button>
                 <button className="btn ghost" disabled={busy} onClick={() => run(() =>
                   getHint(tp.id, level).then((h) => { setHint(h.hint); setLevel(level + 1) }).catch(guard))}>Indice (-10 XP)</button>
+                {tp.real && <button className="btn ghost" disabled={busy} onClick={() => run(() =>
+                  realTp(tp.id).then(setReal).catch(guard))}>Vrais outils</button>}
               </div>
             </>
           ) : <p className="note">Le terminal et la vérification sont réservés à l'ordinateur.</p>}
           {hint && <p className="out" role="status">{hint}</p>}
           {check && <><p>{check.passed ? 'TP validé.' : 'TP non validé.'}</p><pre className="out">{check.output}</pre></>}
+          {real && <><p>{real.passed ? 'Les vrais outils acceptent votre travail.' : 'Labo réel : à corriger (ou outil absent).'}</p><pre className="out">{real.output}</pre></>}
         </>
       )}
       {local && <Feynman lessonId={les.id} title={les.title} />}

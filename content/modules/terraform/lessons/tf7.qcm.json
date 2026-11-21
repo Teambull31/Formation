@@ -1,0 +1,67 @@
+[
+ {
+  "id": "tf7-q1",
+  "text": "Le plan affiche « will be destroyed (because local_file.logs is not in configuration) » et une création sous un autre nom. Que faire ?",
+  "options": [
+   "Lancer apply, c'est un simple fichier",
+   "Ajouter un bloc moved { from = ancien  to = nouveau }",
+   "Supprimer le state",
+   "Revenir à count"
+  ],
+  "answer": 1,
+  "explain": "Un renommage change l'adresse dans le state. moved dit à Terraform que c'est le même objet : rien n'est détruit.",
+  "remedial_lesson_id": "tf7"
+ },
+ {
+  "id": "tf7-q2",
+  "text": "Retirer web-2 d'une liste en count remplace web-3. Pourquoi ?",
+  "options": [
+   "Un bug du provider",
+   "count repère par position : web-3 passe de l'index 2 à 1",
+   "Le state est corrompu",
+   "La liste est triée"
+  ],
+  "answer": 1,
+  "explain": "Avec count, l'adresse est l'index. for_each sur un ensemble repère par clé : retirer un élément ne touche que lui.",
+  "remedial_lesson_id": "tf7"
+ },
+ {
+  "id": "tf7-q3",
+  "text": "« Invalid value for variable » sur environment = \"production\". Bonne réaction ?",
+  "options": [
+   "Retirer la validation",
+   "Corriger la valeur dans le tfvars : la validation fait son travail",
+   "Ajouter production à la liste sans réfléchir",
+   "Passer -lock=false"
+  ],
+  "answer": 1,
+  "explain": "La validation protège les noms attendus ailleurs (étiquettes, buckets). On corrige l'entrée, pas le garde-fou.",
+  "remedial_lesson_id": "tf7"
+ },
+ {
+  "id": "tf7-q4",
+  "text": "« Objects have changed outside of Terraform » : un fichier a été supprimé à la main. Que se passe-t-il au prochain apply ?",
+  "options": [
+   "Terraform plante",
+   "Terraform recrée l'objet pour revenir à l'état décrit par le code",
+   "Terraform supprime la ressource du code",
+   "Rien, la dérive est ignorée"
+  ],
+  "answer": 1,
+  "explain": "Le code est la source de vérité. La dérive se corrige dans le code (si elle était voulue) ou par apply (si elle ne l'était pas).",
+  "remedial_lesson_id": "tf7"
+ },
+ {
+  "id": "tf7-q5",
+  "text": "Le plan de la CI annonce des destructions inattendues. Que faire avant tout ?",
+  "options": [
+   "Lancer apply pour voir",
+   "Ne pas appliquer, lire le plan ressource par ressource et chercher la cause",
+   "Supprimer le dossier .terraform",
+   "Forcer le déverrouillage du state"
+  ],
+  "answer": 1,
+  "explain": "Un plan inattendu est un signal. On lit chaque ligne -/+ et « forces replacement » pour trouver l'attribut qui déclenche le remplacement.",
+  "remedial_lesson_id": "tf7"
+ }
+]

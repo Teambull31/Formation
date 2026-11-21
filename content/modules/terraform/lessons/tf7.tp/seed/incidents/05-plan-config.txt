@@ -1,0 +1,10 @@
+Note: Objects have changed outside of Terraform
+
+Terraform detected the following changes made outside of Terraform since the last "terraform apply":
+
+  # local_file.config has been deleted
+  - resource "local_file" "config" {
+      - filename = "./out/app.conf" -> null
+    }
+
+Message de l'astreinte sur le canal : « j'ai supprimé out/app.conf à la main cette nuit pour tester un correctif ».

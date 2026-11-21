@@ -1,0 +1,6 @@
+# Pour chaque composant, une cause parmi : renommage, index, version, validation, derive
+provider: ?
+tfvars: ?
+logs: ?
+servers: ?
+config: ?

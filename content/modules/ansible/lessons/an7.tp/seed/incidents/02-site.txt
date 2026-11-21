@@ -1,0 +1,6 @@
+TASK [Déposer la configuration du site] **********************
+changed: [web1]
+ERROR! The requested handler 'recharger nginx' was not found in either the main handlers list nor in the listening handlers list
+
+$ curl -sI https://web1.shop.example.test | head -1
+HTTP/1.1 200 OK        (mais l'ancienne configuration est toujours servie)

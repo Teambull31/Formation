@@ -1,0 +1,14 @@
+{
+  "id": "pr5-tp",
+  "title": "TP 5 : Ansible et le README",
+  "instructions_md": "Dernière étape :\n\n1. **ansible/inventory.ini** : vos serveurs rangés en groupe, sans aucun mot de passe.\n2. **ansible/site.yml** : installe Docker, dépose un service systemd depuis un template, le démarre, et le redémarre par un **handler** quand le fichier change ; un serveur à la fois (`serial: 1`).\n3. **README.md** à la racine, avec les sections Architecture, Démarrer et Déployer : c'est ce que lira un recruteur.\n4. Poussez tout sur GitHub, vérifiez que la CI est verte, et épinglez le dépôt sur votre profil.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Chaque fichier déposé a `owner`, `group` et `mode: \"0644\"` entre guillemets.",
+    "notify et le name du handler identiques, majuscule comprise ; `ansible.builtin.systemd_service` avec `daemon_reload: true`.",
+    "README : titres `## Architecture`, `## Démarrer en local`, `## Déployer`, et quelques phrases sur chaque dossier."
+  ],
+  "timeout_s": 20,
+  "workspace": "fil-rouge",
+  "seed": []
+}

@@ -1,0 +1,20 @@
+{
+  "id": "an7-tp",
+  "title": "TP 7 : le parc qui dérape",
+  "instructions_md": "Le déploiement de ce matin a laissé le parc dans un état bizarre : un fichier grossit à chaque passage, nginx sert l'ancienne configuration, la base est injoignable, un serveur plante sur le pare-feu et un mot de passe traîne dans les journaux. Le dossier **incidents/** contient les sorties relevées.\n\n1. Lisez chaque fichier (`cat incidents/01-deuxieme-passage.txt`, puis les suivants).\n2. Dans **diagnostic.yaml**, donnez pour chaque composant (`compression`, `site`, `db1`, `pare-feu`, `comptes`) une cause parmi : `idempotence`, `handler`, `inventaire`, `condition`, `fuite`.\n3. Réparez **inventory.ini** et **site.yml** :\n   - la compression est décrite par un état, pas par une commande ;\n   - nginx est rechargé quand sa configuration change ;\n   - db1 pointe vers son adresse réelle ;\n   - la condition du pare-feu marche sur Debian comme sur Rocky ;\n   - le mot de passe n'apparaît plus jamais dans un journal.\n\nLe contrôle lit vos fichiers. Si Ansible est installé : `ansible-playbook -i inventory.ini site.yml --syntax-check`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "changed à chaque passage et un fichier de 14 lignes : une commande qui ajoute (>>) au lieu d'un état. ansible.builtin.copy avec content: et dest: suffit.",
+    "« handler 'recharger nginx' was not found » : notify et name du handler doivent être identiques, majuscule comprise. L'adresse réelle de db1 est dans la sortie terraform de 03-db1.txt.",
+    "when: ansible_os_family == \"Debian\" sans accolades. `no_log: true` au niveau de la tâche postgresql_user, à côté de son name."
+  ],
+  "timeout_s": 20,
+  "workspace": "an7",
+  "seed": [
+    "seed/incidents",
+    "seed/templates",
+    "seed/inventory.ini",
+    "seed/site.yml",
+    "seed/diagnostic.yaml"
+  ]
+}

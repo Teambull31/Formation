@@ -1,0 +1,6 @@
+# Pour chaque composant, une cause parmi : idempotence, handler, inventaire, condition, fuite
+compression: ?
+site: ?
+db1: ?
+pare-feu: ?
+comptes: ?

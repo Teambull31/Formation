@@ -1,0 +1,67 @@
+[
+ {
+  "id": "dk4-q1",
+  "text": "Un conteneur affiche Exited (137). Première hypothèse ?",
+  "options": [
+   "Une erreur de syntaxe Python",
+   "Il a été tué par SIGKILL, souvent par manque de mémoire (OOMKilled)",
+   "Le port est déjà pris",
+   "L'image n'existe pas"
+  ],
+  "answer": 1,
+  "explain": "137 = 128 + 9 (SIGKILL). docker inspect --format '{{.State.OOMKilled}}' confirme si c'est la mémoire.",
+  "remedial_lesson_id": "dk4"
+ },
+ {
+  "id": "dk4-q2",
+  "text": "curl échoue depuis l'hôte mais fonctionne avec docker exec dans le conteneur. Cause ?",
+  "options": [
+   "Le pare-feu de l'hôte",
+   "L'application écoute sur 127.0.0.1 dans le conteneur au lieu de 0.0.0.0",
+   "L'image est trop grosse",
+   "Le volume est plein"
+  ],
+  "answer": 1,
+  "explain": "127.0.0.1 dans un conteneur est sa propre boucle locale : le trafic redirigé par -p n'y arrive pas. Il faut écouter sur 0.0.0.0.",
+  "remedial_lesson_id": "dk4"
+ },
+ {
+  "id": "dk4-q3",
+  "text": "COPY requirements.txt échoue avec « not found » alors que le fichier est là. Où regarder ?",
+  "options": [
+   "Dans le registre",
+   "Dans .dockerignore : le fichier est exclu du contexte de build",
+   "Dans docker-compose.yml",
+   "Dans les journaux du conteneur"
+  ],
+  "answer": 1,
+  "explain": "Le build ne voit que le contexte envoyé au démon. Un motif de .dockerignore trop large retire le fichier.",
+  "remedial_lesson_id": "dk4"
+ },
+ {
+  "id": "dk4-q4",
+  "text": "Après docker compose down puis up, la base est vide. Pourquoi ?",
+  "options": [
+   "Postgres efface ses données au démarrage",
+   "Les données étaient dans la couche du conteneur, supprimée avec lui : il manque un volume",
+   "Le mot de passe a changé",
+   "Le réseau a été recréé"
+  ],
+  "answer": 1,
+  "explain": "La couche inscriptible disparaît avec le conteneur. Un volume nommé sur le dossier de données survit.",
+  "remedial_lesson_id": "dk4"
+ },
+ {
+  "id": "dk4-q5",
+  "text": "Tout marchait hier, rien n'a changé dans le dépôt, et ce matin le conteneur casse après un pull. Suspect principal ?",
+  "options": [
+   "Le noyau Linux",
+   "Une image en tag flottant (latest) republiée cette nuit",
+   "Le cache de build",
+   "Le fichier .env"
+  ],
+  "answer": 1,
+  "explain": "latest pointe vers la dernière publication. Un tag précis ou un digest @sha256 rend le déploiement reproductible.",
+  "remedial_lesson_id": "dk4"
+ }
+]

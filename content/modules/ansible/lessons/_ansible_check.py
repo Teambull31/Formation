@@ -429,6 +429,55 @@ def check_an6() -> None:
          "workflow : une étape lance ansible-playbook ... deploy.yml --syntax-check")
 
 
+# ---- an7 : répare la panne ----
+
+AN7_CAUSES = {"compression": "idempotence", "site": "handler", "db1": "inventaire", "pare-feu": "condition", "comptes": "fuite"}
+
+
+def check_an7() -> None:
+    diag = var_file("diagnostic.yaml")
+    for comp, cause in AN7_CAUSES.items():
+        got = str(diag.get(comp, "?")).strip().lower()
+        need(got != "?", f"diagnostic.yaml : donnez une cause pour {comp}")
+        need(got == cause, f"diagnostic.yaml : la cause de {comp} n'est pas la bonne, relisez le fichier d'incident correspondant")
+    hosts, _, hvars, gvars = inventory()
+    need("db1" in hosts.get("db", set()), "inventory.ini : gardez db1 dans le groupe db")
+    need(hvars.get("db1", {}).get("ansible_host") == "10.0.2.21",
+         "db1 : l'inventaire vise 10.0.2.12, injoignable ; Terraform donne l'adresse réelle (incidents/03-db1.txt)")
+    no_password_in_inventory(hvars, gvars)
+    plays = playbook("site.yml")
+    web = [p for p in plays if p.get("hosts") == "web"]
+    db = [p for p in plays if p.get("hosts") == "db"]
+    need(web and db, "site.yml : gardez les deux plays, web et db")
+    tasks = play_tasks(web[0], ("pre_tasks", "tasks", "post_tasks"))
+    handlers = task_list(web[0].get("handlers"), "handlers")
+    check_task_style(tasks + handlers, "site.yml")
+    for t in tasks:
+        if short(module_of(t)) in ("shell", "command", "raw"):
+            cmd = t[module_of(t)] if isinstance(t[module_of(t)], str) else str(args_of(t).get("cmd", ""))
+            need(">>" not in cmd, f"compression : « {t.get('name')} » ajoute une ligne à chaque passage : décrivez le fichier avec copy ou lineinfile")
+    gz = [t for t in tasks if short(module_of(t)) in ("copy", "lineinfile", "template")
+          and str(args_of(t).get("dest", args_of(t).get("path", ""))) == "/etc/nginx/conf.d/gzip.conf"]
+    need(gz, "compression : gérez /etc/nginx/conf.d/gzip.conf avec ansible.builtin.copy (ou lineinfile) : état décrit, pas commande")
+    check_file_modes(tasks, "site.yml")
+    check_idempotent_commands(tasks, "site.yml")
+    check_handlers(tasks, handlers, "site.yml")
+    need(notified(tasks), "site : la configuration doit notifier le handler qui recharge nginx")
+    fw = [t for t in tasks if short(module_of(t)) == "ufw"]
+    need(fw, "pare-feu : gardez la tâche qui ouvre le port 443")
+    cond = fw[0].get("when")
+    conds = cond if isinstance(cond, list) else [cond]
+    need(cond is not None and "ansible_os_family" in str(cond), "pare-feu : gardez une condition sur ansible_os_family (ufw n'existe que sur Debian)")
+    need(not any("{{" in str(c) or "{%" in str(c) for c in conds), "pare-feu : when est déjà une expression Jinja2, retirez les accolades")
+    dbt = [t for t in play_tasks(db[0]) if short(module_of(t)) == "postgresql_user"]
+    need(dbt, "comptes : gardez la tâche postgresql_user")
+    need(dbt[0].get("no_log") is True, "comptes : le mot de passe apparaît dans le journal de la CI : no_log: true sur cette tâche")
+    need("{{" in str(args_of(dbt[0]).get("password", "")), "comptes : le mot de passe vient du coffre (\"{{ vault_db_password }}\"), jamais en clair")
+    for f in yml_files():
+        if os.path.basename(f) != "diagnostic.yaml":
+            scan_plain_secrets(yaml_file(f), f)
+
+
 CHECKS = {
     "an1": ([check_an1], "inventaire rangé en groupes et premier playbook idempotent."),
     "an2": ([check_an2], "playbook idempotent, handler notifié et variables de groupe."),
@@ -436,6 +485,7 @@ CHECKS = {
     "an4": ([check_an4], "rôle nginx complet et dépendances épinglées."),
     "an5": ([check_an5], "secret chiffré au coffre, masqué à l'exécution, connexion vérifiée."),
     "an6": ([check_an6], "déploiement par lots qui s'arrête au premier échec, et CI de lint."),
+    "an7": ([check_an7], "les cinq pannes sont diagnostiquées et le playbook est sûr et idempotent."),
     # le boss est cumulatif : une phase ultérieure revérifie les précédentes
     "boss1": ([check_an4], "phase 1 : le rôle nginx est propre et réutilisable."),
     "boss2": ([check_an4, check_an5], "phase 2 : les secrets de la base sont au coffre."),

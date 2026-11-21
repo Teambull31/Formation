@@ -1,4 +1,4 @@
-"""Les contrôles des TP DevOps avancés (ci4-6, k4-7, tf4-6, an1-6) refusent chaque variante fautive de la solution."""
+"""Les contrôles des TP DevOps avancés (ci4-7, dk4, k4-7, tf4-7, an1-7) refusent chaque variante fautive de la solution."""
 import shutil
 import subprocess
 import sys
@@ -8,7 +8,8 @@ import pytest
 
 MODULES = Path(__file__).resolve().parents[2] / "content" / "modules"
 CHECKERS = {"ci": "cicd/lessons/_cicd_check.py", "k": "k8s/lessons/_k8s_check.py",
-            "tf": "terraform/lessons/_hcl_check.py", "an": "ansible/lessons/_ansible_check.py"}
+            "tf": "terraform/lessons/_hcl_check.py", "an": "ansible/lessons/_ansible_check.py",
+            "dk": "docker/lessons/_docker_check.py", "pr": "projet/lessons/_projet_check.py"}
 
 
 def _lesson_dir(tp: str) -> Path:
@@ -18,7 +19,10 @@ def _lesson_dir(tp: str) -> Path:
 def _solved(tmp_path: Path, tp: str) -> Path:
     tp_dir = _lesson_dir(tp) / f"{tp}.tp"
     ws = tmp_path / tp
-    shutil.copytree(tp_dir / "seed", ws)
+    if (tp_dir / "seed").is_dir():
+        shutil.copytree(tp_dir / "seed", ws)
+    else:  # étapes 2 à 5 du projet : le dossier se remplit par les solutions précédentes
+        ws.mkdir()
     subprocess.run(["bash", str(tp_dir / "solution.sh")], cwd=ws, check=True, capture_output=True, timeout=30,
                    env={"PATH": "/usr/bin:/bin", "LESSON_DIR": str(tp_dir)})
     return ws
@@ -141,6 +145,53 @@ MUT = [
     ("an6", "deploy.yml", "  max_fail_percentage: 0\n", "  max_fail_percentage: 50\n", "max_fail_percentage"),
     ("an6", ".github/workflows/ansible.yml", "ansible-lint==24.9.2", "ansible-lint", "épinglée"),
     ("an6", ".github/workflows/ansible.yml", "      - run: ansible-playbook -i inventory.ini deploy.yml --syntax-check\n", "", "syntax-check"),
+    # répare la panne : chaque panne remise en place est refusée
+    ("ci7", "diagnostic.yaml", "cache: cache", "cache: yaml", "la cause de cache"),
+    ("ci7", ".github/workflows/ci.yml", "branches: [main]", "branches: [master]", "main"),
+    ("ci7", ".github/workflows/ci.yml", "  pull_request:\n", "", "pull_request"),
+    ("ci7", ".github/workflows/ci.yml", 'python-version: "3.10"', "python-version: 3.10", "guillemets"),
+    ("ci7", ".github/workflows/ci.yml", "hashFiles('requirements/*.txt')", "hashFiles('requirements.txt')", "clé de cache"),
+    ("ci7", ".github/workflows/ci.yml", "    needs: [test]\n    if: github.ref", "    if: github.ref", "needs"),
+    ("ci7", ".github/workflows/ci.yml", "    permissions:\n      contents: write\n", "", "403"),
+    ("ci7", ".github/workflows/ci.yml", "permissions:\n  contents: read\njobs", "permissions: write-all\njobs", "contents: read"),
+    ("dk4", "diagnostic.yaml", "db: volume", "db: memoire", "la cause de db"),
+    ("dk4", ".dockerignore", ".git\n", ".git\n*.txt\napp/\n", "requirements.txt"),
+    ("dk4", ".dockerignore", ".env\n", "", ".env"),
+    ("dk4", "Dockerfile", '"0.0.0.0"', '"127.0.0.1"', "0.0.0.0"),
+    ("dk4", "docker-compose.yml", "mem_limit: 256m", "mem_limit: 16m", "128m"),
+    ("dk4", "docker-compose.yml", "    volumes:\n      - pgdata:/var/lib/postgresql/data\n", "", "volume"),
+    ("dk4", "docker-compose.yml", "\nvolumes:\n  pgdata:\n", "\n", "volume nommé"),
+    ("dk4", "docker-compose.yml", "nginx:1.27.2", "nginx:latest", "épinglez"),
+    ("tf7", "diagnostic.yaml", "config: derive", "config: renommage", "la cause de config"),
+    ("tf7", "main.tf", '"~> 2.5"', '"~> 9.0"', "2.5.2"),
+    ("tf7", "prod.tfvars", '"prod"', '"production"', "validation"),
+    ("tf7", "main.tf", "  from = local_file.logs\n", "  from = local_file.log\n", "moved"),
+    ("tf7", "main.tf", "for_each = toset(var.servers)", "count = length(var.servers)", "count"),
+    ("tf7", "variables.tf", "  validation {", "  xvalidation {", "validation"),
+    ("an7", "diagnostic.yaml", "site: handler", "site: condition", "la cause de site"),
+    ("an7", "inventory.ini", "10.0.2.21", "10.0.2.12", "db1"),
+    ("an7", "site.yml", '      ansible.builtin.copy:\n        content: "gzip on;\\n"\n        dest: /etc/nginx/conf.d/gzip.conf\n        owner: root\n        group: root\n        mode: "0644"\n',
+     '      ansible.builtin.shell: echo "gzip on;" >> /etc/nginx/conf.d/gzip.conf\n      changed_when: false\n', "ajoute une ligne"),
+    ("an7", "site.yml", "      notify: Recharger nginx\n    - name: Ouvrir", "      notify: recharger nginx\n    - name: Ouvrir", "handler"),
+    ("an7", "site.yml", 'when: ansible_os_family == "Debian"', "when: \"{{ ansible_os_family }} == 'Debian'\"", "accolades"),
+    ("an7", "site.yml", "      no_log: true\n", "", "no_log"),
+    # projet fil rouge : l'étape 5 revérifie tout le dépôt
+    ("pr5", ".github/workflows/ci.yml", "  pull_request:\n", "", "pull_request"),
+    ("pr5", ".github/workflows/ci.yml", "    needs: [test]\n", "", "needs"),
+    ("pr5", ".github/workflows/ci.yml", "      packages: write\n", "", "packages: write"),
+    ("pr5", "Dockerfile", "USER 10001", "USER root", "non-root"),
+    ("pr5", "Dockerfile", "FROM python:3.12.7-slim AS deps", "FROM python:latest AS deps", "latest"),
+    ("pr5", "k8s/deployment.yaml", "ghcr.io/moncompte/commandes:3f2a9c1", "ghcr.io/moncompte/commandes:latest", "latest"),
+    ("pr5", "k8s/deployment.yaml", "          readinessProbe:\n", "          startupProbe:\n", "readinessProbe"),
+    ("pr5", "k8s/service.yaml", "    app: commandes", "    app: web", "sélecteur"),
+    ("pr5", "k8s/kustomization.yaml", "  - service.yaml\n", "", "service.yaml"),
+    ("pr5", ".gitignore", "*.tfstate\n", "", "tfstate"),
+    ("pr5", ".gitignore", ".env\n", ".env\n*.hcl\n", "lock.hcl"),
+    ("pr5", "infra/main.tf", "    use_lockfile = true\n", "    use_lockfile = true\n    access_key   = \"AKIA\"\n", "access_key"),
+    ("pr5", "infra/variables.tf", "  validation {", "  xvalidation {", "validation"),
+    ("pr5", "ansible/site.yml", "      notify: Redémarrer commandes", "      notify: redémarrer commandes", "handler"),
+    ("pr5", "ansible/inventory.ini", "ansible_user=deploy", "ansible_user=deploy\nansible_password=secret", "ansible_password"),
+    ("pr5", "README.md", "## Déployer", "## Suite", "Déployer"),
 ]
 
 

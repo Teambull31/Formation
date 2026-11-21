@@ -1,0 +1,13 @@
+$ terraform init
+Initializing provider plugins...
+- Finding hashicorp/local versions matching "~> 9.0"...
+╷
+│ Error: Failed to query available provider packages
+│
+│ Could not retrieve the list of available versions for provider hashicorp/local:
+│ no available releases match the given constraints ~> 9.0
+╵
+$ curl -s https://registry.terraform.io/v1/providers/hashicorp/local/versions | jq -r '.versions[].version' | sort -V | tail -3
+2.5.0
+2.5.1
+2.5.2

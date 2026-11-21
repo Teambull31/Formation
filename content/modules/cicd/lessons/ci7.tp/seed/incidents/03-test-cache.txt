@@ -1,0 +1,13 @@
+Run actions/cache@v4
+  with:
+    path: ~/.cache/pip
+    key: pip-Linux-
+Cache restored from key: pip-Linux-
+...
+Run pip install -r requirements/base.txt
+Requirement already satisfied: requests==2.31.0
+ERROR: Cannot install requests==2.32.3 because these package versions have conflicting dependencies.
+
+Note : requirements/base.txt a été mis à jour hier ; la clé de cache est la même depuis trois mois.
+$ ls requirements.txt
+ls: impossible d'accéder à 'requirements.txt': Aucun fichier ou dossier de ce type

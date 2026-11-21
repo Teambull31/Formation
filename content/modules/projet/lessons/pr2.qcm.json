@@ -1,0 +1,67 @@
+[
+ {
+  "id": "pr2-q1",
+  "text": "Pourquoi un build multi-stage pour l'image du projet ?",
+  "options": [
+   "Pour aller plus vite à l'exécution",
+   "Les outils de build restent dans la première étape, l'image finale est petite et contient moins de failles",
+   "Pour avoir deux images",
+   "Parce que Docker l'impose"
+  ],
+  "answer": 1,
+  "explain": "Moins de paquets dans l'image finale = moins de surface d'attaque et un pull plus rapide.",
+  "remedial_lesson_id": "pr2"
+ },
+ {
+  "id": "pr2-q2",
+  "text": "Comment étiqueter l'image publiée par la CI ?",
+  "options": [
+   "latest",
+   "Le SHA du commit, pour savoir exactement quel code tourne",
+   "La date du jour",
+   "Le nom de la branche"
+  ],
+  "answer": 1,
+  "explain": "Une étiquette par commit est traçable et permet un retour arrière précis.",
+  "remedial_lesson_id": "pr2"
+ },
+ {
+  "id": "pr2-q3",
+  "text": "Quelles permissions pour le job qui pousse sur ghcr.io ?",
+  "options": [
+   "write-all",
+   "packages: write sur ce job seulement, le reste en lecture",
+   "Aucune",
+   "Un jeton personnel admin"
+  ],
+  "answer": 1,
+  "explain": "Moindre privilège : seul le job de publication écrit dans le registre.",
+  "remedial_lesson_id": "pr2"
+ },
+ {
+  "id": "pr2-q4",
+  "text": "Pourquoi ne publier l'image que depuis main ?",
+  "options": [
+   "Pour économiser du disque",
+   "Une PR (et a fortiori un fork) ne doit pas pouvoir publier une image de production",
+   "Parce que les PR n'ont pas Docker",
+   "Pour aller plus vite"
+  ],
+  "answer": 1,
+  "explain": "La publication est une action de confiance, réservée au code relu et fusionné.",
+  "remedial_lesson_id": "pr2"
+ },
+ {
+  "id": "pr2-q5",
+  "text": "Le HEALTHCHECK de l'image sert à…",
+  "options": [
+   "Accélérer le démarrage",
+   "Indiquer à Docker si l'application répond, pas seulement si le processus tourne",
+   "Remplacer les tests",
+   "Ouvrir un port"
+  ],
+  "answer": 1,
+  "explain": "Un processus vivant n'est pas une application qui répond.",
+  "remedial_lesson_id": "pr2"
+ }
+]

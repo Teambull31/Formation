@@ -1,0 +1,33 @@
+- name: Serveurs web
+  hosts: web
+  become: true
+  tasks:
+    - name: Activer la compression
+      ansible.builtin.shell: echo "gzip on;" >> /etc/nginx/conf.d/gzip.conf
+    - name: Déposer la configuration du site
+      ansible.builtin.template:
+        src: templates/site.conf.j2
+        dest: /etc/nginx/conf.d/site.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: recharger nginx
+    - name: Ouvrir le port 443
+      community.general.ufw:
+        rule: allow
+        port: "443"
+      when: "{{ ansible_os_family }} == 'Debian'"
+  handlers:
+    - name: Recharger nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+
+- name: Base de données
+  hosts: db
+  become: true
+  tasks:
+    - name: Créer le compte applicatif
+      community.postgresql.postgresql_user:
+        name: shop
+        password: "{{ vault_db_password }}"

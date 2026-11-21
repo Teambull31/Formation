@@ -2,7 +2,7 @@ import json
 import os
 import random
 import re
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -16,6 +16,7 @@ from app import llm
 from app.auth import BasicAuth, make_security, security_from_env
 from app.audio import speak, strip_markdown
 from app.boss import attempt_boss, count_attempts
+from app import cards as cardlib, exam as examlib, plan as planlib
 from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
@@ -29,6 +30,7 @@ from app.tp import run_check, seed_workspace
 from app.weekly import build_brief, import_module
 
 HINT_COST = 10
+REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 FEYNMAN_XP = 60  # max par leçon ; seules les améliorations de score rapportent
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
@@ -83,6 +85,18 @@ class ImportIn(BaseModel):
     path: str
 
 
+class CardIn(BaseModel):
+    known: bool
+
+
+class ExamIn(BaseModel):
+    answers: dict[str, int] = Field(max_length=100)
+
+
+class PlanDayIn(BaseModel):
+    done: bool
+
+
 def local_only(request: Request) -> None:
     # peer IP + Host/Origin (anti DNS rebinding / cross-site); opt-in distant: Host autorise (mot de passe exige)
     if not exec_ok(request, request.app.state.remote_hosts):
@@ -98,7 +112,7 @@ def require_strictly_local(request: Request) -> None:
 def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Path | None = None,
                password: str | None = None, remote_exec: bool = False, allowed_hosts=()) -> FastAPI:
     sec = make_security(password, remote_exec, allowed_hosts)
-    content_dir, workspace = Path(content_dir), Path(workspace)
+    content_dir, workspace = Path(content_dir).resolve(), Path(workspace)  # LESSON_DIR absolu : les scripts tournent depuis le workspace
     connect(db_path).close()  # schema must exist at startup
     pool = json.loads((content_dir / "gacha.json").read_text(encoding="utf-8"))
     boss_files = sorted(p for p in (content_dir / "boss").glob("*/boss.json"))
@@ -217,12 +231,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/lesson/{lesson_id}")
     def lesson(lesson_id: str):
-        _, _, les = find_lesson(lesson_id)
+        d, _, les = find_lesson(lesson_id)
         return {
             "id": les.id, "title": les.title, "minutes": les.minutes, "body_md": les.body_md,
             "qcm": [{"id": q.id, "text": q.text, "options": q.options} for q in les.qcm],
             "tp": {"id": les.tp.id, "title": les.tp.title, "instructions_md": les.tp.instructions_md,
-                   "timeout_s": les.tp.timeout_s} if les.tp else None,
+                   "timeout_s": les.tp.timeout_s, "real": (d / "lessons" / "_real.sh").is_file()} if les.tp else None,
         }
 
     @app.get("/api/audio/{name}")
@@ -372,6 +386,93 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES (?, '1')", (f"tp_passed:{tp.id}",))
             db.commit()
         return {"passed": r.passed, "output": r.output}
+
+    @app.post("/api/tp/{tp_id}/real", dependencies=[Depends(local_only)])
+    def tp_real(request: Request, tp_id: str):
+        lesson_dir, _, tp = find_tp(tp_id)
+        if tp.local_only:
+            require_strictly_local(request)
+        if not (lesson_dir.parent / "_real.sh").is_file():
+            raise HTTPException(404, "Pas de labo réel pour ce TP")
+        r = run_check(replace(tp, check='bash "$LESSON_DIR/../_real.sh"', timeout_s=REAL_TIMEOUT), workspace, lesson_dir)
+        return {"passed": r.passed, "output": r.output}
+
+    def studied_cards(db) -> list[cardlib.Card]:
+        done = {r[0] for r in db.execute("SELECT lesson_id FROM quest_steps WHERE kind = 'lesson' AND done = 1")}
+        return [c for _, m in modules() for les in m.lessons if les.id in done for c in cardlib.lesson_cards(les)]
+
+    @app.get("/api/cards")
+    def cards(db=Depends(get_db)):
+        return cardlib.session(db, studied_cards(db), date.today())
+
+    @app.post("/api/cards/{card_id}")
+    def card_answer(card_id: str, body: CardIn, db=Depends(get_db)):
+        if card_id not in {c.id for c in studied_cards(db)}:
+            raise HTTPException(404, "Carte inconnue")
+        return cardlib.record_card(db, card_id, body.known, date.today())
+
+    @app.get("/api/plan")
+    def plan(request: Request, db=Depends(get_db)):
+        local = strictly_local(request)
+        les = {x.id: x for _, m in modules() for x in m.lessons}
+        done = {(r[0], r[1]) for r in db.execute("SELECT kind, lesson_id FROM quest_steps WHERE done = 1")}
+        return planlib.status(db, planlib.load_plan(content_dir), date.today(),
+                              lambda lid: lid in les and all((k, lid) in done for k in applicable_kinds(les[lid], local)))
+
+    @app.post("/api/plan/start")
+    def plan_start(db=Depends(get_db)):
+        planlib.start(db, date.today())
+        return {"ok": True}
+
+    @app.post("/api/plan/day/{day}")
+    def plan_day(day: int, body: PlanDayIn, db=Depends(get_db)):
+        if not 1 <= day <= len(planlib.load_plan(content_dir)):
+            raise HTTPException(404, "Jour inconnu")
+        planlib.mark(db, day, body.done)
+        return {"ok": True}
+
+    def find_module(module_id: str) -> Module:
+        for _, m in modules():
+            if m.id == module_id and examlib.pool(m):
+                return m
+        raise HTTPException(404, "Module inconnu")
+
+    @app.get("/api/exams")
+    def exams(db=Depends(get_db)):
+        best = dict(db.execute("SELECT module_id, best FROM exams").fetchall())
+        return [{"id": m.id, "title": m.title, "questions": min(examlib.SIZE, len(examlib.pool(m))), "best": best.get(m.id)}
+                for _, m in modules() if examlib.pool(m)]
+
+    @app.get("/api/exam/{module_id}")
+    def exam(module_id: str, db=Depends(get_db)):
+        m = find_module(module_id)
+        qs = examlib.draw(m, rng)
+        row = db.execute("SELECT best FROM exams WHERE module_id = ?", (m.id,)).fetchone()
+        return {"id": m.id, "title": m.title, "duration_s": examlib.SECONDS_PER_QUESTION * len(qs),
+                "pass_pct": examlib.PASS_PCT, "best": row[0] if row else None,
+                "questions": [{"id": q.id, "text": q.text, "options": q.options} for q in qs]}
+
+    @app.post("/api/exam/{module_id}")
+    def exam_submit(module_id: str, body: ExamIn, db=Depends(get_db)):
+        m = find_module(module_id)
+        try:
+            score, detail = examlib.grade(m, body.answers)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        for d in detail:
+            if not d["correct"]:
+                record_answer(db, d["id"], False, date.today())  # les erreurs rejoignent les révisions
+        row = db.execute("SELECT best FROM exams WHERE module_id = ?", (m.id,)).fetchone()
+        best = row[0] if row else 0
+        top = max(score, best)
+        xp = round(examlib.EXAM_XP * top / 100) - round(examlib.EXAM_XP * best / 100)
+        db.execute("INSERT OR REPLACE INTO exams(module_id, best) VALUES (?, ?)", (m.id, top))
+        if xp:
+            award_xp(db, m.skill, xp)  # commits the score row too
+        else:
+            db.commit()
+        return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
+                "xp": xp, "detail": detail}
 
     @app.get("/api/team")
     def team(db=Depends(get_db)):

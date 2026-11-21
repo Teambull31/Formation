@@ -1,0 +1,12 @@
+$ ansible-playbook -i inventory.ini site.yml --limit web    (deuxième lancement, rien n'a changé dans le dépôt)
+
+TASK [Activer la compression] ********************************
+changed: [web1]
+changed: [web2]
+
+PLAY RECAP ***************************************************
+web1 : ok=3  changed=1  unreachable=0  failed=0
+web2 : ok=3  changed=1  unreachable=0  failed=0
+
+$ ssh -l deploy 10.0.1.11 cat /etc/nginx/conf.d/gzip.conf | wc -l
+14

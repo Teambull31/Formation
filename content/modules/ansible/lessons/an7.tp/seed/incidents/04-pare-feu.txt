@@ -1,0 +1,6 @@
+[WARNING]: conditional statements should not include jinja2 templating delimiters such as {{ }} or {% %}. Found: {{ ansible_os_family }} == 'Debian'
+
+TASK [Ouvrir le port 443] ************************************
+fatal: [web2]: FAILED! => {"msg": "The conditional check '{{ ansible_os_family }} == 'Debian'' failed. The error was: error while evaluating conditional (RedHat == 'Debian'): 'RedHat' is undefined"}
+
+(web2 a été réinstallé en Rocky Linux la semaine dernière)

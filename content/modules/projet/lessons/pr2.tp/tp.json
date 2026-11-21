@@ -1,0 +1,14 @@
+{
+  "id": "pr2-tp",
+  "title": "TP 2 : l'image et sa publication",
+  "instructions_md": "Toujours dans le dossier du projet :\n\n1. Écrivez un **Dockerfile** multi-stage : une étape installe les dépendances, l'image finale copie le résultat et `app/`, tourne en utilisateur non-root, avec un `HEALTHCHECK` sur `/healthz` et un `CMD` en forme exec (`python -m app.main`).\n2. Écrivez **.dockerignore** (au moins `.git` et `.env`).\n3. Ajoutez à **ci.yml** un job `image` :\n   - qui attend `test` et ne tourne que sur `main` ;\n   - avec `permissions: packages: write` au niveau du job seulement ;\n   - qui se connecte à `ghcr.io` avec le `GITHUB_TOKEN`, construit et pousse `ghcr.io/<compte>/commandes:<sha du commit>`.\n4. Si Docker est installé : `docker build -t commandes . && docker run --rm -p 127.0.0.1:8000:8000 commandes`, puis `curl http://127.0.0.1:8000/healthz`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Deux FROM : `FROM python:3.12.7-slim AS deps` puis `FROM python:3.12.7-slim`, avec `COPY --from=deps`.",
+    "Le job image : `needs: [test]`, `if: github.ref == 'refs/heads/main'`, `permissions: { contents: read, packages: write }`.",
+    "`echo \"$GH_TOKEN\" | docker login ghcr.io -u \"$GITHUB_ACTOR\" --password-stdin` avec `GH_TOKEN: ${{ github.token }}` en env, puis une étiquette `${GITHUB_SHA}`."
+  ],
+  "timeout_s": 20,
+  "workspace": "fil-rouge",
+  "seed": []
+}

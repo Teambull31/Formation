@@ -1,0 +1,5 @@
+TASK [Gathering Facts] ***************************************
+fatal: [db1]: UNREACHABLE! => {"changed": false, "msg": "Failed to connect to the host via ssh: ssh: connect to host 10.0.2.12 port 22: No route to host", "unreachable": true}
+
+$ terraform -chdir=../infra output -json db_ips
+["10.0.2.21"]

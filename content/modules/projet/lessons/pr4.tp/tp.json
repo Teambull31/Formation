@@ -1,0 +1,14 @@
+{
+  "id": "pr4-tp",
+  "title": "TP 4 : l'infrastructure en Terraform",
+  "instructions_md": "Créez le dossier **infra/** :\n\n1. Un bloc `terraform` avec `required_version`, des providers versionnés et un **backend distant** (s3 par exemple) chiffré et verrouillé, sans aucune clé.\n2. Une variable `environment` avec un bloc `validation` (dev, staging, prod).\n3. Des ressources (le provider `local` suffit pour s'entraîner) en `for_each`, et au moins un `output` que la suite lira (les serveurs à configurer).\n4. Un **.gitignore** à la racine du projet qui exclut `*.tfstate` et `.terraform/`, mais garde `.terraform.lock.hcl`.\n5. `terraform -chdir=infra init -backend=false && terraform -chdir=infra validate`.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "Le backend de tf5 : `bucket`, `key = \"commandes/prod.tfstate\"`, `region`, `encrypt = true`, `use_lockfile = true`.",
+    "La validation de tf6 : `condition = contains([\"dev\", \"staging\", \"prod\"], var.environment)`.",
+    ".gitignore : `.terraform/`, `*.tfstate`, `*.tfstate.*` ; surtout pas `*.hcl`."
+  ],
+  "timeout_s": 20,
+  "workspace": "fil-rouge",
+  "seed": []
+}

@@ -1,0 +1,284 @@
+[
+ {
+  "day": 1,
+  "title": "CI : premier workflow, cache et matrice",
+  "lessons": [
+   "ci1",
+   "ci2"
+  ],
+  "todo": []
+ },
+ {
+  "day": 2,
+  "title": "CI : secrets, workflows réutilisables",
+  "lessons": [
+   "ci3",
+   "ci4"
+  ],
+  "todo": []
+ },
+ {
+  "day": 3,
+  "title": "CD : environnements, releases et OIDC",
+  "lessons": [
+   "ci5",
+   "ci6"
+  ],
+  "todo": []
+ },
+ {
+  "day": 4,
+  "title": "Répare la panne CI + boss CI/CD",
+  "lessons": [
+   "ci7"
+  ],
+  "todo": [
+   "Boss « CI/CD »",
+   "Révisions et cartes du jour"
+  ]
+ },
+ {
+  "day": 5,
+  "title": "Docker : images, cache et multi-stage",
+  "lessons": [
+   "dk1",
+   "dk2"
+  ],
+  "todo": []
+ },
+ {
+  "day": 6,
+  "title": "Docker : sécurité et répare la panne",
+  "lessons": [
+   "dk3",
+   "dk4"
+  ],
+  "todo": [
+   "Boss « Docker »"
+  ]
+ },
+ {
+  "day": 7,
+  "title": "Bilan semaine 1 + projet fil rouge (étape 1)",
+  "lessons": [
+   "pr1"
+  ],
+  "todo": [
+   "Examen final CI/CD",
+   "Examen final Docker",
+   "Fiches CI/CD et Docker à relire"
+  ]
+ },
+ {
+  "day": 8,
+  "title": "Kubernetes : pods, services et sondes",
+  "lessons": [
+   "k1",
+   "k2"
+  ],
+  "todo": []
+ },
+ {
+  "day": 9,
+  "title": "Kubernetes : durcissement et stockage",
+  "lessons": [
+   "k3",
+   "k4"
+  ],
+  "todo": []
+ },
+ {
+  "day": 10,
+  "title": "Kubernetes : Ingress, HPA et mises à jour sans coupure",
+  "lessons": [
+   "k5"
+  ],
+  "todo": [
+   "Cartes du jour"
+  ]
+ },
+ {
+  "day": 11,
+  "title": "Kubernetes : garde de nuit, Kustomize et RBAC",
+  "lessons": [
+   "k6",
+   "k7"
+  ],
+  "todo": []
+ },
+ {
+  "day": 12,
+  "title": "Boss Kubernetes + examen",
+  "lessons": [],
+  "todo": [
+   "Boss « Kubernetes »",
+   "Examen final Kubernetes",
+   "Fiche Kubernetes à relire"
+  ]
+ },
+ {
+  "day": 13,
+  "title": "Projet fil rouge (étape 2) : l'image",
+  "lessons": [
+   "pr2"
+  ],
+  "todo": []
+ },
+ {
+  "day": 14,
+  "title": "Repos actif : révisions et entretien",
+  "lessons": [],
+  "todo": [
+   "Toutes les révisions et cartes dues",
+   "3 questions d'entretien DevOps"
+  ]
+ },
+ {
+  "day": 15,
+  "title": "Terraform : workflow, variables et outputs",
+  "lessons": [
+   "tf1",
+   "tf2"
+  ],
+  "todo": []
+ },
+ {
+  "day": 16,
+  "title": "Terraform : sécurité, boucles et locals",
+  "lessons": [
+   "tf3",
+   "tf4"
+  ],
+  "todo": []
+ },
+ {
+  "day": 17,
+  "title": "Terraform : modules et state distant",
+  "lessons": [
+   "tf5"
+  ],
+  "todo": [
+   "Cartes du jour"
+  ]
+ },
+ {
+  "day": 18,
+  "title": "Terraform : cycle de vie, CI et répare la panne",
+  "lessons": [
+   "tf6",
+   "tf7"
+  ],
+  "todo": []
+ },
+ {
+  "day": 19,
+  "title": "Boss Terraform + examen",
+  "lessons": [],
+  "todo": [
+   "Boss « Terraform » (6 phases)",
+   "Examen final Terraform",
+   "Fiche Terraform à relire"
+  ]
+ },
+ {
+  "day": 20,
+  "title": "Projet fil rouge (étape 3) : Kubernetes",
+  "lessons": [
+   "pr3"
+  ],
+  "todo": []
+ },
+ {
+  "day": 21,
+  "title": "Repos actif : révisions et entretien",
+  "lessons": [],
+  "todo": [
+   "Toutes les révisions et cartes dues",
+   "3 questions d'entretien DevOps"
+  ]
+ },
+ {
+  "day": 22,
+  "title": "Ansible : inventaire, idempotence et handlers",
+  "lessons": [
+   "an1",
+   "an2"
+  ],
+  "todo": []
+ },
+ {
+  "day": 23,
+  "title": "Ansible : templates et rôles",
+  "lessons": [
+   "an3",
+   "an4"
+  ],
+  "todo": []
+ },
+ {
+  "day": 24,
+  "title": "Ansible : Vault et sécurité",
+  "lessons": [
+   "an5"
+  ],
+  "todo": [
+   "Cartes du jour"
+  ]
+ },
+ {
+  "day": 25,
+  "title": "Ansible : déploiement progressif et répare la panne",
+  "lessons": [
+   "an6",
+   "an7"
+  ],
+  "todo": []
+ },
+ {
+  "day": 26,
+  "title": "Boss Ansible + examen",
+  "lessons": [],
+  "todo": [
+   "Boss « Ansible »",
+   "Examen final Ansible",
+   "Fiche Ansible à relire"
+  ]
+ },
+ {
+  "day": 27,
+  "title": "Projet fil rouge (étape 4) : Terraform",
+  "lessons": [
+   "pr4"
+  ],
+  "todo": []
+ },
+ {
+  "day": 28,
+  "title": "Projet fil rouge (étape 5) : Ansible et README",
+  "lessons": [
+   "pr5"
+  ],
+  "todo": [
+   "Pousser le projet sur GitHub"
+  ]
+ },
+ {
+  "day": 29,
+  "title": "Entretien blanc",
+  "lessons": [],
+  "todo": [
+   "Toutes les questions d'entretien DevOps",
+   "Feynman : expliquer 3 leçons au choix"
+  ]
+ },
+ {
+  "day": 30,
+  "title": "Bilan final",
+  "lessons": [],
+  "todo": [
+   "Examens finaux à 80 % ou plus sur les 5 modules",
+   "Exporter le portfolio",
+   "Relire les 5 fiches"
+  ]
+ }
+]

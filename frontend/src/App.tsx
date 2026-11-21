@@ -6,6 +6,8 @@ import Boss from './screens/Boss'
 import Weekly from './screens/Weekly'
 import Review from './screens/Review'
 import Interview from './screens/Interview'
+import Cards from './screens/Cards'
+import Exam from './screens/Exam'
 import type { StepKind } from './api'
 
 const TABS = ['Quête', 'Leçon', 'Équipe', 'Boss', 'Révisions', 'Semaine'] as const
@@ -15,7 +17,7 @@ interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
 export default function App() {
   const [tab, setTab] = useState<Tab>('Quête')
   const [lesson, setLesson] = useState<Opened | null>(null)
-  const [sub, setSub] = useState<'qcm' | 'entretien'>('qcm')
+  const [sub, setSub] = useState<'qcm' | 'cartes' | 'examen' | 'entretien'>('qcm')
   const open = (id: string, kind: StepKind | null = null, done = false) => {
     setLesson((l) => ({ id, kind, done, n: (l?.n ?? 0) + 1 }))
     setTab('Leçon')
@@ -32,10 +34,14 @@ export default function App() {
         {tab === 'Révisions' && (
           <>
             <div className="wrap row" role="group" aria-label="Type de révision">
-              <button className="chip" aria-pressed={sub === 'qcm'} onClick={() => setSub('qcm')}>Questions</button>
-              <button className="chip" aria-pressed={sub === 'entretien'} onClick={() => setSub('entretien')}>Entretien</button>
+              {([['qcm', 'Questions'], ['cartes', 'Cartes'], ['examen', 'Examen'], ['entretien', 'Entretien']] as const).map(([k, label]) => (
+                <button key={k} className="chip" aria-pressed={sub === k} onClick={() => setSub(k)}>{label}</button>
+              ))}
             </div>
-            {sub === 'qcm' ? <Review onOpen={(id) => open(id)} /> : <Interview />}
+            {sub === 'qcm' && <Review onOpen={(id) => open(id)} />}
+            {sub === 'cartes' && <Cards onOpen={(id) => open(id)} />}
+            {sub === 'examen' && <Exam onOpen={(id) => open(id)} />}
+            {sub === 'entretien' && <Interview />}
           </>
         )}
         {tab === 'Semaine' && <Weekly />}

@@ -1,0 +1,6 @@
+# Pour chaque composant, une cause parmi : yaml, cache, dependance, permissions, declencheur
+version-python: ?
+cache: ?
+deploy: ?
+release: ?
+pull-request: ?

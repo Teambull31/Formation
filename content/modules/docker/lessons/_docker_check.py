@@ -3,7 +3,7 @@
 
 Analyse statique, en lecture seule, du dossier de l'apprenant : aucun démon Docker,
 aucun réseau, aucune écriture. Lancer avec `python3 -I -B`.
-Usage : _docker_check.py <dk1|dk2|dk3> [dossier]
+Usage : _docker_check.py <dk1..dk4> [dossier]
 Le répertoire courant (ou `dossier`, sous-dossier direct) est le dossier du TP.
 """
 from __future__ import annotations
@@ -236,6 +236,108 @@ def check_dk3() -> None:
     check_compose()
 
 
+# ---- dk4 : répare la panne ----
+
+DK4_CAUSES = {"build": "contexte", "api": "ecoute", "worker": "memoire", "db": "volume", "proxy": "version"}
+
+
+def plain_mapping(name: str) -> dict[str, str]:
+    """Fichier « cle: valeur » à plat (diagnostic), commentaires ignorés."""
+    out = {}
+    for line in strip_yaml_comments(read_text(name)).splitlines():
+        m = re.match(r"^([A-Za-z0-9_-]+)\s*:\s*(.*?)\s*$", line)
+        if m:
+            out[m.group(1)] = m.group(2).strip("\"'")
+    return out
+
+
+def check_diagnostic(causes: dict[str, str]) -> None:
+    diag = plain_mapping("diagnostic.yaml")
+    for comp, cause in causes.items():
+        got = diag.get(comp, "?").lower() or "?"
+        need(got != "?", f"diagnostic.yaml : donnez une cause pour {comp}")
+        need(got == cause, f"diagnostic.yaml : la cause de {comp} n'est pas la bonne, relisez le fichier d'incident correspondant")
+
+
+def compose_services(text: str) -> dict[str, str]:
+    """Bloc texte de chaque service (indentation sous services:)."""
+    out, cur, inside = {}, None, False
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        ind = len(line) - len(line.lstrip())
+        if ind == 0:
+            inside, cur = line.strip() == "services:", None
+            continue
+        if not inside:
+            continue
+        m = re.match(r"^\s{1,4}([A-Za-z0-9_-]+):\s*$", line)
+        if m and (cur is None or ind <= out[cur][1]):
+            cur = m.group(1)
+            out[cur] = ("", ind)
+        elif cur:
+            out[cur] = (out[cur][0] + line + "\n", out[cur][1])
+    return {k: v[0] for k, v in out.items()}
+
+
+def ignored(rules: list[str], path: str) -> bool:
+    """.dockerignore : la dernière règle qui correspond l'emporte (! réinclut)."""
+    import fnmatch
+    hit = False
+    for r in rules:
+        neg = r.startswith("!")
+        pat = r[1:] if neg else r
+        pat = pat.strip("/")
+        cands = [path] + ([path.split("/", i)[-1] for i in range(1, path.count("/") + 1)] if pat.startswith("**/") else [])
+        pat = pat[3:] if pat.startswith("**/") else pat
+        if any(fnmatch.fnmatchcase(c, pat) or c.startswith(pat + "/") for c in cands):
+            hit = not neg
+    return hit
+
+
+def mem_mb(v: str) -> float | None:
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)\s*([bkmg])?b?", v.strip().strip("\"'").lower())
+    if not m:
+        return None
+    return float(m.group(1)) * {"b": 1 / 2**20, "k": 1 / 1024, "m": 1, "g": 1024, None: 1 / 2**20}[m.group(2)]
+
+
+def check_dk4() -> None:
+    check_diagnostic(DK4_CAUSES)
+    rules = [l.strip() for l in read_text(".dockerignore").splitlines() if l.strip() and not l.strip().startswith("#")]
+    need(not ignored(rules, "app/requirements.txt"),
+         "build : .dockerignore exclut app/requirements.txt du contexte (**/*.txt) : le COPY ne le trouve pas")
+    need(ignored(rules, ".env") and ignored(rules, ".git"), "build : gardez .git et .env dans .dockerignore")
+    ins = dockerfile()
+    assert_pinned_images(ins)
+    cmd = [a for n, a in final_stage(ins) if n == "CMD"]
+    need(cmd, "Dockerfile : gardez le CMD qui lance uvicorn")
+    args = json_list(cmd[-1], "CMD")
+    need("--host" in args and args.index("--host") + 1 < len(args) and args[args.index("--host") + 1] == "0.0.0.0",
+         "api : uvicorn écoute sur 127.0.0.1, l'adresse de boucle du conteneur, injoignable depuis l'hôte : --host 0.0.0.0")
+    users = [a for n, a in final_stage(ins) if n == "USER"]
+    need(users and users[-1].split(":")[0] not in ("root", "0"), "Dockerfile : gardez USER app (non-root)")
+    text = strip_yaml_comments(read_text("docker-compose.yml"))
+    svc = compose_services(text)
+    need({"api", "worker", "db", "proxy"} <= set(svc), "docker-compose.yml : gardez les quatre services api, worker, db et proxy")
+    m = re.search(r"^\s*mem_limit:\s*(\S+)", svc["worker"], re.M)
+    lim = mem_mb(m.group(1)) if m else None
+    need(lim is None or lim >= 128, "worker : tué par manque de mémoire (OOMKilled, code 137) : mem_limit d'au moins 128m")
+    vol = re.search(r"^\s*-\s*[\"']?([A-Za-z0-9_.-]+):/var/lib/postgresql/data", svc["db"], re.M)
+    need(vol, "db : sans volume sur /var/lib/postgresql/data, les données disparaissent avec le conteneur")
+    if not vol.group(1).startswith((".", "/")):
+        need(re.search(rf"^volumes:\s*\n(?:\s+.*\n)*?\s+{re.escape(vol.group(1))}:", text + "\n", re.M),
+             f"db : déclarez le volume nommé {vol.group(1)} dans le bloc volumes: de premier niveau")
+    img = re.search(r"^\s*image:\s*(\S+)", svc["proxy"], re.M)
+    need(img, "proxy : gardez l'image nginx")
+    tag = img.group(1).strip("\"'").rsplit("/", 1)[-1]
+    need("@sha256:" in tag or (":" in tag and tag.split(":", 1)[1].lower() != "latest"),
+         "proxy : nginx:latest a changé cette nuit et casse la configuration : épinglez une version précise (nginx:1.27.2)")
+    for name, body in svc.items():
+        need(not re.search(r"^\s*privileged:\s*true", body, re.M) and "docker.sock" not in body,
+             f"{name} : pas de privileged ni de docker.sock pour réparer")
+
+
 def check_boss2() -> None:
     check_dk1()
     check_dk2()
@@ -251,6 +353,7 @@ CHECKS = {
     "dk1": (check_dk1, "le Dockerfile est valide et reproductible."),
     "dk2": (check_dk2, "le build est rapide, léger et le contexte filtré."),
     "dk3": (check_dk3, "conteneur non-root, sans secret en clair et durci."),
+    "dk4": (check_dk4, "les cinq pannes sont diagnostiquées et la pile redémarre."),
     # boss : cumulatif, chaque phase revérifie les précédentes
     "boss1": (check_dk1, "Dockerfile valide et reproductible."),
     "boss2": (check_boss2, "build multi-stage, rapide et contexte filtré."),

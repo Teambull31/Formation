@@ -1,0 +1,11 @@
+$ terraform plan -var-file=prod.tfvars
+╷
+│ Error: Invalid value for variable
+│
+│   on variables.tf line 1:
+│    1: variable "environment" {
+│     ├────────────────
+│     │ var.environment is "production"
+│
+│ environment doit valoir dev, staging ou prod.
+╵

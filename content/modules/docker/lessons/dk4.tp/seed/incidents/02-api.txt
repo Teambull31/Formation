@@ -1,0 +1,12 @@
+$ docker compose ps api
+NAME      IMAGE     STATUS         PORTS
+shop-api  shop-api  Up 3 minutes   127.0.0.1:8000->8000/tcp
+
+$ curl -s http://127.0.0.1:8000/health
+curl: (56) Recv failure: Connection reset by peer
+
+$ docker compose logs api | tail -2
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+
+$ docker compose exec api python -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/health').read())"
+b'{"status":"ok"}'

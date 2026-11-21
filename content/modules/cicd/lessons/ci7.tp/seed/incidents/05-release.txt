@@ -1,0 +1,7 @@
+Run gh release create "$GITHUB_REF_NAME" --generate-notes
+HTTP 403: Resource not accessible by integration (https://api.github.com/repos/acme/shop/releases)
+Error: Process completed with exit code 1.
+
+Permissions du GITHUB_TOKEN pour ce job :
+  Contents: read
+  Metadata: read

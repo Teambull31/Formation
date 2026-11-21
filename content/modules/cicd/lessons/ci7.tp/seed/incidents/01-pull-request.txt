@@ -1,0 +1,8 @@
+Pull request #42 « Ajout de l'export CSV » (branche feature/export -> main)
+Checks : aucun check n'a été lancé sur cette pull request.
+
+$ git log --oneline -1 origin/main
+9f3c2e1 Merge pull request #41
+
+Paramètres du dépôt : branche par défaut = main (renommée depuis master il y a deux semaines)
+Onglet Actions : dernier run du workflow « CI » il y a 15 jours, sur master.

@@ -1,0 +1,9 @@
+Vendredi : docker compose down && docker compose up -d pour appliquer une mise à jour.
+Lundi : l'application affiche « aucune commande ». La base est vide.
+
+$ docker volume ls
+DRIVER    VOLUME NAME
+(aucun volume)
+
+$ docker inspect shop-db --format '{{json .Mounts}}'
+[]

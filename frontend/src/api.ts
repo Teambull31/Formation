@@ -40,7 +40,7 @@ export interface Quest { day: string; steps: Step[]; bonus: Step | null; imposed
 export interface Lesson {
   id: string; title: string; minutes: number; body_md: string
   qcm: { id: string; text: string; options: string[] }[]
-  tp: { id: string; title: string; instructions_md: string; timeout_s: number } | null
+  tp: { id: string; title: string; instructions_md: string; timeout_s: number; real?: boolean } | null
 }
 export interface QcmResult { correct: boolean; explanation: string; remedial_lesson_id: string | null }
 export interface Team {
@@ -88,6 +88,31 @@ export const startTp = (tpId: string) =>
   call<{ dir: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/start`)
 export const checkTp =(tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/check`)
+export const realTp = (tpId: string) =>
+  call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/real`)
+export interface Card { id: string; lesson_id: string; kind: 'piege' | 'terme'; front: string; back: string; box: number | null }
+export interface Cards { cards: Card[]; boxes: number[]; total: number; unseen: number }
+export const getCards = () => call<Cards>('GET', '/api/cards')
+export const answerCard = (id: string, known: boolean) =>
+  call<{ box: number; due: string; mastered: boolean }>('POST', `/api/cards/${encodeURIComponent(id)}`, { known })
+export interface PlanDay { day: number; title: string; lessons: string[]; todo: string[]; done: boolean; manual: boolean }
+export interface Plan { started: boolean; start: string | null; today: number | null; days: PlanDay[]; late: number }
+export const getPlan = () => call<Plan>('GET', '/api/plan')
+export const startPlan = () => call<Ok>('POST', '/api/plan/start')
+export const markPlanDay = (day: number, done: boolean) => call<Ok>('POST', `/api/plan/day/${day}`, { done })
+export interface ExamSummary { id: string; title: string; questions: number; best: number | null }
+export interface Exam {
+  id: string; title: string; duration_s: number; pass_pct: number; best: number | null
+  questions: { id: string; text: string; options: string[] }[]
+}
+export interface ExamResult {
+  score: number; passed: boolean; pass_pct: number; best: number; xp: number
+  detail: { id: string; text: string; chosen: number; answer: number; correct: boolean; explain: string; remedial_lesson_id: string | null }[]
+}
+export const getExams = () => call<ExamSummary[]>('GET', '/api/exams')
+export const getExam = (id: string) => call<Exam>('GET', `/api/exam/${encodeURIComponent(id)}`)
+export const submitExam = (id: string, answers: Record<string, number>) =>
+  call<ExamResult>('POST', `/api/exam/${encodeURIComponent(id)}`, { answers })
 export const getTeam = () => call<Team>('GET', '/api/team')
 export const pullGacha = () => call<Record<string, unknown>>('POST', '/api/gacha/pull')
 const bossQ = (id?: string) => (id ? `?id=${encodeURIComponent(id)}` : '')

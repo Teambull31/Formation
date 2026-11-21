@@ -2,7 +2,7 @@
 """Vérifications des TP du module CI/CD (GitHub Actions).
 
 Analyse statique, en lecture seule, des workflows de l'apprenant : aucun réseau, aucune exécution.
-Lancer avec `python3 -I -B`. Usage : _cicd_check.py <ci1..ci6|boss1..boss3> [dossier] (le répertoire courant est le dossier du TP).
+Lancer avec `python3 -I -B`. Usage : _cicd_check.py <ci1..ci7|boss1..boss3> [dossier] (le répertoire courant est le dossier du TP).
 """
 from __future__ import annotations
 
@@ -371,6 +371,56 @@ def check_ci6(name: str = "release.yml") -> None:
     need("github.token" in str((rel[0].get("env") or {}).get("GH_TOKEN", "")), f"{name} : passez GH_TOKEN: ${{{{ github.token }}}} dans env:")
 
 
+# ---- ci7 : répare la panne ----
+
+CI7_CAUSES = {"version-python": "yaml", "cache": "cache", "deploy": "dependance",
+              "release": "permissions", "pull-request": "declencheur"}
+
+
+def check_diagnostic(causes: dict[str, str]) -> None:
+    diag = yaml_file("diagnostic.yaml")
+    for comp, cause in causes.items():
+        got = str(diag.get(comp, "?")).strip().lower()
+        need(got != "?", f"diagnostic.yaml : donnez une cause pour {comp}")
+        need(got == cause, f"diagnostic.yaml : la cause de {comp} n'est pas la bonne, relisez le fichier d'incident correspondant")
+
+
+def check_ci7() -> None:
+    check_diagnostic(CI7_CAUSES)
+    doc = workflow("ci.yml")
+    on = doc.get("on") if isinstance(doc.get("on"), dict) else {}
+    need("pull_request" in triggers(doc), "ci.yml : aucun check sur les pull requests, ajoutez le déclencheur pull_request")
+    push = on.get("push") if isinstance(on.get("push"), dict) else {}
+    branches = [str(b) for b in as_list(push.get("branches"))]
+    need("main" in branches and "master" not in branches,
+         "ci.yml : la branche par défaut s'appelle main depuis le renommage, push: branches doit viser main")
+    need(any(str(t).startswith("v") for t in as_list(push.get("tags"))), "ci.yml : gardez le déclenchement sur les tags v*")
+    jobs = doc["jobs"]
+    need({"test", "deploy", "release"} <= set(jobs), "ci.yml : gardez les trois jobs test, deploy et release")
+    py = [x for x in steps_of(jobs["test"]) if action_name(uses_of(x)) == "actions/setup-python"]
+    need(py, "ci.yml : gardez l'étape actions/setup-python dans test")
+    ver = (py[0].get("with") or {}).get("python-version")
+    need(isinstance(ver, str) and re.fullmatch(r"3\.\d+", ver.strip()),
+         "ci.yml : python-version non quoté est lu comme un nombre (3.10 devient 3.1) : écrivez \"3.10\" entre guillemets")
+    cache = [x for x in steps_of(jobs["test"]) if action_name(uses_of(x)) == "actions/cache"]
+    need(cache, "ci.yml : gardez l'étape actions/cache")
+    key = str((cache[0].get("with") or {}).get("key", ""))
+    need("hashFiles(" in key and "requirements/" in key,
+         "ci.yml : la clé de cache hache requirements.txt, qui n'existe pas : hashez requirements/*.txt pour qu'elle change avec les dépendances")
+    need("test" in as_list(jobs["deploy"].get("needs")), "ci.yml : deploy part en parallèle des tests, ajoutez needs: [test]")
+    perm = doc.get("permissions")
+    need(isinstance(perm, dict) and perm and all(v == "read" for v in perm.values()),
+         "ci.yml : gardez permissions: contents: read au niveau du workflow")
+    jp = jobs["release"].get("permissions")
+    need(isinstance(jp, dict) and jp.get("contents") == "write",
+         "ci.yml : la release échoue en 403, donnez permissions: contents: write au seul job release")
+    for jid, job in jobs.items():
+        if jid != "release":
+            need(not (isinstance(job.get("permissions"), dict) and "write" in job["permissions"].values()),
+                 f"ci.yml : le job {jid} n'a pas besoin de droits en écriture")
+    assert_no_leaks(doc)
+
+
 # ---- boss : cumulatif, dans ciboss/ ----
 
 def boss_security() -> None:
@@ -385,6 +435,7 @@ CHECKS = {
     "ci4": ([check_ci4], "CI factorisée : action composite et workflow réutilisable."),
     "ci5": ([check_ci5], "chaîne build, staging, production sûre et sérialisée."),
     "ci6": ([check_ci6], "release sur tag, artefacts et OIDC sans clé statique."),
+    "ci7": ([check_ci7], "les cinq pannes sont diagnostiquées et le pipeline est réparé."),
     # le boss est cumulatif : une phase ultérieure revérifie les précédentes
     "boss1": ([check_ci2], "phase 1 : la CI est rapide, bornée et en lecture seule."),
     "boss2": ([check_ci2, check_ci5], "phase 2 : la chaîne de déploiement est sûre."),

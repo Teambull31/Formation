@@ -1,0 +1,21 @@
+{
+  "id": "dk4-tp",
+  "title": "TP 4 : la pile qui ne repart pas",
+  "instructions_md": "Une mise à jour du vendredi a tout cassé : le build échoue, l'API ne répond pas, le worker meurt, la base a perdu ses données et le proxy refuse de démarrer. Le dossier **incidents/** contient les commandes relevées.\n\n1. Lisez chaque fichier (`cat incidents/01-build.txt`, puis les suivants).\n2. Dans **diagnostic.yaml**, donnez pour chaque composant (`build`, `api`, `worker`, `db`, `proxy`) une cause parmi : `contexte`, `ecoute`, `memoire`, `volume`, `version`.\n3. Réparez **.dockerignore**, **Dockerfile** et **docker-compose.yml** :\n   - le build trouve `app/requirements.txt` (gardez `.git` et `.env` exclus) ;\n   - l'API est joignable depuis l'hôte ;\n   - le worker a assez de mémoire (128m au moins) ;\n   - les données de `db` survivent à `docker compose down` ;\n   - le proxy n'est plus à la merci d'une nouvelle image publiée.\n\nLe contrôle lit vos fichiers : aucun démon Docker n'est nécessaire.",
+  "check": "bash \"$LESSON_DIR/check.sh\"",
+  "hints": [
+    "« not found » sur un COPY alors que le fichier existe : il a été retiré du contexte de build. Relisez .dockerignore, motif par motif.",
+    "Le curl depuis l'hôte échoue mais réussit depuis le conteneur : l'application écoute sur l'adresse de boucle du conteneur. Exit 137 avec OOMKilled true : la limite mémoire.",
+    "db : `volumes: - pgdata:/var/lib/postgresql/data` dans le service, et `volumes: pgdata:` au premier niveau. proxy : un tag précis comme `nginx:1.27.2`."
+  ],
+  "timeout_s": 20,
+  "workspace": "dk4",
+  "seed": [
+    "seed/incidents",
+    "seed/app",
+    "seed/Dockerfile",
+    "seed/.dockerignore",
+    "seed/docker-compose.yml",
+    "seed/diagnostic.yaml"
+  ]
+}

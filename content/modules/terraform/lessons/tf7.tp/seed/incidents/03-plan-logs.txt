@@ -1,0 +1,12 @@
+(avec une valeur d'environnement corrigée à la main pour voir la suite du plan)
+
+  # local_file.journaux will be created
+  + resource "local_file" "journaux" {
+      + filename = "./out/logs.conf"
+    }
+
+  # local_file.logs will be destroyed
+  # (because local_file.logs is not in configuration)
+  - resource "local_file" "logs" {
+      - filename = "./out/logs.conf" -> null
+    }

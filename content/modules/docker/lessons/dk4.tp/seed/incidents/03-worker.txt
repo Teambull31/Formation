@@ -1,0 +1,10 @@
+$ docker compose ps -a worker
+NAME         STATUS
+shop-worker  Exited (137) 4 seconds ago
+
+$ docker inspect shop-worker --format '{{.State.OOMKilled}} {{.HostConfig.Memory}}'
+true 16777216
+
+$ docker stats --no-stream shop-worker   (juste avant l'arrêt)
+NAME         MEM USAGE / LIMIT
+shop-worker  15.9MiB / 16MiB

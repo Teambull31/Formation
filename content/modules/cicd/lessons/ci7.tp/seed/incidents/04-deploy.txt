@@ -1,0 +1,5 @@
+Run 1311 (push sur main, commit a41b7c0)
+  test     ✗ échec à 12:04:51 (2 tests en échec)
+  deploy   ✓ succès à 12:03:40 (démarré à 12:02:10, en parallèle de test)
+
+Ticket #77 : la production renvoie des erreurs 500 depuis 12:04, version a41b7c0 déployée.
