@@ -6,7 +6,7 @@ files=(.github/workflows/*.yml .github/workflows/*.yaml)
 [ ${#files[@]} -gt 0 ] || { echo "ECHEC : aucun workflow dans .github/workflows/"; exit 1; }
 if ! command -v actionlint >/dev/null; then
   echo "OUTIL ABSENT : actionlint."
-  echo "Installez-le : pip install --user actionlint-py   (ou le binaire : https://github.com/rhysd/actionlint/releases)"
+  echo "Installez le binaire dans ~/.local/bin : https://github.com/rhysd/actionlint/releases"
   exit 3
 fi
 echo "\$ actionlint ${files[*]}"

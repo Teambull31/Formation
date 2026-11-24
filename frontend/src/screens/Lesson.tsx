@@ -117,6 +117,11 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
     if (id) getLesson(id).then(setLes).catch((e: Error) => setLoadErr(e.message))
   }, [id])
 
+  const [order, setOrder] = useState<{ id: string; title: string }[]>([]) // catalogue order, for prev/next
+  useEffect(() => {
+    if (id) getLessons().then((ms) => setOrder(ms.flatMap((m) => m.lessons))).catch(() => {}) // nav is optional
+  }, [id])
+
   if (!id) return <Catalog onOpen={onOpen} />
   if (loadErr) return <section className="screen wrap"><p className="note" role="alert">{loadErr}</p></section>
   if (!les) return <section className="screen wrap"><p className="note">Chargement…</p></section>
@@ -128,6 +133,9 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
   const guard = (e: unknown) => { if (isForbidden(e)) setLocal(false); else setBanner((e as Error).message) }
   const run = (p: () => Promise<unknown>) => { setBusy(true); p().finally(() => setBusy(false)) }
   const tp = les.tp
+  const at = order.findIndex((l) => l.id === les.id) // -1 for remedial lessons outside the catalogue
+  const prev = at > 0 ? order[at - 1] : null
+  const next = at >= 0 && at < order.length - 1 ? order[at + 1] : null
 
   return (
     <section className="screen wrap">
@@ -175,6 +183,12 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
         <button className="btn" disabled={done.includes('bonus')} onClick={() => mark('bonus')}>
           {done.includes('bonus') ? 'Bonus terminé' : 'Terminer le bonus'}
         </button>
+      )}
+      {(prev || next) && (
+        <nav className="row wrapf" aria-label="Navigation entre leçons">
+          {prev && <button className="btn ghost" onClick={() => onOpen(prev.id)}>← {prev.title}</button>}
+          {next && <button className="btn" onClick={() => onOpen(next.id)}>Leçon suivante : {next.title} →</button>}
+        </nav>
       )}
     </section>
   )

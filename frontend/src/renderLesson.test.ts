@@ -25,6 +25,15 @@ describe('renderLesson', () => {
     expect(() => renderLesson('**!!a**!!')).not.toThrow()
     expect(renderLesson('**open')).toContain('**open')
   })
+  test('tables: header, body, escaped cells, separator skipped, closed before text', () => {
+    const h = renderLesson('| A | `b` |\n|---|:-:|\n| <i> | **c** |\nfin')
+    expect(h).toContain('<table><thead><tr><th>A</th><th><code>b</code></th></tr></thead>')
+    expect(h).toContain('<tbody><tr><td>&lt;i&gt;</td><td><strong>c</strong></td></tr></tbody></table><p>fin</p>')
+    expect(h).not.toContain('---')
+  })
+  test('pipes inside code blocks are not tables', () => {
+    expect(renderLesson('```\n| a |\n```')).toContain('<pre><code>| a |\n</code></pre>')
+  })
   test('headings and lists', () => {
     const h = renderLesson('# T\n## U\n### V\n- a\n- **b**')
     expect(h).toContain('<h1>T</h1>')

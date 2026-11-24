@@ -8,9 +8,10 @@ import Review from './screens/Review'
 import Interview from './screens/Interview'
 import Cards from './screens/Cards'
 import Exam from './screens/Exam'
+import Listen from './screens/Listen'
 import type { StepKind } from './api'
 
-const TABS = ['Quête', 'Leçon', 'Équipe', 'Boss', 'Révisions', 'Semaine'] as const
+const TABS = ['Quête', 'Leçon', 'Équipe', 'Boss', 'Révisions', 'Écoute', 'Semaine'] as const
 type Tab = (typeof TABS)[number]
 interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
 
@@ -44,6 +45,7 @@ export default function App() {
             {sub === 'entretien' && <Interview />}
           </>
         )}
+        {tab === 'Écoute' && <Listen />}
         {tab === 'Semaine' && <Weekly />}
       </main>
       <nav aria-label="Navigation principale"><div className="inner" role="tablist">

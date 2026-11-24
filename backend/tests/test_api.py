@@ -283,6 +283,30 @@ def test_audio_serves_edge_mp3(client, monkeypatch):
     assert r.status_code == 200 and r.headers["content-type"] == "audio/mpeg" and r.content == b"ID3x"
 
 
+def test_audio_regenerated_when_lesson_changes(client, tmp_path, monkeypatch):
+    import os
+    monkeypatch.setenv("FORMATION_TTS", "edge")
+    texts = []
+    def fake_edge(text, out):
+        texts.append(text)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(f"ID3-{len(texts)}".encode())
+        return out
+
+    monkeypatch.setattr("app.audio._synthesize_edge", fake_edge)
+    assert client.get("/api/audio/l1.mp3").content == b"ID3-1"
+    assert client.get("/api/audio/l1.mp3").content == b"ID3-1"  # en cache : pas de nouvelle synthèse
+    md = next((tmp_path / "content").rglob("l1.md"))
+    mp3 = next(tmp_path.rglob("audio/l1.mp3"))
+    os.utime(mp3, (1, 1))  # l'audio date d'avant la dernière modification de la leçon
+    assert client.get("/api/audio/l1.mp3").content == b"ID3-2" and len(texts) == 2
+    monkeypatch.setattr("app.audio._synthesize_edge", lambda *a: (_ for _ in ()).throw(RuntimeError("hors ligne")))
+    monkeypatch.setattr("shutil.which", lambda *_: None)
+    os.utime(mp3, (1, 1))
+    assert client.get("/api/audio/l1.mp3").content == b"ID3-2"  # synthèse impossible : l'ancien audio reste servi
+    assert md.exists()
+
+
 def test_audio_503_without_espeak(client, monkeypatch):
     monkeypatch.setattr("shutil.which", lambda *_: None)
     assert client.get("/api/audio/l1.mp3").status_code == 503
@@ -431,3 +455,16 @@ def test_feynman_503_when_ollama_down(client, monkeypatch):
 
 def test_remote_cannot_feynman(remote_client):
     assert remote_client.post("/api/feynman/l1", json=EXPL).status_code == 403
+
+
+def test_podcast_lists_present_episodes_and_serves_them(client, tmp_path):
+    assert client.get("/api/podcast").json() == []  # fixture sans dossier podcast
+    assert client.get("/api/podcast/..%2Fgacha.json").status_code == 404
+    assert client.get("/api/podcast/nope.mp3").status_code == 404
+    p = tmp_path / "content" / "podcast"
+    p.mkdir()
+    (p / "episodes.json").write_text('[{"file": "ep01.mp3", "title": "Un", "minutes": 10}, {"file": "ep02.mp3", "title": "Absent", "minutes": 9}]')
+    (p / "ep01.mp3").write_bytes(b"ID3fake")
+    assert [e["file"] for e in client.get("/api/podcast").json()] == ["ep01.mp3"]
+    r = client.get("/api/podcast/ep01.mp3")
+    assert r.status_code == 200 and r.content == b"ID3fake" and r.headers["content-type"] == "audio/mpeg"

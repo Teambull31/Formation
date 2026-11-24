@@ -12,3 +12,6 @@ credentials*.json
 .env.*
 !.env.example
 backups/
+
+# épisodes audio (lourds) : copiés à la main, voir content/podcast/episodes.json
+content/podcast/*.mp3

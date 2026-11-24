@@ -3,7 +3,7 @@
 # Aucune tâche n'est exécutée. Code 3 : ansible absent.
 set -u
 if ! command -v ansible-playbook >/dev/null; then
-  echo "OUTIL ABSENT : ansible. Installez-le : pip install --user ansible-core"
+  echo "OUTIL ABSENT : ansible. Installez-le : pipx install ansible-core (ou le paquet ansible-core de la distribution)"
   exit 3
 fi
 inv=localhost,

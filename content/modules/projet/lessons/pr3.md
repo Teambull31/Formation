@@ -22,6 +22,92 @@ L'image est **la même** que celle publiée par la CI : c'est le SHA qui relie l
 
 !!Un Deployment qui pointe vers latest peut faire tourner deux versions différentes après un simple redémarrage de nœud!!
 
+## Le Deployment commenté
+
+Ce fichier assemble les leçons k1 (structure), k2 (sondes) et k3 (sécurité). Les commentaires renvoient à la règle de placement.
+
+```yaml
+# Fichier : k8s/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: commandes
+spec:                                        # ── DEPLOYMENT ──
+  replicas: 2
+  selector:
+    matchLabels:
+      app: commandes                         # ① doit égaler ② et le sélecteur du Service
+  template:
+    metadata:
+      labels:
+        app: commandes                       # ②
+    spec:                                    # ── POD ──
+      automountServiceAccountToken: false    # l'API n'a rien à faire du jeton
+      securityContext:
+        runAsNonRoot: true                   # vaut pour tous les conteneurs
+        runAsUser: 10001                     # le même uid que USER 10001 du Dockerfile
+      containers:
+        - name: api                          # ── CONTENEUR ──
+          image: ghcr.io/moncompte/commandes:3f2a9c1   # le SHA publié par la CI
+          ports:
+            - containerPort: 8000
+          readinessProbe:                    # propriétés du conteneur : alignées sur image
+            httpGet:
+              path: /healthz
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 10          # aligné sur httpGet : réglage de la sonde
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:                   # celui DU CONTENEUR
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+```
+
+```yaml
+# Fichier : k8s/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: commandes                # le nom utilisé par port-forward svc/commandes
+spec:
+  selector:
+    app: commandes               # ③ = ① = ② : sinon aucun endpoint
+  ports:
+    - port: 80
+      targetPort: 8000           # = containerPort
+```
+
+```yaml
+# Fichier : k8s/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:                       # chemins relatifs au dossier k8s/
+  - deployment.yaml
+  - service.yaml
+```
+
+Remplacez `moncompte` et `3f2a9c1` par votre compte GitHub et le SHA réel : `git rev-parse HEAD` le donne, et l'onglet **Packages** liste les étiquettes publiées.
+
+## Pas à pas : l'étape 3
+
+1. Créez le dossier `k8s/` à la racine du dépôt.
+2. Écrivez `deployment.yaml` en suivant les trois niveaux : Deployment, pod, conteneur. Vérifiez que l'uid du `securityContext` est celui du Dockerfile.
+3. Écrivez `service.yaml` avec le même sélecteur que les étiquettes du pod.
+4. Écrivez `kustomization.yaml` qui liste les deux fichiers.
+5. Validez sans cluster : `kubeconform -strict k8s/deployment.yaml k8s/service.yaml`, puis `kubectl kustomize k8s/`.
+6. Avec kind : appliquez, attendez le rollout, et appelez `/healthz` par `port-forward` (commandes ci-dessous).
+
 ## Le tester avec kind
 
 ```bash

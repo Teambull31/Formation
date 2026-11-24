@@ -72,4 +72,7 @@ nav button[aria-selected="true"] { color: var(--gold); background: var(--surface
 .course pre { background: #080d12; border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; }
 .course pre code { background: none; padding: 0; }
 .course .key { color: var(--bad); font-weight: 600; }
+.course table { display: block; overflow-x: auto; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.course th, .course td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+.course th { background: var(--surface-2); }
 audio { width: 100%; }

@@ -25,6 +25,85 @@ db1  : ok=0   changed=0  unreachable=1  failed=0
 | avertissement sur les accolades dans `when` | condition | expression sans `{{ }}` |
 | secret lisible dans un journal | fuite | `no_log: true`, puis changer le secret |
 
+## Chaque panne, avec sa correction en place
+
+### Idempotence : un fichier qui grossit
+
+```yaml
+# FAUX : ajoute la ligne à chaque passage
+    - name: Activer la compression
+      ansible.builtin.shell: echo "gzip on;" >> /etc/nginx/conf.d/gzip.conf
+
+# JUSTE : décrit l'état voulu ; la ligne est ajoutée une fois, puis « ok »
+    - name: Activer la compression
+      ansible.builtin.lineinfile:
+        path: /etc/nginx/conf.d/gzip.conf
+        line: "gzip on;"
+        create: true
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Recharger nginx
+```
+
+### Handler : le nom ne correspond pas
+
+```yaml
+  tasks:
+    - name: Déposer le site
+      ansible.builtin.template:
+        src: site.conf.j2
+        dest: /etc/nginx/conf.d/site.conf
+      notify: Recharger nginx          # ← texte cité…
+  handlers:
+    - name: Recharger nginx            # ← …identique ici, majuscules comprises
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
+```
+
+### Inventaire : l'adresse est fausse
+
+```ini
+[db]
+db1 ansible_host=10.0.2.21   # ← l'adresse réelle, sur la même ligne que le nom de l'hôte
+```
+
+### Condition : des accolades qui cassent tout
+
+```yaml
+# FAUX : les accolades produisent un texte « Debian == 'Debian' » ou « RedHat == 'Debian' »
+#        au lieu d'un booléen : la condition ne fait pas ce qu'on croit
+      when: "{{ ansible_os_family }} == 'Debian'"
+
+# JUSTE : une expression nue ; sur Rocky, la tâche est sautée (skipped) au lieu de planter
+      when: ansible_os_family == "Debian"
+```
+
+`ansible_distribution` vaut `Debian`, `Ubuntu`, `Rocky`… ; `ansible_os_family` regroupe : `Debian` pour Debian et Ubuntu, `RedHat` pour Rocky, Alma et RHEL. ufw n'existe que dans la famille Debian : sur Rocky, une tâche ufw correctement conditionnée apparaît `skipped` dans le récapitulatif, ce qui est le comportement voulu.
+
+### Fuite : le mot de passe dans le journal
+
+```yaml
+    - name: Créer les comptes
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        password: "{{ item.password_hash }}"
+      loop: "{{ comptes }}"
+      no_log: true          # ← mot-clé de tâche : masque aussi chaque item de la boucle
+```
+
+## Pas à pas : remettre le parc d'aplomb
+
+1. Lisez `incidents/01-deuxieme-passage.txt` et les suivants. Dans chaque `PLAY RECAP`, repérez la colonne qui sort de l'ordinaire.
+2. Classez chaque composant dans une famille et remplissez `diagnostic.yaml`.
+3. Dans `inventory.ini`, corrigez l'`ansible_host` de db1.
+4. Dans `site.yml`, remplacez la commande de compression par un module à état.
+5. Alignez le texte du `notify` sur le `name` du handler, caractère pour caractère.
+6. Réécrivez la condition du pare-feu sans accolades, sur `ansible_os_family`.
+7. Ajoutez `no_log: true` sur la tâche des comptes, aligné sur le module.
+8. Vérifiez la syntaxe : `ansible-playbook -i inventory.ini site.yml --syntax-check`.
+
 ## Les outils de diagnostic
 
 ```bash

@@ -9,6 +9,11 @@ def test_strip_markdown_removes_markers():
     assert strip_markdown("# T\n**gras** et !!rouge!!") == "T\ngras et rouge"
 
 
+def test_strip_markdown_reads_tables_without_pipes():
+    md = "| Code | Sens |\n|---|:-:|\n| `137` | tué |"
+    assert strip_markdown(md) == "Code, Sens\n137, tué"
+
+
 def test_strip_markdown_code_and_lists():
     md = "- item `x`\n```sh\nrm -rf /\n```\n* autre"
     assert strip_markdown(md) == "item x\nautre"

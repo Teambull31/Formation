@@ -62,9 +62,49 @@ Une tâche qui manipule un secret l'affiche en cas d'erreur ou en mode verbeux (
 
 `become: true` au niveau du play exécute **tout** en root. Préférez-le au niveau des tâches qui en ont besoin, ou `become_user: postgres` pour agir en tant qu'un compte précis.
 
+`become` existe à deux niveaux, comme `when` : au niveau du play (aligné sur `hosts:`), il vaut pour toutes les tâches ; au niveau d'une tâche (aligné sur le module), il ne vaut que pour elle. Voici le playbook sécurisé en entier :
+
+```yaml
+# Fichier : db.yml
+- name: Base de données
+  hosts: db
+  # pas de « become: true » ici : chaque tâche demande ce dont elle a besoin
+  tasks:
+    - name: Installer PostgreSQL
+      ansible.builtin.apt:
+        name: postgresql
+        state: present
+      become: true                      # ← tâche : root pour installer un paquet
+
+    - name: Créer l'utilisateur de la base
+      community.postgresql.postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"   # vient de vars.yml, qui lit le coffre
+      become: true
+      become_user: postgres             # ← agir en tant que postgres, pas root
+      no_log: true                      # ← mot-clé de tâche : aligné sur le module
+
+    - name: Afficher le nom de la base
+      ansible.builtin.debug:
+        msg: "Base {{ db_name }} prête"  # aucun become : pas besoin de droits
+```
+
+`no_log` est un mot-clé de **tâche**, comme `become` et `notify` : il s'aligne sur le module. Placé sous `postgresql_user:`, il serait pris pour un paramètre du module et refusé.
+
 ## Les autres sources de secrets
 
 Vault convient à une petite équipe. À plus grande échelle, on lit les secrets au moment de l'exécution depuis un gestionnaire : `community.hashi_vault.vault_kv2_get` (HashiCorp Vault), `amazon.aws.secretsmanager_secret` (lookup AWS). Le secret ne vit alors même plus dans le dépôt, chiffré ou non.
+
+## Pas à pas : mettre le secret au coffre
+
+1. Créez le dossier `group_vars/db/`. Ansible lit tous les fichiers d'un dossier `group_vars/<groupe>/`, quel que soit leur nom.
+2. Dans `group_vars/db/vars.yml`, écrivez `db_name`, `db_user` et `db_password: "{{ vault_db_password }}"`.
+3. Dans `group_vars/db/vault.yml`, écrivez `vault_db_password: "..."` avec la vraie valeur.
+4. Supprimez l'ancien `group_vars/db.yml` : un fichier et un dossier du même groupe se mélangeraient.
+5. Créez le fichier de mot de passe du coffre hors du dépôt (`~/.vault_pass`, `chmod 600`), puis chiffrez `vault.yml` avec `ansible-vault encrypt --vault-password-file ~/.vault_pass`.
+6. Vérifiez : `head -1 group_vars/db/vault.yml` affiche `$ANSIBLE_VAULT;1.1;AES256`.
+7. Dans `db.yml`, déplacez `become: true` du play vers les tâches qui en ont besoin, et ajoutez `no_log: true` sur la tâche qui utilise `db_password`.
+8. Dans `ansible.cfg`, supprimez la ligne `host_key_checking = False`. Dans `.gitignore`, ajoutez `.vault_pass`.
 
 ## Labo réel
 

@@ -9,7 +9,10 @@ from pathlib import Path
 def strip_markdown(md: str) -> str:
     md = re.sub(r"```.*?```", "", md, flags=re.S)
     md = md.replace("**", "").replace("!!", "").replace("`", "")
-    lines = [re.sub(r"^\s*(#+\s*|[-*]\s+)", "", ln) for ln in md.splitlines()]
+    lines = [re.sub(r"^\s*(#+\s*|[-*]\s+)", "", ln) for ln in md.splitlines()
+             if not re.fullmatch(r"\s*\|[\s:|-]+\|\s*", ln)]  # ligne de séparation d'un tableau : rien à lire
+    lines = [", ".join(c.strip() for c in ln.strip()[1:-1].split("|")) if ln.strip().startswith("|") else ln
+             for ln in lines]  # une ligne de tableau se lit comme une énumération
     return "\n".join(ln for ln in lines if ln.strip()).strip()
 
 
@@ -65,6 +68,11 @@ def _synthesize_edge(text: str, out: Path) -> Path:
     except Exception as e:  # réseau, délai, voix refusée : l'appelant bascule sur espeak
         raise RuntimeError(f"Échec de la synthèse vocale (edge-tts) : {e}") from e
     return out
+
+
+def stale(audio: Path, source: Path) -> bool:
+    """L'audio manque, ou la leçon a été modifiée après sa génération (git pull met à jour la date du .md)."""
+    return not audio.exists() or (source.exists() and audio.stat().st_mtime < source.stat().st_mtime)
 
 
 def speak(text: str, stem: Path) -> Path:

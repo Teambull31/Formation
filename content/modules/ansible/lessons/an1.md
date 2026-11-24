@@ -69,6 +69,48 @@ ansible web -i inventory.ini -b -m ansible.builtin.apt -a "name=htop state=prese
         enabled: true
 ```
 
+## Les trois niveaux d'un playbook
+
+Un playbook a toujours la même architecture, et chaque niveau d'indentation correspond à un étage :
+
+```yaml
+# Fichier : site.yml
+- name: Serveurs web              # ÉTAGE PLAY : le tiret ouvre un play (colonne 0)
+  hosts: web                      #   clés du play : alignées sur « name », 2 espaces
+  become: true                    #   tout le play passe en root via sudo
+  tasks:                          #   la liste des tâches du play
+    - name: Installer nginx       # ÉTAGE TÂCHE : le tiret ouvre une tâche (4 espaces)
+      ansible.builtin.apt:        #   le module : aligné sur le « name » de la tâche
+        name: nginx               # ÉTAGE PARAMÈTRES : arguments DU MODULE (8 espaces)
+        state: present
+        update_cache: true
+    - name: Démarrer nginx au boot   # tâche suivante : même colonne que la précédente
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+```
+
+- **Play** : `name`, `hosts`, `become`, `tasks` sont alignés, juste après le tiret du play.
+- **Tâche** : `name` et le module (`ansible.builtin.apt:`) sont alignés, juste après le tiret de la tâche.
+- **Paramètres** : `name: nginx`, `state: present` sont indentés **sous le module**, car ce sont ses arguments.
+
+Le `name` apparaît trois fois avec trois sens : le nom du play, le nom de la tâche, et le paramètre `name` du module apt (le paquet). C'est le niveau d'indentation qui dit lequel est lequel.
+
+```yaml
+# FAUX : state est au niveau de la tâche, Ansible ne le passe pas au module
+    - name: Installer nginx
+      ansible.builtin.apt:
+        name: nginx
+      state: present          # ✗ « state » n'est pas un mot-clé de tâche : erreur
+
+# JUSTE : state est un paramètre d'apt, sous le module
+    - name: Installer nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+```
+
 - Le fichier est une **liste de plays** ; chaque play vise des `hosts` et liste ses `tasks`.
 - Chaque tâche a un `name` : c'est ce qu'on lit dans la sortie et dans les journaux.
 - Écrivez le nom complet du module (**FQCN**) : `ansible.builtin.apt` et non `apt`. On sait d'où vient le code.
@@ -90,6 +132,17 @@ ansible-playbook -i inventory.ini site.yml --limit web1
 Le récapitulatif final, `PLAY RECAP`, donne par hôte : `ok`, `changed`, `unreachable`, `failed`. Un second lancement doit afficher `changed=0`.
 
 !!--limit est votre ami : testez sur un seul hôte avant de lancer sur tout le parc!!
+
+## Pas à pas : inventaire et premier playbook
+
+1. Dans `inventory.ini`, écrivez `[web]` puis une ligne par hôte : `web1 ansible_host=10.0.1.11`. Faites de même pour `[db]`.
+2. Ajoutez `[prod:children]` avec, en dessous, les noms des groupes `web` et `db` (pas des hôtes).
+3. Ajoutez `[all:vars]` avec `ansible_user=deploy`, et supprimez toute ligne `ansible_password`.
+4. Vérifiez l'arbre : `ansible-inventory -i inventory.ini --graph`.
+5. Dans `site.yml`, écrivez le play en colonne 0 : `- name:`, puis `hosts: web`, `become: true` et `tasks:` alignés sur `name`.
+6. Ajoutez la tâche apt : `- name: Installer nginx` à 4 espaces, `ansible.builtin.apt:` à 6, ses paramètres à 8.
+7. Ajoutez la tâche service de la même façon, et supprimez toute tâche `shell` ou `command`.
+8. Lancez `ansible-playbook -i inventory.ini site.yml --syntax-check`, puis `--check --diff` sur un hôte avec `--limit web1`.
 
 ## Labo réel
 

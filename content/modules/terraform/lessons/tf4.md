@@ -47,7 +47,52 @@ resource "local_file" "config" {
 }
 ```
 
-`each.key` est la clé (`dev`, `prod`), `each.value` la valeur. Retirer `staging` ne touche que `local_file.config["staging"]`. Règle : **`for_each` pour une collection d'objets distincts**, `count` seulement pour « 0 ou 1 » (une ressource optionnelle).
+Où placer `for_each` ? C'est un **méta-argument** : il ne décrit pas le fichier, il dit à Terraform combien d'objets fabriquer. Par convention, il s'écrit **en premier** dans le bloc, suivi d'une ligne vide, pour qu'on le voie avant de lire le reste. Même règle pour `count`.
+
+Voici les trois fichiers du TP une fois factorisés, avec le trajet des valeurs :
+
+```hcl
+# Fichier : envs.tfvars : les DONNÉES, une entrée par environnement
+environments = {
+  dev     = { replicas = 1, debug = true }    # clé "dev" → each.key
+  staging = { replicas = 2, debug = true }    # { ... } → each.value
+  prod    = { replicas = 3, debug = false }
+}
+```
+
+```hcl
+# Fichier : variables.tf : le TYPE de ces données
+variable "environments" {
+  type = map(object({         # une map : des clés libres (dev, prod…)
+    replicas = number         # chaque valeur est un objet à deux attributs fixes
+    debug    = bool
+  }))
+  description = "Paramètres par environnement."
+}
+```
+
+```hcl
+# Fichier : main.tf : UNE ressource, autant d'objets que de clés
+locals {                                       # niveau 0, hors de toute ressource
+  out_dir = "${path.module}/out"
+}
+
+resource "local_file" "config" {
+  for_each = var.environments                  # ← méta-argument : en premier
+
+  filename = "${local.out_dir}/${each.key}.conf"                          # out/dev.conf…
+  content  = "replicas=${each.value.replicas}\ndebug=${each.value.debug}\n"
+}
+```
+
+```hcl
+# Fichier : outputs.tf : une expression for sur toutes les instances
+output "config_files" {
+  value = { for k, f in local_file.config : k => f.filename }   # { dev = "out/dev.conf", … }
+}
+```
+
+`each.key` est la clé (`dev`, `prod`), `each.value` la valeur. `each` n'existe que dans un bloc qui a un `for_each` ; ailleurs, `terraform validate` le refuse. Retirer `staging` ne touche que `local_file.config["staging"]`. Règle : **`for_each` pour une collection d'objets distincts**, `count` seulement pour « 0 ou 1 » (une ressource optionnelle).
 
 ```hcl
 resource "local_file" "debug" {
@@ -82,7 +127,35 @@ dynamic "ingress" {
 }
 ```
 
+Le bloc `dynamic` se place **dans** la ressource, à l'endroit où l'on aurait écrit les blocs `ingress` à la main. Son étiquette (`"ingress"`) est le nom du bloc à générer, et c'est aussi le nom de l'itérateur : on lit `ingress.value`, pas `each.value`. Le contenu généré va dans le sous-bloc `content { }`.
+
+```hcl
+resource "aws_security_group" "web" {
+  name = "web"
+
+  dynamic "ingress" {              # ← génère un bloc « ingress » par port
+    for_each = var.ports           # [80, 443]
+    content {                      # ← ce qui irait dans chaque bloc ingress
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+}
+```
+
 À utiliser avec modération : un bloc écrit en clair se relit mieux qu'une boucle.
+
+## Pas à pas : factoriser trois ressources en une
+
+1. Ouvrez `envs.tfvars` : les trois environnements y sont déjà, sous forme de map.
+2. Dans `variables.tf`, déclarez `environments` avec `type = map(object({ replicas = number, debug = bool }))` et une `description`, sans `default`.
+3. Dans `main.tf`, ajoutez un bloc `locals { }` au niveau 0 avec `out_dir`.
+4. Supprimez deux des trois ressources. Dans la troisième, ajoutez `for_each = var.environments` en première ligne.
+5. Remplacez le nom en dur dans `filename` par `${each.key}`, et les valeurs de `content` par `${each.value.replicas}` et `${each.value.debug}`.
+6. Dans `outputs.tf`, écrivez `config_files` avec l'expression `for` sur `local_file.config`.
+7. Testez l'expression dans `terraform console -var-file=envs.tfvars`, puis `terraform plan -var-file=envs.tfvars` : trois objets `local_file.config["dev"]`, `["staging"]`, `["prod"]`.
 
 ## Tester ses expressions
 

@@ -23,6 +23,75 @@ Pour s'entraîner gratuitement, le provider `local` suffit : il crée des fichie
 
 !!Une clé d'accès dans le bloc backend finit dans Git et dans le state : les identifiants viennent de l'environnement ou d'OIDC!!
 
+## Les fichiers commentés
+
+```hcl
+# Fichier : infra/main.tf
+terraform {
+  required_version = ">= 1.6"
+
+  required_providers {
+    local = {                          # argument (avec « = ») : nom choisi par vous
+      source  = "hashicorp/local"
+      version = "~> 2.5"
+    }
+  }
+
+  backend "s3" {                       # DANS le bloc terraform : lu par init, avant les variables
+    bucket       = "moncompte-tfstate"
+    key          = "commandes/prod.tfstate"   # un chemin par projet et par environnement
+    region       = "eu-west-3"
+    encrypt      = true
+    use_lockfile = true
+    # aucune access_key : les identifiants viennent de l'environnement
+  }
+}
+
+locals {
+  servers = toset(["web-1", "web-2"])  # set : for_each l'exige, et chaque nom est une clé stable
+}
+
+resource "local_file" "server" {
+  for_each = local.servers             # méta-argument : en premier
+
+  filename = "${path.module}/out/${each.key}.ini"
+  content  = "env=${var.environment}\n"
+}
+```
+
+```hcl
+# Fichier : infra/variables.tf
+variable "environment" {
+  type        = string
+  description = "Environnement visé : dev, staging ou prod."
+
+  validation {                         # bloc imbriqué : pas de « = »
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "environment doit valoir dev, staging ou prod."
+  }
+}
+```
+
+```hcl
+# Fichier : infra/outputs.tf
+output "web_servers" {
+  description = "Noms des serveurs web, lus pour générer l'inventaire Ansible."
+  value       = sort(keys(local_file.server))   # ["web-1", "web-2"] : le contrat avec l'étape 5
+}
+```
+
+`keys(local_file.server)` renvoie les clés du `for_each`, et `sort()` fixe leur ordre : l'inventaire Ansible généré sera identique d'un lancement à l'autre.
+
+## Pas à pas : l'étape 4
+
+1. Créez `infra/` et écrivez `main.tf` : le bloc `terraform` avec `required_providers` et `backend "s3"`, puis `locals` et la ressource en `for_each`.
+2. Écrivez `variables.tf` avec le bloc `validation`.
+3. Écrivez `outputs.tf` avec `web_servers`.
+4. À la racine du dépôt, complétez `.gitignore` (voir ci-dessous).
+5. Sans bucket réel, initialisez sans backend : `terraform -chdir=infra init -backend=false`, puis `validate`.
+6. Testez la validation : `terraform -chdir=infra plan -var environment=qa` doit afficher votre message d'erreur.
+7. `terraform -chdir=infra fmt` avant de commiter.
+
 ## Le .gitignore
 
 À la racine du projet : `.terraform/`, `*.tfstate`, `*.tfstate.*`. Le fichier `.terraform.lock.hcl`, lui, **reste versionné** : il fige les versions des providers.

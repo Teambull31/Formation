@@ -20,11 +20,25 @@ export function renderLesson(md: string): string {
   const out: string[] = []
   let list = false
   let code: string[] | null = null
+  let rows: string[][] | null = null // Markdown table being collected, first row = header
   const closeList = () => {
     if (list) out.push('</ul>')
     list = false
   }
+  const closeTable = () => {
+    if (!rows) return
+    const [head, ...body] = rows
+    const tr = (r: string[], tag: string) => `<tr>${r.map((c) => `<${tag}>${inline(esc(c))}</${tag}>`).join('')}</tr>`
+    out.push(`<table><thead>${tr(head, 'th')}</thead><tbody>${body.map((r) => tr(r, 'td')).join('')}</tbody></table>`)
+    rows = null
+  }
   for (const raw of md.split('\n')) {
+    if (!code && /^\|.*\|\s*$/.test(raw)) {
+      closeList()
+      if (!/^\|[\s:|-]+\|\s*$/.test(raw)) (rows ??= []).push(raw.trim().slice(1, -1).split('|').map((c) => c.trim())) // separator row skipped
+      continue
+    }
+    closeTable()
     if (raw.startsWith('```')) {
       if (code) {
         out.push(`<pre><code>${code.join('')}</code></pre>`)
@@ -53,6 +67,7 @@ export function renderLesson(md: string): string {
     else if (line.trim()) out.push(`<p>${inline(line)}</p>`)
   }
   closeList()
+  closeTable()
   if (code) out.push(`<pre><code>${(code as string[]).join('')}</code></pre>`) // unclosed fence
   return out.join('')
 }

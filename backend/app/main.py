@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app import llm
 from app.auth import BasicAuth, make_security, security_from_env
-from app.audio import speak, strip_markdown
+from app.audio import speak, stale, strip_markdown
 from app.boss import attempt_boss, count_attempts
 from app import cards as cardlib, exam as examlib, plan as planlib
 from app.content import Module, ModuleError, load_module
@@ -244,15 +244,31 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         lid, ext = name[:-4], name[-4:]
         if ext not in (".mp3", ".wav") or not SAFE_ID.fullmatch(lid):
             raise HTTPException(404, "Audio inconnu")
-        _, _, les = find_lesson(lid)
+        d, _, les = find_lesson(lid)
         stem = Path(db_path).parent / "audio" / lid
         out = stem.with_suffix(".mp3")  # pas d'audio mp3 : speak() tente edge-tts puis bascule sur espeak (wav)
-        if not out.exists():
+        if stale(out, d / "lessons" / f"{lid}.md"):
             try:
                 out = speak(strip_markdown(les.body_md), stem)
             except RuntimeError as e:
-                raise HTTPException(503, str(e))
+                if not out.exists():  # l'ancien audio vaut mieux que rien
+                    raise HTTPException(503, str(e))
         return FileResponse(out, media_type="audio/mpeg" if out.suffix == ".mp3" else "audio/wav")
+
+    podcast = content_dir / "podcast"
+
+    @app.get("/api/podcast")
+    def podcast_list():
+        idx = podcast / "episodes.json"
+        eps = json.loads(idx.read_text(encoding="utf-8")) if idx.is_file() else []
+        return [e for e in eps if (podcast / e["file"]).is_file()]  # mp3 hors git : ne lister que les présents
+
+    @app.get("/api/podcast/{name}")
+    def podcast_file(name: str):
+        f = podcast / name
+        if not name.endswith(".mp3") or not SAFE_ID.fullmatch(name[:-4]) or not f.is_file():
+            raise HTTPException(404, "Épisode inconnu")
+        return FileResponse(f, media_type="audio/mpeg")
 
     @app.post("/api/qcm/answer")
     def qcm_answer(body: AnswerIn, db=Depends(get_db)):

@@ -1,9 +1,9 @@
 """Préchauffe le cache audio : uv run python -m app.warm_audio [dossier_contenu] [dossier_audio]
-Génère le mp3 des leçons qui n'en ont pas, pour que la première lecture soit instantanée."""
+Génère le mp3 des leçons qui n'en ont pas ou dont le .md est plus récent, pour que la première lecture soit instantanée."""
 import sys
 from pathlib import Path
 
-from app.audio import speak, strip_markdown
+from app.audio import speak, stale, strip_markdown
 from app.content import ModuleError, load_module
 
 if __name__ == "__main__":
@@ -15,8 +15,8 @@ if __name__ == "__main__":
         except ModuleError:
             continue
         for les in mod.lessons:
-            if (audio / f"{les.id}.mp3").exists():
-                continue
+            if not stale(audio / f"{les.id}.mp3", d / "lessons" / f"{les.id}.md"):
+                continue  # mp3 présent et plus récent que la leçon
             try:
                 print(les.id, speak(strip_markdown(les.body_md), audio / les.id).name, flush=True)
             except RuntimeError as e:

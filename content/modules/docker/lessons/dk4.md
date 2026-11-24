@@ -35,6 +35,60 @@ Comparer l'intérieur et l'extérieur est le geste clé : si ça répond dedans 
 
 !!docker compose down -v supprime aussi les volumes nommés : sur une base, c'est la perte des données!!
 
+## Chaque panne, avec sa correction en place
+
+### Contexte : un motif trop large dans .dockerignore
+
+```
+# FAUX : *.txt exclut aussi app/requirements.txt, COPY ne le trouve plus
+.git
+.env
+*.txt
+
+# JUSTE : on exclut seulement ce qui doit l'être
+.git
+.env
+__pycache__
+```
+
+Pour voir ce qui part vraiment dans le contexte, rappelez-vous qu'un motif de `.dockerignore` s'applique à tout le dossier, sous-dossiers compris quand il commence par `**/`.
+
+### Écoute : l'API répond dedans, pas dehors
+
+```python
+# FAUX : 127.0.0.1 DANS le conteneur = seul le conteneur lui-même peut se connecter
+server = HTTPServer(("127.0.0.1", 8000), Handler)
+# JUSTE : 0.0.0.0 = toutes les interfaces du conteneur, dont celle reliée à l'hôte
+server = HTTPServer(("0.0.0.0", 8000), Handler)
+```
+
+Ne confondez pas avec le `127.0.0.1:` de la leçon précédente, dans `ports:`. Celui-là est côté **hôte** et limite qui peut joindre le port publié. Celui-ci est côté **application** et doit rester ouvert.
+
+### Mémoire, volume et version : dans docker-compose.yml
+
+```yaml
+services:
+  worker:
+    build: .
+    mem_limit: 256m            # ← niveau 2, option du service worker : 128m au moins
+  db:
+    image: postgres:16.4       # ← version précise
+    volumes:
+      - db-data:/var/lib/postgresql/data   # ← nom_du_volume:chemin_dans_le_conteneur
+  proxy:
+    image: nginx:1.27.2        # ← « nginx:latest » remplacé par une version figée
+
+volumes:                       # ← niveau 0, à côté de services : déclare les volumes nommés
+  db-data:
+```
+
+Le volume apparaît **deux fois**, et les deux sont nécessaires :
+
+- sous le service `db`, dans `volumes:` (niveau 2) : on **monte** le volume dans le conteneur ;
+- au niveau 0, dans `volumes:` à côté de `services:` : on **déclare** que ce volume nommé existe.
+
+Sans la déclaration du bas, Compose refuse le fichier. Sans le montage, la base écrit dans la couche du conteneur, qui disparaît au `down`.
+
 ## Inspecter sans deviner
 
 ```bash
@@ -50,6 +104,16 @@ docker compose config        # le fichier tel que Compose le comprend
 `docker compose config` est souvent oublié : il montre l'indentation et les variables comme Compose les lit.
 
 !!Ne lancez jamais un conteneur en privileged pour « voir si ça marche » : c'est donner la machine entière!!
+
+## Pas à pas : réparer la pile
+
+1. Lisez les incidents dans l'ordre (`cat incidents/01-build.txt`, puis les suivants) et notez pour chacun le symptôme : message, code de sortie, comportement.
+2. Associez chaque symptôme à une famille et remplissez `diagnostic.yaml`.
+3. Commencez par le build : sans image, rien d'autre ne se teste. Corrigez `.dockerignore`.
+4. Corrigez l'adresse d'écoute de l'application, puis la mémoire du worker.
+5. Ajoutez le volume nommé de `db`, en deux endroits : montage sous le service, déclaration au niveau 0.
+6. Figez la version de l'image du proxy.
+7. Relisez le résultat avec `docker compose config` : l'indentation fautive y saute aux yeux.
 
 ## Labo réel
 

@@ -35,4 +35,49 @@ Une clé secrète écrite dans le code est copiée dans chaque clone, chaque sau
 
 Mettre à jour les dépendances (`pip-audit` signale les versions vulnérables), journaliser les connexions échouées sans y écrire les mots de passe, limiter les tentatives. Aucune de ces mesures ne remplace les autres.
 
+## Le module corrigé, en entier
+
+```python
+# Fichier : auth.py
+import hashlib
+import hmac
+import os
+
+N, R, P = 2**14, 8, 1          # coût de scrypt : en constantes, pour les changer en un seul endroit
+
+def _digest(password, salt):
+    return hashlib.scrypt(password.encode(), salt=salt, n=N, r=R, p=P)
+
+def register(users, name, password):
+    if len(password) < 8:                          # 1. valider d'abord : rien n'est stocké
+        raise ValueError("mot de passe trop court")
+    salt = os.urandom(16)                          # 2. un sel neuf, aléatoire, par compte
+    users[name] = {"salt": salt, "hash": _digest(password, salt)}   # 3. sel + empreinte, jamais le mot de passe
+
+def check(users, name, password):
+    user = users.get(name)                         # .get : None si inconnu, pas d'exception
+    if user is None:
+        return False
+    return hmac.compare_digest(                    # comparaison en temps constant
+        user["hash"], _digest(password, user["salt"])   # on rehache avec LE sel stocké
+    )
+
+def get_secret_key():
+    key = os.environ.get("APP_SECRET_KEY")
+    if not key:                                    # absent ou vide : on refuse de continuer
+        raise RuntimeError("APP_SECRET_KEY manquante")
+    return key
+```
+
+Le trajet d'une vérification : au login, on reprend le **sel stocké** du compte, on recalcule l'empreinte du mot de passe tapé avec ce sel, puis on compare les deux empreintes. Le mot de passe d'origine n'est jamais relu, puisqu'il n'est stocké nulle part.
+
+## Pas à pas : sécuriser auth.py
+
+1. Supprimez toute ligne qui stocke `password` tel quel, et la constante `dev-secret-123`.
+2. Écrivez `_digest` avec `hashlib.scrypt`, puis `register` dans l'ordre : valider la longueur, tirer le sel, stocker sel et empreinte.
+3. Écrivez `check` : `users.get(name)`, `False` si absent, sinon `hmac.compare_digest` avec l'empreinte recalculée.
+4. Écrivez `get_secret_key` avec `os.environ.get` et une exception si la valeur manque.
+5. Testez : deux comptes au même mot de passe doivent avoir des `hash` différents.
+6. Lancez l'application sans `APP_SECRET_KEY` : elle doit refuser de démarrer, avec un message clair.
+
 **À retenir :** pas de mot de passe en clair, hachage lent et salé, `compare_digest`, secrets en variables d'environnement, échec explicite si le secret manque.
