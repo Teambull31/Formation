@@ -129,3 +129,29 @@ def test_reminder_only_at_chosen_hour(db):
     assert push.remind(db, date(2026, 10, 23), 0, sender=sender, hour=19) == 1
     db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('remind_hour', '7')")
     assert push.remind(db, date(2026, 10, 24), 0, sender=sender, hour=7) == 1
+
+
+def test_reminder_carries_question_url_and_actions(db):
+    import json as _json
+    push.subscribe(db, SUB)
+    sent = []
+    push.remind(db, date(2026, 10, 23), 0, sender=lambda *a, **k: sent.append(_json.loads(k["data"])), question="Où vit un workflow ?")
+    assert sent[0]["title"].endswith("question du jour") and sent[0]["body"].startswith("Où vit un workflow ?")
+    assert sent[0]["url"] == "/?tab=revisions" and [a["action"] for a in sent[0]["actions"]] == ["ecoute", "revisions"]
+
+
+def test_question_of_day_reads_due_question(db, tmp_path):
+    import shutil
+    from pathlib import Path
+    from app.notify import question_of_day
+    from app.review import record_answer
+    shutil.copytree(Path(__file__).parent / "fixtures" / "demo_module", tmp_path / "modules" / "demo")
+    qid = _json_first_qid(tmp_path)
+    assert question_of_day(db, tmp_path, date(2026, 1, 2)) is None
+    record_answer(db, qid, False, date(2026, 1, 1))
+    assert question_of_day(db, tmp_path, date(2026, 1, 2))
+
+
+def _json_first_qid(root):
+    import json as _json
+    return _json.loads((root / "modules" / "demo" / "lessons" / "l1.qcm.json").read_text())[0]["id"]

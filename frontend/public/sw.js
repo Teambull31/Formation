@@ -64,6 +64,8 @@ self.addEventListener('push', (event) => {
   try { d = event.data.json() } catch { /* message vide ou en texte brut */ }
   event.waitUntil(self.registration.showNotification(d.title || 'Formation', {
     body: d.body || '', icon: '/icon-192.png', badge: '/icon-192.png', tag: 'daily',
+    data: { url: d.url || '/?tab=quete' },
+    actions: Array.isArray(d.actions) ? d.actions.slice(0, 2) : [], // Android : boutons ; ailleurs ignorés
   }))
 })
 
@@ -76,7 +78,8 @@ self.addEventListener('notificationclick', (event) => {
 // Toucher la notification ouvre l'appli (ou la ramène au premier plan) sur la quête du jour.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const url = (event.notification.data && event.notification.data.url) || '/?tab=quete'
+  const byAction = { ecoute: '/?tab=ecoute', revisions: '/?tab=revisions' }
+  const url = byAction[event.action] || (event.notification.data && event.notification.data.url) || '/?tab=quete'
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
     const w = wins.find((c) => new URL(c.url).origin === self.location.origin)
     return w ? w.focus().then((c) => c.navigate ? c.navigate(url) : c) : self.clients.openWindow(url)

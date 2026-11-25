@@ -61,7 +61,7 @@ def count_subs(db: sqlite3.Connection) -> int:
     return db.execute("SELECT COUNT(*) FROM push_subs").fetchone()[0]
 
 
-def send_all(db: sqlite3.Connection, title: str, body: str, *, sender=webpush) -> int:
+def send_all(db: sqlite3.Connection, title: str, body: str, *, sender=webpush, extra: dict | None = None) -> int:
     """Envoie à tous les abonnements ; supprime ceux que le service push déclare disparus (404/410). Retourne les envois réussis."""
     v, _ = vapid(db)
     sent = 0
@@ -70,7 +70,7 @@ def send_all(db: sqlite3.Connection, title: str, body: str, *, sender=webpush) -
             continue
         try:
             sender({"endpoint": endpoint, "keys": {"p256dh": p256dh, "auth": auth}},
-                   data=json.dumps({"title": title, "body": body}), vapid_private_key=v,
+                   data=json.dumps({"title": title, "body": body, **(extra or {})}), vapid_private_key=v,
                    vapid_claims={"sub": CONTACT}, timeout=10)
             sent += 1
         except WebPushException as e:
@@ -98,8 +98,11 @@ def reminder_due(db: sqlite3.Connection, today: date) -> bool:
                           (day, day)).fetchone()
 
 
+ACTIONS = [{"action": "ecoute", "title": "🎧 Écoute"}, {"action": "revisions", "title": "Réviser"}]
+
+
 def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, plan_line: str | None = None,
-           hour: int | None = None) -> int:
+           hour: int | None = None, question: str | None = None) -> int:
     """`hour` : heure locale courante ; le timer tourne chaque heure et seul le créneau choisi envoie (None : pas de filtre)."""
     if hour is not None and hour != remind_hour(db):
         return 0
@@ -110,7 +113,11 @@ def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, 
         body = f"{cue} → lance l'épisode du jour ou la révision express. {body}"
     if plan_line:
         body = f"{plan_line}. {body}"
-    n = send_all(db, "Formation : quête du jour", body, sender=sender)
+    title = "Formation : quête du jour"
+    if question:  # une vraie question dans la notification : on révise déjà en la lisant
+        title, body = "Formation · question du jour", f"{question[:160]}\n{body}"
+    n = send_all(db, title, body, sender=sender,
+                 extra={"url": "/?tab=revisions" if question else "/?tab=quete", "actions": ACTIONS})
     if n:
         _put(db, "last_reminder", today.isoformat())
         db.commit()

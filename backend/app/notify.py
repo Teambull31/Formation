@@ -4,10 +4,29 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from pathlib import Path
 
+from app.content import ModuleError, load_module
 from app.db import connect
 from app.plan import load_plan, today_line
 from app.push import remind
 from app.quests import current_streak
+from app.review import due_reviews
+
+
+def question_of_day(db, content: Path, today) -> str | None:
+    """Texte de la première question de révision due aujourd'hui, ou None."""
+    due = due_reviews(db, today)
+    if not due:
+        return None
+    for d in sorted((content / "modules").glob("*/")):
+        try:
+            mod = load_module(d)
+        except ModuleError:
+            continue
+        for les in mod.lessons:
+            for q in les.qcm:
+                if q.id == due[0]:
+                    return q.text
+    return None
 
 
 def main() -> int:
@@ -19,7 +38,8 @@ def main() -> int:
         line = today_line(db, load_plan(content), today)
     except (OSError, ValueError):  # plan illisible : le rappel part quand même
         line = None
-    n = remind(db, today, current_streak(db, today), plan_line=line, hour=now.hour)
+    n = remind(db, today, current_streak(db, today), plan_line=line, hour=now.hour,
+               question=question_of_day(db, content, today))
     print(f"{n} notification(s) envoyée(s)")
     return 0
 
