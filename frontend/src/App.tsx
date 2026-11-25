@@ -11,14 +11,13 @@ import Exam from './screens/Exam'
 import Listen from './screens/Listen'
 import type { StepKind } from './api'
 
-const TABS = ['Quête', 'Leçon', 'Équipe', 'Boss', 'Révisions', 'Écoute', 'Semaine'] as const
-type Tab = (typeof TABS)[number]
+import { TABS, fromUrl, type Sub, type Tab } from './deeplink'
 interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('Quête')
+  const [tab, setTab] = useState<Tab>(() => fromUrl().tab)
   const [lesson, setLesson] = useState<Opened | null>(null)
-  const [sub, setSub] = useState<'qcm' | 'cartes' | 'examen' | 'entretien'>('qcm')
+  const [sub, setSub] = useState<Sub>(() => fromUrl().sub)
   const open = (id: string, kind: StepKind | null = null, done = false) => {
     setLesson((l) => ({ id, kind, done, n: (l?.n ?? 0) + 1 }))
     setTab('Leçon')

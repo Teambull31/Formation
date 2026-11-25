@@ -72,3 +72,13 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     .then((cs) => (cs.length ? cs[0].focus() : self.clients.openWindow('/'))))
 })
+
+// Toucher la notification ouvre l'appli (ou la ramène au premier plan) sur la quête du jour.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/?tab=quete'
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+    const w = wins.find((c) => new URL(c.url).origin === self.location.origin)
+    return w ? w.focus().then((c) => c.navigate ? c.navigate(url) : c) : self.clients.openWindow(url)
+  }))
+})
