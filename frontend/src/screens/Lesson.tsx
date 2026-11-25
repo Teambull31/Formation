@@ -144,6 +144,20 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
     if (id) getLesson(id).then(setLes).catch((e: Error) => setLoadErr(e.message))
   }, [id])
 
+  useEffect(() => {
+    // reprise de lecture : on revient à l'endroit où on s'était arrêté dans cette leçon
+    if (!les) return
+    const key = `scroll:${les.id}`
+    try { const y = Number(localStorage.getItem(key)); if (y > 0) window.scrollTo(0, y) } catch { /* stockage indisponible */ }
+    let t = 0
+    const onScroll = () => {
+      clearTimeout(t)
+      t = window.setTimeout(() => { try { localStorage.setItem(key, String(Math.round(window.scrollY))) } catch { /* idem */ } }, 300)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { clearTimeout(t); window.removeEventListener('scroll', onScroll) }
+  }, [les])
+
   const [order, setOrder] = useState<{ id: string; title: string }[]>([]) // catalogue order, for prev/next
   useEffect(() => {
     if (id) getLessons().then((ms) => setOrder(ms.flatMap((m) => m.lessons))).catch(() => {}) // nav is optional

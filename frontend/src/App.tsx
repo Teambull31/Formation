@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Quest from './screens/Quest'
 import Lesson from './screens/Lesson'
 import Team from './screens/Team'
@@ -11,13 +11,15 @@ import Exam from './screens/Exam'
 import Listen from './screens/Listen'
 import { getQuest, type StepKind } from './api'
 
-import { TABS, fromUrl, type Sub, type Tab } from './deeplink'
+import { TABS, saveLast, startAt, type Sub, type Tab } from './deeplink'
 interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>(() => fromUrl().tab)
-  const [lesson, setLesson] = useState<Opened | null>(null)
-  const [sub, setSub] = useState<Sub>(() => fromUrl().sub)
+  const [start] = useState(() => startAt())
+  const [tab, setTab] = useState<Tab>(start.tab)
+  const [lesson, setLesson] = useState<Opened | null>(start.lessonId ? { id: start.lessonId, kind: null, done: false, n: 1 } : null)
+  const [sub, setSub] = useState<Sub>(start.sub)
+  useEffect(() => { saveLast({ tab, sub, lessonId: lesson?.id ?? null }) }, [tab, sub, lesson?.id])
   const open = (id: string, kind: StepKind | null = null, done = false) => {
     setLesson((l) => ({ id, kind, done, n: (l?.n ?? 0) + 1 }))
     setTab('Leçon')
