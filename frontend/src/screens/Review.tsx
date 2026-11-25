@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { answerQcm, getReviews, type QcmResult, type Reviews } from '../api'
+import Confidence, { sureWrongNote } from './Confidence'
 
 // Leitner boxes: a wrong answer sends a question to box 1, right answers climb up to mastery.
 export default function Review({ onOpen }: { onOpen: (lessonId: string) => void }) {
@@ -11,6 +12,7 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
   const [busy, setBusy] = useState(false)
   const [aerr, setAerr] = useState('')
   const [tries, setTries] = useState(0) // bump to reload
+  const [sure, setSure] = useState<boolean | null>(null)
 
   useEffect(() => {
     setErr(''); setData(null)
@@ -69,7 +71,7 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
 
   const pick = (c: number) => {
     setBusy(true)
-    answerQcm(q.id, c)
+    answerQcm(q.id, c, sure)
       .then((r) => { setRes({ chosen: c, r }); setAerr(''); if (r.correct) setRight((n) => n + 1) })
       .catch((e: Error) => setAerr(e.message || 'Erreur'))
       .finally(() => setBusy(false))
@@ -82,6 +84,7 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
       {boxes}
       <div className="card">
         <p>{q.text}</p>
+        {!res && <Confidence value={sure} onChange={setSure} />}
         {q.options.map((o, c) => (
           <button key={c} className={'opt' + (res && res.chosen === c ? (res.r.correct ? ' right' : ' wrong') : '')}
             disabled={busy || !!res} onClick={() => pick(c)}>{o}</button>
@@ -89,6 +92,7 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
         {res && (
           <div className={'fb' + (res.r.correct ? ' ok' : '')} role="status">
             <p>{res.r.correct ? 'Correct.' : 'Raté.'} {res.r.explanation}</p>
+            {res.r.sure_wrong && <p><strong>{sureWrongNote}</strong></p>}
             {res.r.remedial_lesson_id && (
               <button className="btn ghost" onClick={() => onOpen(res.r.remedial_lesson_id!)}>Ouvrir la mini-leçon</button>
             )}
@@ -96,7 +100,7 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
         )}
       </div>
       {aerr && <p className="note" role="alert">{aerr}</p>}
-      {res && <button className="btn" onClick={() => { setI(i + 1); setRes(null) }}>{i + 1 < qs.length ? 'Question suivante' : 'Terminer'}</button>}
+      {res && <button className="btn" onClick={() => { setI(i + 1); setRes(null); setSure(null) }}>{i + 1 < qs.length ? 'Question suivante' : 'Terminer'}</button>}
     </section>
   )
 }

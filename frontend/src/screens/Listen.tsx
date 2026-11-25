@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import Oral from './Oral'
 import { audioUrl, completeStep, ficheAudioUrl, getLessons, getPodcast, getRevision, podcastDone, podcastUrl, revisionDone, revisionUrl } from '../api'
 
 interface Track { src: string; title: string; group: string; minutes: number | null; lessonId?: string }
 const AUDIO_CACHE = 'formation-audio' // même nom que dans public/sw.js
 const RATES = [1, 1.25, 1.5]
+const RECALL_S = 30 // pause « qu'as-tu retenu ? » après un épisode
 const KEY = 'ecoute'
 
 // Position mémorisée par piste : on reprend là où la voiture s'est arrêtée. Stockage optionnel (navigation privée).
@@ -19,6 +21,7 @@ export default function Listen() {
   const [cur, setCur] = useState<number | null>(null)
   const [rate, setRate] = useState(1)
   const [err, setErr] = useState('')
+  const [recall, setRecall] = useState(0) // secondes restantes de la pause de rappel
   const el = useRef<HTMLAudioElement>(null)
   const mem = useRef(load())
 
@@ -74,7 +77,17 @@ export default function Listen() {
     const t = track!
     const quiet = () => { /* hors ligne : tant pis */ }
     if (t.lessonId) completeStep('lesson', t.lessonId).catch(quiet)
-    else if (t.src.startsWith('/api/podcast/')) podcastDone(decodeURIComponent(t.src.slice('/api/podcast/'.length))).catch(quiet)
+    else if (t.src.startsWith('/api/podcast/')) {
+      podcastDone(decodeURIComponent(t.src.slice('/api/podcast/'.length))).catch(quiet)
+      // rappel libre : résumer de mémoire, à voix haute, avant de passer à la suite
+      if (typeof speechSynthesis !== 'undefined') {
+        const u = new SpeechSynthesisUtterance("Qu'as-tu retenu ? Résume l'épisode en trois phrases, à voix haute. Tu as trente secondes.")
+        u.lang = 'fr-FR'
+        speechSynthesis.speak(u)
+      }
+      setRecall(RECALL_S)
+      return
+    }
     else if (t.src.startsWith('/api/revision/')) revisionDone().catch(quiet) // révision express écoutée = révisions du jour
     play(cur! + 1)
   }
@@ -105,6 +118,13 @@ export default function Listen() {
     setSaved((x) => { const n = new Set(x); n.delete(src); return n })
   }
 
+  useEffect(() => {
+    if (recall <= 0) return
+    const id = setTimeout(() => { if (recall === 1) play(cur! + 1); setRecall(recall - 1) }, 1000)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recall])
+
   const pick = (r: number) => { setRate(r); if (el.current) el.current.playbackRate = r }
 
   let last = ''
@@ -114,6 +134,14 @@ export default function Listen() {
       <p className="note">Pour la voiture : les pistes s'enchaînent, la position est retenue, et les boutons suivant/précédent du volant marchent. ⬇ garde la piste sur le téléphone pour les zones sans réseau ; une leçon écoutée jusqu'au bout est validée.
         Les audios des leçons sont créés à la première écoute (peut prendre une minute).</p>
       {err && <p className="fb">{err}</p>}
+      <Oral />
+      {recall > 0 && (
+        <div className="card" role="status">
+          <strong>Qu'as-tu retenu ? Résume l'épisode en 3 phrases, à voix haute.</strong>
+          <p className="stat">Suite dans {recall} s</p>
+          <button className="chip" onClick={() => { setRecall(0); play(cur! + 1) }}>Passer</button>
+        </div>
+      )}
       <div className="card" style={{ position: 'sticky', top: 0, zIndex: 2 }}>
         <div className="tag">{track ? track.group : 'Choisissez une piste'}</div>
         <strong>{track?.title ?? '—'}</strong>

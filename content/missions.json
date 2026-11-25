@@ -1,0 +1,110 @@
+[
+ {
+  "id": "m-cicd",
+  "module": "cicd",
+  "title": "Un CI qui protège mcs",
+  "goal": "Le dépôt mcs lance actionlint sur ses workflows à chaque push, et le dernier run de CI est vert.",
+  "steps": [
+   "Ajoute un job « lint-workflows » au workflow CI de mcs (actionlint via rhysd/actionlint ou docker://rhysd/actionlint).",
+   "Pousse sur une branche, ouvre une PR, regarde le job échouer puis passer.",
+   "Fusionne : le run sur main doit être vert."
+  ],
+  "check": "gh api repos/Teambull31/mcs/contents/.github/workflows --jq '.[].download_url' | xargs -n1 curl -fsSL | grep -q actionlint && test \"$(gh run list -R Teambull31/mcs -b main -L 1 --json conclusion -q '.[0].conclusion')\" = success"
+ },
+ {
+  "id": "m-docker",
+  "module": "docker",
+  "title": "Formation dans une image propre",
+  "goal": "L'image Docker de formation se construit, tourne en utilisateur non-root et répond sur /api/lessons.",
+  "steps": [
+   "Relis le Dockerfile de formation avec hadolint et corrige les avertissements.",
+   "Construis l'image : docker build -t formation:mission .",
+   "Lance-la et vérifie : docker run --rm -d -p 8099:8000 -e FORMATION_PASSWORD=mot-de-passe-long --name fm formation:mission"
+  ],
+  "check": "u=$(docker image inspect formation:mission --format '{{.Config.User}}') && [ -n \"$u\" ] && [ \"$u\" != root ] && [ \"$u\" != 0 ] && curl -fsS -u x:mot-de-passe-long http://127.0.0.1:8099/api/lessons >/dev/null"
+ },
+ {
+  "id": "m-k8s",
+  "module": "k8s",
+  "title": "Formation sur ton cluster kind",
+  "goal": "Un Deployment « formation » tourne sur le cluster kind local, avec sondes et limites, et son Service répond.",
+  "steps": [
+   "Écris deployment.yaml (2 réplicas, readinessProbe sur /api/lessons, requests/limits) et service.yaml.",
+   "kind load docker-image formation:mission puis kubectl apply -f .",
+   "kubectl rollout status deploy/formation"
+  ],
+  "check": "kubectl get deploy formation -o jsonpath='{.status.readyReplicas}' | grep -q '[1-9]' && kubectl get deploy formation -o jsonpath='{.spec.template.spec.containers[0].readinessProbe}' | grep -q httpGet"
+ },
+ {
+  "id": "m-terraform",
+  "module": "terraform",
+  "title": "Le dépôt GitHub en code",
+  "goal": "Un projet Terraform décrit un dépôt GitHub de test (description, sujets, protection de main) ; plan sans changement.",
+  "steps": [
+   "Dans ~/Projet/dev-ops/terraform-github, configure le provider integrations/github (jeton dans GITHUB_TOKEN, jamais dans le code).",
+   "Décris un dépôt « tf-sandbox » avec description, topics et règle de protection de branche.",
+   "terraform apply, puis terraform plan doit répondre « No changes »."
+  ],
+  "check": "cd ~/Projet/dev-ops/terraform-github && terraform plan -detailed-exitcode -input=false >/dev/null"
+ },
+ {
+  "id": "m-ansible",
+  "module": "ansible",
+  "title": "Reconstruire le VPS sans y penser",
+  "goal": "Un playbook installe ce que formation demande sur le VPS (uv, Node, bubblewrap, services) ; une 2e exécution ne change rien.",
+  "steps": [
+   "Écris ~/Projet/dev-ops/ansible-vps/site.yml avec un rôle « formation » (paquets, utilisateur, unités systemd).",
+   "ansible-playbook -i vps, site.yml --check --diff puis sans --check.",
+   "Relance : le récapitulatif doit afficher changed=0."
+  ],
+  "check": "cd ~/Projet/dev-ops/ansible-vps && ansible-playbook -i vps, site.yml --check | grep -Eq 'changed=0 +unreachable=0 +failed=0'"
+ },
+ {
+  "id": "m-secu",
+  "module": "secu",
+  "title": "Plus aucun secret en clair dans Finance",
+  "goal": "Les identifiants de test de Finance sont dans les secrets GitHub, plus dans les fichiers de workflow.",
+  "steps": [
+   "Repère les mots de passe en clair dans .github/workflows de Finance.",
+   "Déplace-les dans les secrets du dépôt (gh secret set) et remplace-les par ${{ secrets.NOM }}.",
+   "Vérifie que le CI passe toujours."
+  ],
+  "check": "wf=$(gh api repos/Teambull31/Finance/contents/.github/workflows --jq '.[].path' | xargs -I{} gh api repos/Teambull31/Finance/contents/{} --jq .content | base64 -d) && ! printf '%s\\n' \"$wf\" | grep -Ei '(password|secret)[a-z_]*:' | grep -v '[$][{][{]' | grep -q ."
+ },
+ {
+  "id": "m-linux",
+  "module": "linux",
+  "title": "Un VPS durci",
+  "goal": "Sur le VPS : connexion SSH par clé uniquement, root interdit, pare-feu actif.",
+  "steps": [
+   "Dans /etc/ssh/sshd_config.d/ : PasswordAuthentication no, PermitRootLogin no ; sshd -t puis reload.",
+   "Active ufw en laissant passer SSH et Tailscale.",
+   "Vérifie depuis le PC que la connexion par clé marche toujours AVANT de fermer ta session."
+  ],
+  "check": "ssh -o BatchMode=yes vps 'sudo sshd -T | grep -qx \"passwordauthentication no\" && sudo sshd -T | grep -qx \"permitrootlogin no\" && sudo ufw status | grep -q \"Status: active\"'"
+ },
+ {
+  "id": "m-projet",
+  "module": "projet",
+  "title": "Observer formation en production",
+  "goal": "Grafana (déjà sur le VPS) affiche une alerte si formation ne répond plus.",
+  "steps": [
+   "Ajoute une sonde (blackbox ou script) qui appelle http://127.0.0.1:8001/api/lessons chaque minute.",
+   "Crée un tableau de bord et une règle d'alerte « formation down » dans Grafana.",
+   "Arrête formation-tp 2 minutes : l'alerte doit se déclencher, puis se résoudre."
+  ],
+  "check": "ssh -o BatchMode=yes vps 'curl -fsS http://127.0.0.1:3000/api/health >/dev/null'"
+ },
+ {
+  "id": "m-auto1",
+  "module": "auto1",
+  "title": "Un agent qui trie tes alertes",
+  "goal": "Un script Python résume chaque matin les échecs de CI de tes dépôts (gh run list) avec un modèle local, et l'envoie en notification.",
+  "steps": [
+   "Écris ~/Projet/dev-ops/ci-digest/digest.py : gh run list --json pour mcs, Finance et formation.",
+   "Résume les échecs avec Ollama (qwen3) ; repli sans modèle : liste brute.",
+   "Programme-le avec un timer systemd utilisateur."
+  ],
+  "check": "test -f ~/Projet/dev-ops/ci-digest/digest.py && systemctl --user list-timers --all | grep -q digest"
+ }
+]

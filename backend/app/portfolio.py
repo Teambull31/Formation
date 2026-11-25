@@ -115,6 +115,11 @@ def build_zip(db: sqlite3.Connection, profile: Profile, modules: list[tuple[Path
                     added = True
                 if added:
                     included.append((mod.title, tp.title))
+        for mid, text in db.execute("SELECT module_id, text FROM articles ORDER BY module_id"):
+            if why := leak_reason(text):  # même tri que les fichiers de TP
+                excluded.append(f"articles/{mid}.md ({why} détecté)")
+            else:
+                z.writestr(f"articles/{mid}.md", text)
         z.writestr("README.md", readme(profile, included, excluded, bosses_won))
     return buf.getvalue(), {"tps": len(included), "excluded": excluded}
 

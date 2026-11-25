@@ -39,3 +39,18 @@ test('pas de suivante sur la dernière leçon, rien hors catalogue', async () =>
   expect(await screen.findByText('Leçon remediation')).toBeTruthy()
   expect(screen.queryByRole('navigation')).toBeNull()
 })
+
+test('questions avant lecture puis QCM avec la confiance envoyée', async () => {
+  const qcm = [{ id: 'q1', text: 'Où vit un workflow ?', options: ['.github/workflows', '/etc'] }]
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), qcm })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  const ans = vi.spyOn(api, 'answerQcm').mockResolvedValue({ correct: false, explanation: 'Dans .github/workflows.', remedial_lesson_id: null, sure_wrong: true })
+  render(<Lesson id="a" onOpen={() => {}} />)
+  expect(await screen.findByText(/Avant de lire/)).toBeTruthy()
+  fireEvent.click(screen.getByText("J'ai deviné, je lis la leçon"))
+  expect(screen.queryByText(/Avant de lire/)).toBeNull()
+  fireEvent.click(screen.getByText('Sûr'))
+  fireEvent.click(screen.getByText('/etc'))
+  expect(await screen.findByText(/en étant sûr de toi/)).toBeTruthy()
+  expect(ans).toHaveBeenCalledWith('q1', 1, true)
+})

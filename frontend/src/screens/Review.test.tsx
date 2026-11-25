@@ -43,7 +43,7 @@ test('bonne réponse puis fin de séance avec score', async () => {
   await screen.findByText(/Raté\. Non/)
   fireEvent.click(screen.getByText('Terminer'))
   expect(await screen.findByText('1 / 2 correctes')).toBeTruthy()
-  expect(api.answerQcm).toHaveBeenCalledWith('q1', 1)
+  expect(api.answerQcm).toHaveBeenCalledWith('q1', 1, null) // confiance non indiquée
 })
 
 test('mauvaise réponse : lien vers la leçon corrective', async () => {

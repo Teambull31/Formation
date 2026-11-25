@@ -36,17 +36,18 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
 
 export type StepKind = 'lesson' | 'qcm' | 'tp' | 'bonus'
 export interface Step { kind: StepKind; lesson_id: string; minutes: number; xp: number; done: boolean }
-export interface Suggestion { kind: 'episode' | 'exam' | 'interview' | 'feynman'; id: string; label: string }
+export interface Suggestion { kind: 'episode' | 'exam' | 'interview' | 'feynman' | 'mission' | 'article'; id: string; label: string }
 export interface Quest {
   day: string; steps: Step[]; bonus: Step | null; imposed_topic: string | null
   pending_tp: string[]; review: { due: number; done: boolean } | null; suggestions: Suggestion[]
+  pace?: 'normal' | 'fast' | 'consolidate'
 }
 export interface Lesson {
   id: string; title: string; minutes: number; body_md: string
   qcm: { id: string; text: string; options: string[] }[]
   tp: { id: string; title: string; instructions_md: string; timeout_s: number; real?: boolean } | null
 }
-export interface QcmResult { correct: boolean; explanation: string; remedial_lesson_id: string | null }
+export interface QcmResult { correct: boolean; explanation: string; remedial_lesson_id: string | null; sure_wrong?: boolean }
 export interface Team {
   xp: number; level: number; rank: string; rank_capped?: boolean; skills: Record<string, number>; skill_levels: Record<string, number>; tokens: number; streak: number
   inventory: { item_id: string; name: string; type: string; rarity: string; obtained_at: string }[]
@@ -67,14 +68,15 @@ export interface Fiche { id: string; title: string; body_md: string }
 export const getFiche = (id: string) => call<Fiche>('GET', `/api/fiche/${encodeURIComponent(id)}`)
 export const getLesson =(id: string) => call<Lesson>('GET', `/api/lesson/${encodeURIComponent(id)}`)
 export const audioUrl = (id: string) => `/api/audio/${encodeURIComponent(id)}.mp3`
-export const answerQcm = (question_id: string, chosen: number) =>
-  call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen })
+export const answerQcm = (question_id: string, chosen: number, confident: boolean | null = null) =>
+  call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen, confident })
 export interface ReviewQuestion { id: string; text: string; options: string[]; box: number }
 export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: number[]; intervals: number[] }
 export const getReviews = () => call<Reviews>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
-export const getPushKey = () => call<{ key: string; subscribed: boolean; hour: number }>('GET', '/api/push/key')
+export const getPushKey = () => call<{ key: string; subscribed: boolean; hour: number; cue?: string }>('GET', '/api/push/key')
+export const setPushCue = (cue: string) => call<Ok>('POST', '/api/push/cue', { cue })
 export const setPushHour = (hour: number) => call<Ok>('POST', '/api/push/hour', { hour })
 export const pushSubscribe = (sub: PushSubscriptionJSON) => call<Ok>('POST', '/api/push/subscribe', sub)
 export const pushUnsubscribe = (endpoint: string) => call<Ok>('POST', '/api/push/unsubscribe', { endpoint })
@@ -140,3 +142,19 @@ export const podcastDone = (file: string) => call<Ok>('POST', `/api/podcast/${en
 export const revisionDone = () => call<{ xp: number }>('POST', '/api/revision/done')
 export interface Retention { answered7: number; rate7: number | null; solid: number; weak: number }
 export const getRetention = () => call<Retention>('GET', '/api/retention')
+export interface OralItem { kind: 'card' | 'qcm'; id: string; prompt: string }
+export const getOral = () => call<{ items: OralItem[] }>('GET', '/api/oral')
+export interface OralResult { correct: boolean; answer: string; explain: string }
+export const answerOral = (kind: OralItem['kind'], id: string, transcript: string) =>
+  call<OralResult>('POST', '/api/oral/answer', { kind, id, transcript })
+export const addPanne = (symptom: string, cause: string, fix: string) => call<{ id: string }>('POST', '/api/cards/panne', { symptom, cause, fix })
+export interface Mission { id: string; module: string; title: string; goal: string; steps: string[]; checkable: boolean; done: boolean; proof: string | null; ready: boolean }
+export const getMissions = () => call<Mission[]>('GET', '/api/missions')
+export const checkMission = (id: string) => call<{ passed: boolean; output: string; xp: number }>('POST', `/api/missions/${encodeURIComponent(id)}/check`)
+export const proveMission = (id: string, proof: string) => call<{ xp: number }>('POST', `/api/missions/${encodeURIComponent(id)}/done`, { proof })
+export interface Article { id: string; title: string; text: string; unlocked: boolean }
+export const getArticles = () => call<Article[]>('GET', '/api/articles')
+export const saveArticle = (id: string, text: string) => call<{ xp: number; words: number }>('PUT', `/api/articles/${encodeURIComponent(id)}`, { text })
+export interface Cert { key: string | null; date: string | null; title: string | null; days_left: number | null; options: { key: string; title: string }[] }
+export const getCert = () => call<Cert>('GET', '/api/cert')
+export const setCert = (key: string | null, date: string | null) => call<Ok>('POST', '/api/cert', { key, date })

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getPushKey, pushSubscribe, pushTest, pushUnsubscribe, setPushHour } from '../api'
+import { getPushKey, pushSubscribe, pushTest, pushUnsubscribe, setPushCue, setPushHour } from '../api'
 
 // Web Push needs a service worker, hence https (or localhost) and, on iPhone, the installed app.
 export const pushSupported = () =>
@@ -10,13 +10,17 @@ const toBytes = (b64url: string) => {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0))
 }
 
+const CUES = ['Quand je démarre la voiture', 'Après mon café', 'Dans le train ou le bus', 'Après le repas du soir']
+
 export default function Reminders() {
   const [on, setOn] = useState(false)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const ok = pushSupported()
   const [hour, setHour] = useState<number | null>(null)
-  useEffect(() => { getPushKey().then((k) => setHour(k.hour)).catch(() => {}) }, [])
+  const [cue, setCue] = useState('')
+  useEffect(() => { getPushKey().then((k) => { setHour(k.hour); setCue(k.cue ?? '') }).catch(() => {}) }, [])
+  const pickCue = (c: string) => { setCue(c); setPushCue(c).catch((e: Error) => setMsg(e.message)) }
   const pickHour = (h: number) => { setHour(h); setPushHour(h).catch((e: Error) => setMsg(e.message)) }
 
   useEffect(() => {
@@ -54,6 +58,12 @@ export default function Reminders() {
         <>
           <p className="note">Une notification à l'heure choisie si tu n'as encore rien fait ce jour-là, jamais les jours de repos.
             Astuce : juste avant ton trajet, pour lancer l'épisode ou la révision express.</p>
+          <label className="tag" htmlFor="cue">Mon déclencheur (l'habitude s'accroche à un geste quotidien)</label>
+          <select id="cue" value={CUES.includes(cue) ? cue : cue ? '__' : ''} onChange={(e) => pickCue(e.target.value === '__' ? cue : e.target.value)}>
+            <option value="">Aucun</option>
+            {CUES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {cue && !CUES.includes(cue) && <option value="__">{cue}</option>}
+          </select>
           {hour !== null && (
             <label className="row">
               <span className="tag">Heure</span>

@@ -13,15 +13,15 @@ def pool(m: Module) -> list[Question]:
     return [q for les in m.lessons for q in les.qcm]
 
 
-def draw(m: Module, rng: random.Random) -> list[Question]:
+def draw(m: Module, rng: random.Random, size: int = SIZE) -> list[Question]:
     qs = pool(m)
-    return rng.sample(qs, min(SIZE, len(qs)))
+    return rng.sample(qs, min(size, len(qs)))
 
 
-def grade(m: Module, answers: dict[str, int]) -> tuple[int, list[dict]]:
+def grade(m: Module, answers: dict[str, int], size: int = SIZE) -> tuple[int, list[dict]]:
     """(score en %, détail par question). Lève ValueError si une réponse ne vient pas du module."""
     by_id = {q.id: q for q in pool(m)}
-    need = min(SIZE, len(by_id))
+    need = min(size, len(by_id))
     if len(answers) != need or any(qid not in by_id for qid in answers):
         raise ValueError(f"{need} réponses attendues, toutes issues de ce module")
     detail = []

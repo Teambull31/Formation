@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { answerCard, getCards, type Card, type Cards as C } from '../api'
 import { renderLesson } from '../renderLesson'
+import Panne from './Panne'
 
 // Cartes mémoire des leçons terminées : on se répond de tête, puis on dit honnêtement si on savait.
 export default function Cards({ onOpen }: { onOpen: (lessonId: string) => void }) {
@@ -41,6 +42,7 @@ export default function Cards({ onOpen }: { onOpen: (lessonId: string) => void }
   return (
     <section className="screen wrap">
       <h1>Cartes mémoire</h1>
+      <Panne onAdded={() => setTries((n) => n + 1)} />
       <p className="stat">{data.total} cartes dans les leçons terminées · {data.unseen} jamais vues · {data.boxes[data.boxes.length - 1] ?? 0} maîtrisées</p>
       {data.total === 0 && <p className="card">Terminez une leçon : ses pièges et ses termes clés deviennent des cartes.</p>}
       {data.total > 0 && !c && (

@@ -55,3 +55,11 @@ def test_most_overdue_first(db):
     record_answer(db, "b", False, D1)
     record_answer(db, "a", False, D2)
     assert due_reviews(db, D2 + timedelta(days=5)) == ["b", "a"]
+
+
+def test_confident_mistake_comes_back_today_and_guess_is_not_known(db):
+    record_answer(db, "q1", False, D1, confident=True)
+    assert due_reviews(db, D1) == ["q1"]
+    record_answer(db, "q2", True, D1, confident=False)
+    assert "q2" in due_reviews(db, D2) and "q2" not in due_reviews(db, D1)  # devinée : revient demain, pas dans 7 jours
+    assert db.execute("SELECT box FROM mistakes WHERE question_id='q2'").fetchone()[0] == 0

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError, getTeam, pullGacha, type Team as T } from '../api'
 import Reminders from './Reminders'
+import Articles from './Articles'
 
 export default function Team() {
   const [team, setTeam] = useState<T | null>(null)
@@ -49,6 +50,7 @@ export default function Team() {
           </div>
         </>
       )}
+      <Articles />
       <div className="card">
         <h3>Portfolio</h3>
         <p className="note">Zip de tes TP réussis (Terraform, Docker, Linux, CI/CD, Kubernetes, sécurité), sans secrets ni e-mails. Relis avant de publier sur GitHub.</p>

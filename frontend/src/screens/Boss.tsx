@@ -1,3 +1,4 @@
+import Missions from './Missions'
 import { useEffect, useState } from 'react'
 import { attemptBoss, getBoss, isForbidden, type BossInfo, type BossResult } from '../api'
 
@@ -48,6 +49,7 @@ export default function Boss({ onOpen }: { onOpen: (lessonId: string) => void })
           )}
         </div>
       )}
+      <Missions />
       {msg && <p className="note" role="alert">{msg}</p>}
     </section>
   )

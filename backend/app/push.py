@@ -106,6 +106,8 @@ def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, 
     if not reminder_due(db, today):
         return 0
     body = f"Ta série de {streak} jours t'attend : 15 minutes suffisent." if streak else "15 minutes aujourd'hui, et la série démarre."
+    if cue := _setting(db, "habit_cue"):  # déclencheur choisi : l'habitude s'accroche à un geste quotidien
+        body = f"{cue} → lance l'épisode du jour ou la révision express. {body}"
     if plan_line:
         body = f"{plan_line}. {body}"
     n = send_all(db, "Formation : quête du jour", body, sender=sender)

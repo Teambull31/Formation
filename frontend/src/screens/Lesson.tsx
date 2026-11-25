@@ -6,6 +6,7 @@ import {
 import { renderLesson } from '../renderLesson'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
+import Confidence, { sureWrongNote } from './Confidence'
 import Terminal from './Terminal'
 
 const RATES = [1, 1.5, 2]
@@ -29,11 +30,13 @@ function Audio({ id }: { id: string }) {
 function Qcm({ q, onOpen, onAnswered }: { q: L['qcm'][number]; onOpen: (id: string) => void; onAnswered: () => void }) {
   const [res, setRes] = useState<{ chosen: number; r: QcmResult } | null>(null)
   const [err, setErr] = useState('')
+  const [sure, setSure] = useState<boolean | null>(null)
   const pick = (i: number) =>
-    answerQcm(q.id, i).then((r) => { setRes({ chosen: i, r }); setErr(''); onAnswered() }).catch((e: Error) => setErr(e.message))
+    answerQcm(q.id, i, sure).then((r) => { setRes({ chosen: i, r }); setErr(''); onAnswered() }).catch((e: Error) => setErr(e.message))
   return (
     <div className="card">
       <p>{q.text}</p>
+      {!res && <Confidence value={sure} onChange={setSure} />}
       {q.options.map((o, i) => (
         <button key={i} className={'opt' + (res && res.chosen === i ? (res.r.correct ? ' right' : ' wrong') : '')}
           disabled={!!res} onClick={() => pick(i)}>{o}</button>
@@ -41,12 +44,36 @@ function Qcm({ q, onOpen, onAnswered }: { q: L['qcm'][number]; onOpen: (id: stri
       {res && (
         <div className={'fb' + (res.r.correct ? ' ok' : '')} role="status">
           <p>{res.r.correct ? 'Correct.' : 'Raté.'} {res.r.explanation}</p>
+          {res.r.sure_wrong && <p><strong>{sureWrongNote}</strong></p>}
           {res.r.remedial_lesson_id && (
             <button className="btn ghost" onClick={() => onOpen(res.r.remedial_lesson_id!)}>Ouvrir la mini-leçon</button>
           )}
         </div>
       )}
       {err && <p className="note" role="alert">{err}</p>}
+    </div>
+  )
+}
+
+// Questions avant la lecture : deviner, même faux, prépare le cerveau à repérer les réponses. Rien n'est noté.
+function PreQuestions({ qs }: { qs: L['qcm'] }) {
+  const [open, setOpen] = useState(true)
+  const [picked, setPicked] = useState<Record<string, number>>({})
+  if (!open) return null
+  return (
+    <div className="card">
+      <p className="tag">Avant de lire · pas noté</p>
+      <p className="note">Devine, même au hasard : chercher la réponse pendant la lecture fait mieux retenir.</p>
+      {qs.slice(0, 3).map((q) => (
+        <div key={q.id}>
+          <p>{q.text}</p>
+          {q.options.map((o, i) => (
+            <button key={i} className="opt" aria-pressed={picked[q.id] === i} style={picked[q.id] === i ? { borderColor: 'var(--gold)' } : undefined}
+              onClick={() => setPicked((p) => ({ ...p, [q.id]: i }))}>{o}</button>
+          ))}
+        </div>
+      ))}
+      <button className="btn ghost" onClick={() => setOpen(false)}>J'ai deviné, je lis la leçon</button>
     </div>
   )
 }
@@ -142,6 +169,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
       {banner && <p className="fb" role="alert">{banner}</p>}
       <h1>{les.title}</h1>
       <p className="time">{les.minutes} min</p>
+      {les.qcm.length > 0 && !done.includes('lesson') && (!kind || kind === 'lesson') && <PreQuestions qs={les.qcm} />}
       <Audio id={les.id} />
       {/* dangerouslySetInnerHTML only ever receives renderLesson output (escape-first) */}
       <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(les.body_md) }} />

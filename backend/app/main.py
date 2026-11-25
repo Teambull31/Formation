@@ -3,6 +3,7 @@ import json
 import os
 import random
 import re
+import subprocess
 from dataclasses import asdict, replace
 from datetime import date, timedelta
 from pathlib import Path
@@ -22,7 +23,8 @@ from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
 from app.interview import keyword_grade, load_questions
-from app import portfolio, push
+from app import learn, portfolio, push
+from app.tp import child_env
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import (XP, Quest, advanced, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak,
                         pending_tps, set_imposed_topic)
@@ -35,6 +37,10 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
+MISSION_XP = 200  # mission réelle sur un de tes dépôts
+ARTICLE_XP = 50
+MISSION_TIMEOUT = 120
+RELISTEN_DAYS = [1, 7, 30]  # réécoute espacée d'un épisode après la 1re écoute
 FEYNMAN_XP = 60  # max par leçon ; seules les améliorations de score rapportent
 REVISION_MAX = 15  # questions par catégorie : environ 10 minutes d'écoute
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
@@ -52,6 +58,36 @@ class TopicIn(BaseModel):
 class AnswerIn(BaseModel):
     question_id: str
     chosen: int
+    confident: bool | None = None  # « sûr » / « je devine », facultatif
+
+
+class OralIn(BaseModel):
+    kind: str = Field(pattern="^(card|qcm)$")
+    id: str = Field(max_length=200)
+    transcript: str = Field(max_length=2000)
+
+
+class PanneIn(BaseModel):
+    symptom: str = Field(min_length=5, max_length=300)
+    cause: str = Field(min_length=3, max_length=300)
+    fix: str = Field(min_length=3, max_length=500)
+
+
+class CueIn(BaseModel):
+    cue: str = Field(max_length=120)
+
+
+class CertIn(BaseModel):
+    key: str | None = None
+    date: str | None = Field(None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
+class ArticleIn(BaseModel):
+    text: str = Field(min_length=200, max_length=20000)
+
+
+class ProofIn(BaseModel):
+    proof: str = Field(pattern=r"^https://github\.com/[\w.-]+/[\w.-]+/\S+$", max_length=500)
 
 
 class BriefIn(BaseModel):
@@ -209,10 +245,27 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     def suggestions(db, mods, module_id: str | None, local: bool) -> list[dict]:
         out = []
-        ep = next((e for e in episodes() if e.get("module") == module_id and setting(db, f"listened:{e['file']}") is None), None)
+        best = dict(db.execute("SELECT module_id, best FROM exams").fetchall())
+        eps = episodes()
+        ep = next((e for e in eps if e.get("module") == module_id and setting(db, f"listened:{e['file']}") is None), None)
         if ep:
             out.append({"kind": "episode", "id": ep["file"], "label": f"À écouter : {ep['title']}"})
-        best = dict(db.execute("SELECT module_id, best FROM exams").fetchall())
+        for e in eps:  # réécoute espacée : J+1, J+7, J+30 après la première écoute
+            v = setting(db, f"listened:{e['file']}") or ""
+            if "|" in v:
+                first, n = v.split("|")
+                if int(n) <= len(RELISTEN_DAYS) and date.today() >= date.fromisoformat(first) + timedelta(days=RELISTEN_DAYS[int(n) - 1]):
+                    out.append({"kind": "episode", "id": e["file"], "label": f"Réécouter (rappel n°{n}) : {e['title']}"})
+                    break
+        missions_done = {r[0] for r in db.execute("SELECT mission_id FROM missions_done")}
+        for ms in learn.load_missions(content_dir):
+            m = next((m for _, m in mods if m.id == ms["module"]), None)
+            if m and ms["id"] not in missions_done and all(advanced(db, les, local) for les in m.lessons):
+                out.append({"kind": "mission", "id": ms["id"], "label": f"Mission réelle : {ms['title']}"})
+                break
+        written = {r[0] for r in db.execute("SELECT module_id FROM articles")}
+        if mid := next((k for k, b in best.items() if b >= examlib.PASS_PCT and k in {m.id for _, m in mods} and k not in written), None):
+            out.append({"kind": "article", "id": mid, "label": f"Écris l'article du module {mid} (300 mots pour ton portfolio)"})
         for _, m in mods:  # module entièrement vu : l'examen consolide
             if examlib.pool(m) and best.get(m.id, 0) < examlib.PASS_PCT and all(advanced(db, les, local) for les in m.lessons):
                 out.append({"kind": "exam", "id": m.id, "label": f"Examen final : {m.title}"})
@@ -259,7 +312,11 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         done = setting(db, f"review_done:{today.isoformat()}") is not None
         q.review = {"due": n, "done": done} if n or done else None
         q.suggestions = suggestions(db, mods, mid, local)
-        return asdict(q)
+        out = asdict(q)
+        r = retention_stats(db)
+        # rythme adaptatif : au-dessus de 85 % on peut accélérer, sous 60 % on consolide avant d'avancer
+        out["pace"] = "normal" if r["answered7"] < 10 else "fast" if r["rate7"] > 85 else "consolidate" if r["rate7"] < 60 else "normal"
+        return out
 
     @app.post("/api/quest/step")
     def quest_step(body: StepIn, request: Request, db=Depends(get_db)):
@@ -401,7 +458,9 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def podcast_done(name: str, db=Depends(get_db)):
         if mp3_id(name) and name not in {e["file"] for e in episodes()}:
             raise HTTPException(404, "Épisode inconnu")
-        put(db, f"listened:{name}")
+        v = setting(db, f"listened:{name}") or ""
+        first, n = v.split("|") if "|" in v else (date.today().isoformat(), "0")
+        put(db, f"listened:{name}", f"{first}|{int(n) + 1}")  # date de 1re écoute | nombre d'écoutes
         db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (date.today().isoformat(),))
         db.commit()
         return {"ok": True}
@@ -422,11 +481,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         was_due = q.id in due_reviews(db, date.today())
         db.execute("INSERT OR IGNORE INTO qcm_first(question_id, correct) VALUES (?, ?)", (q.id, int(correct)))
         db.commit()
-        record_answer(db, q.id, correct, date.today())
+        record_answer(db, q.id, correct, date.today(), body.confident)
         if was_due:
             review_progress(db)
         return {
             "correct": correct,
+            "sure_wrong": bool(body.confident) and not correct,  # erreur sûre de soi : revient aujourd'hui
             "explanation": q.explain if correct else llm.explain_error(q, body.chosen),
             "remedial_lesson_id": None if correct else q.remedial_lesson_id,
         }
@@ -437,7 +497,9 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         boxes = dict(db.execute("SELECT question_id, box FROM mistakes").fetchall())
         questions = []
         qs = all_questions()  # un seul parcours des modules, pas un par question due
-        for qid in due_reviews(db, date.today()):
+        order = due_reviews(db, date.today())
+        random.Random(date.today().isoformat()).shuffle(order)  # mélange des modules, stable dans la journée
+        for qid in order:
             if (q := qs.get(qid)) is None:  # question removed from content: not due anymore
                 continue
             due.append(qid)
@@ -454,7 +516,17 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/push/key")
     def push_key(db=Depends(get_db)):
-        return {"key": push.vapid(db)[1], "subscribed": push.count_subs(db) > 0, "hour": push.remind_hour(db)}
+        return {"key": push.vapid(db)[1], "subscribed": push.count_subs(db) > 0, "hour": push.remind_hour(db),
+                "cue": setting(db, "habit_cue") or ""}
+
+    @app.post("/api/push/cue")
+    def push_cue(body: CueIn, db=Depends(get_db)):
+        if body.cue.strip():
+            put(db, "habit_cue", body.cue.strip())
+        else:
+            db.execute("DELETE FROM settings WHERE key = 'habit_cue'")
+        db.commit()
+        return {"ok": True}
 
     @app.post("/api/push/hour")
     def push_hour(body: HourIn, db=Depends(get_db)):
@@ -567,7 +639,54 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     def studied_cards(db) -> list[cardlib.Card]:
         done = {r[0] for r in db.execute("SELECT lesson_id FROM quest_steps WHERE kind = 'lesson' AND done = 1")}
-        return [c for _, m in modules() for les in m.lessons if les.id in done for c in cardlib.lesson_cards(les)]
+        mine = [cardlib.Card(f"panne-{r[0]}", "", "panne", r[1], r[2]) for r in db.execute("SELECT id, front, back FROM user_cards")]
+        return mine + [c for _, m in modules() for les in m.lessons if les.id in done for c in cardlib.lesson_cards(les)]
+
+    @app.post("/api/cards/panne")
+    def card_panne(body: PanneIn, db=Depends(get_db)):
+        # une panne résolue devient une carte écrite par toi : celles-là se retiennent le mieux
+        cur = db.execute("INSERT INTO user_cards(front, back, created) VALUES (?, ?, ?)",
+                         (f"Panne : {body.symptom.strip()}. Cause et correction ?",
+                          f"{body.cause.strip()} → {body.fix.strip()}", date.today().isoformat()))
+        db.commit()
+        return {"id": f"panne-{cur.lastrowid}"}
+
+    def oral_items(db) -> list[dict]:
+        items = [{"kind": "card", "id": c["id"], "prompt": c["front"].replace("＿＿＿", "blanc")}
+                 for c in cardlib.session(db, studied_cards(db), date.today())["cards"]]
+        qs = all_questions()
+        for qid in due_reviews(db, date.today()):
+            if (q := qs.get(qid)) is not None:
+                opts = " ; ".join(f"réponse {'ABCDEF'[i]} : {o}" for i, o in enumerate(q.options))
+                items.append({"kind": "qcm", "id": q.id, "prompt": f"{q.text} {opts}"})
+        return items
+
+    @app.get("/api/oral")
+    def oral(db=Depends(get_db)):
+        return {"items": oral_items(db)}
+
+    @app.post("/api/oral/answer")
+    def oral_answer(body: OralIn, db=Depends(get_db)):
+        """Réponse dictée (révision orale en voiture) : notée côté serveur, puis rangée comme une réponse écrite."""
+        if body.kind == "card":
+            c = next((c for c in studied_cards(db) if c.id == body.id), None)
+            if c is None:
+                raise HTTPException(404, "Carte inconnue")
+            ok = learn.oral_match(body.transcript, c.back)
+            cardlib.record_card(db, c.id, ok, date.today())
+            review_progress(db)
+            return {"correct": ok, "answer": c.back, "explain": ""}
+        q = find_question(body.id)
+        said = learn.norm(body.transcript)
+        letter = re.search(r"\b(?:reponse|lettre)\s+([a-f])\b", said)
+        chosen = "abcdef".index(letter.group(1)) if letter else \
+            next((i for i, o in enumerate(q.options) if learn.oral_match(body.transcript, o)), -1)
+        ok = chosen == q.answer
+        was_due = q.id in due_reviews(db, date.today())
+        record_answer(db, q.id, ok, date.today())
+        if was_due:
+            review_progress(db)
+        return {"correct": ok, "answer": q.options[q.answer], "explain": q.explain}
 
     @app.get("/api/cards")
     def cards(db=Depends(get_db)):
@@ -611,32 +730,56 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         planlib.mark(db, day, body.done)
         return {"ok": True}
 
-    def find_module(module_id: str) -> Module:
-        for _, m in modules():
+    def exam_spec(module_id: str, db) -> tuple[Module, int, float]:
+        """(module, nombre de questions, secondes par question). « melange » : toutes les leçons vues, modules mêlés ;
+        « blanc » : examen blanc de la certification visée, à sa taille et son rythme réels."""
+        mods = [m for _, m in modules()]
+        if module_id in ("melange", "blanc"):
+            cert = learn.CERTS.get(setting(db, "cert") or "") if module_id == "blanc" else None
+            if module_id == "blanc" and cert is None:
+                raise HTTPException(404, "Aucune certification visée")
+            if cert and cert["modules"]:
+                lessons = [les for m in mods if m.id in cert["modules"] for les in m.lessons]
+            else:
+                lessons = [les for m in mods for les in m.lessons if advanced(db, les)]
+            m = Module(module_id, cert["title"] if cert else "Examen mélangé (tous les modules vus)", "revision", lessons)
+            if len(examlib.pool(m)) < 5:
+                raise HTTPException(404, "Pas encore assez de questions vues")
+            if cert:
+                return m, cert["questions"], cert["minutes"] * 60 / cert["questions"]
+            return m, examlib.SIZE, examlib.SECONDS_PER_QUESTION
+        for m in mods:
             if m.id == module_id and examlib.pool(m):
-                return m
+                return m, examlib.SIZE, examlib.SECONDS_PER_QUESTION
         raise HTTPException(404, "Module inconnu")
 
     @app.get("/api/exams")
     def exams(db=Depends(get_db)):
         best = dict(db.execute("SELECT module_id, best FROM exams").fetchall())
-        return [{"id": m.id, "title": m.title, "questions": min(examlib.SIZE, len(examlib.pool(m))), "best": best.get(m.id)}
-                for _, m in modules() if examlib.pool(m)]
+        out = []
+        for mid in ("blanc", "melange"):
+            try:
+                m, size, _ = exam_spec(mid, db)
+            except HTTPException:
+                continue
+            out.append({"id": mid, "title": m.title, "questions": min(size, len(examlib.pool(m))), "best": best.get(mid)})
+        return out + [{"id": m.id, "title": m.title, "questions": min(examlib.SIZE, len(examlib.pool(m))), "best": best.get(m.id)}
+                      for _, m in modules() if examlib.pool(m)]
 
     @app.get("/api/exam/{module_id}")
     def exam(module_id: str, db=Depends(get_db)):
-        m = find_module(module_id)
-        qs = examlib.draw(m, rng)
+        m, size, per_q = exam_spec(module_id, db)
+        qs = examlib.draw(m, rng, size)
         row = db.execute("SELECT best FROM exams WHERE module_id = ?", (m.id,)).fetchone()
-        return {"id": m.id, "title": m.title, "duration_s": examlib.SECONDS_PER_QUESTION * len(qs),
+        return {"id": m.id, "title": m.title, "duration_s": round(per_q * len(qs)),
                 "pass_pct": examlib.PASS_PCT, "best": row[0] if row else None,
                 "questions": [{"id": q.id, "text": q.text, "options": q.options} for q in qs]}
 
     @app.post("/api/exam/{module_id}")
     def exam_submit(module_id: str, body: ExamIn, db=Depends(get_db)):
-        m = find_module(module_id)
+        m, size, _ = exam_spec(module_id, db)
         try:
-            score, detail = examlib.grade(m, body.answers)
+            score, detail = examlib.grade(m, body.answers, size)
         except ValueError as e:
             raise HTTPException(400, str(e))
         for d in detail:
@@ -654,8 +797,97 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
                 "xp": xp, "detail": detail}
 
+    @app.get("/api/missions")
+    def missions(request: Request, db=Depends(get_db)):
+        done = dict(db.execute("SELECT mission_id, proof FROM missions_done").fetchall())
+        local = strictly_local(request)
+        mods = {m.id: m for _, m in modules()}
+        return [{**{k: ms[k] for k in ("id", "module", "title", "goal", "steps")}, "checkable": "check" in ms and local,
+                 "done": ms["id"] in done, "proof": done.get(ms["id"]),
+                 "ready": ms["module"] in mods and all(advanced(db, les, local) for les in mods[ms["module"]].lessons)}
+                for ms in learn.load_missions(content_dir)]
+
+    def finish_mission(db, ms: dict, proof: str) -> int:
+        if db.execute("SELECT 1 FROM missions_done WHERE mission_id = ?", (ms["id"],)).fetchone():
+            return 0
+        db.execute("INSERT INTO missions_done(mission_id, proof, at) VALUES (?, ?, ?)", (ms["id"], proof, date.today().isoformat()))
+        db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (date.today().isoformat(),))
+        skill = next((m.skill for _, m in modules() if m.id == ms["module"]), ms["module"])
+        award_xp(db, skill, MISSION_XP)  # commits
+        return MISSION_XP
+
+    def find_mission(mid: str) -> dict:
+        ms = next((x for x in learn.load_missions(content_dir) if x["id"] == mid), None)
+        if ms is None:
+            raise HTTPException(404, "Mission inconnue")
+        return ms
+
+    @app.post("/api/missions/{mid}/check", dependencies=[Depends(require_strictly_local)])
+    def mission_check(mid: str, db=Depends(get_db)):
+        """Vérification sur le PC (tes dépôts, gh, docker, kubectl y sont) ; jamais à distance."""
+        ms = find_mission(mid)
+        if "check" not in ms:
+            raise HTTPException(404, "Pas de vérification automatique : donne un lien de preuve")
+        try:
+            r = subprocess.run(["bash", "-c", ms["check"]], cwd=Path.home(), env=child_env(), capture_output=True,
+                               text=True, timeout=MISSION_TIMEOUT, stdin=subprocess.DEVNULL)
+        except subprocess.TimeoutExpired:
+            return {"passed": False, "output": f"Délai dépassé ({MISSION_TIMEOUT} s)", "xp": 0}
+        passed = r.returncode == 0
+        xp = finish_mission(db, ms, "vérifiée automatiquement") if passed else 0
+        return {"passed": passed, "output": (r.stdout + r.stderr)[-2000:], "xp": xp}
+
+    @app.post("/api/missions/{mid}/done")
+    def mission_done(mid: str, body: ProofIn, db=Depends(get_db)):
+        # depuis le téléphone : un lien vers le commit, la PR ou le run qui prouve le travail
+        return {"xp": finish_mission(db, find_mission(mid), body.proof)}
+
+    @app.get("/api/articles")
+    def articles(db=Depends(get_db)):
+        text = dict(db.execute("SELECT module_id, text FROM articles").fetchall())
+        best = dict(db.execute("SELECT module_id, best FROM exams").fetchall())
+        return [{"id": m.id, "title": m.title, "text": text.get(m.id, ""), "unlocked": best.get(m.id, 0) >= examlib.PASS_PCT}
+                for _, m in modules() if m.id in text or best.get(m.id, 0) >= examlib.PASS_PCT]
+
+    @app.put("/api/articles/{module_id}")
+    def article_save(module_id: str, body: ArticleIn, db=Depends(get_db)):
+        if module_id not in {m.id for _, m in modules()}:
+            raise HTTPException(404, "Module inconnu")
+        first = db.execute("SELECT 1 FROM articles WHERE module_id = ?", (module_id,)).fetchone() is None
+        db.execute("INSERT OR REPLACE INTO articles(module_id, text, updated) VALUES (?, ?, ?)",
+                   (module_id, body.text, date.today().isoformat()))
+        if first:
+            award_xp(db, "portfolio", ARTICLE_XP)  # commits
+        else:
+            db.commit()
+        return {"xp": ARTICLE_XP if first else 0, "words": len(body.text.split())}
+
+    @app.get("/api/cert")
+    def cert(db=Depends(get_db)):
+        key, when = setting(db, "cert"), setting(db, "cert_date")
+        c = learn.CERTS.get(key or "")
+        return {"key": key if c else None, "date": when, "title": c["title"] if c else None,
+                "days_left": (date.fromisoformat(when) - date.today()).days if c and when else None,
+                "options": [{"key": k, "title": v["title"]} for k, v in learn.CERTS.items()]}
+
+    @app.post("/api/cert")
+    def cert_set(body: CertIn, db=Depends(get_db)):
+        if body.key is None:
+            db.execute("DELETE FROM settings WHERE key IN ('cert', 'cert_date')")
+        elif body.key not in learn.CERTS:
+            raise HTTPException(422, "Certification inconnue")
+        else:
+            put(db, "cert", body.key)
+            if body.date:
+                put(db, "cert_date", body.date)
+        db.commit()
+        return {"ok": True}
+
     @app.get("/api/retention")
     def retention(db=Depends(get_db)):
+        return retention_stats(db)
+
+    def retention_stats(db) -> dict:
         since = (date.today() - timedelta(days=7)).isoformat()
         n, ok = db.execute("SELECT COUNT(*), COALESCE(SUM(correct), 0) FROM review_log WHERE day > ?", (since,)).fetchone()
         solid = db.execute("SELECT COUNT(*) FROM cards WHERE box >= 3").fetchone()[0] + \

@@ -97,3 +97,114 @@ def test_push_hour_setting(client):
     assert client.post("/api/push/hour", json={"hour": 7}).status_code == 200
     assert client.get("/api/push/key").json()["hour"] == 7
     assert client.post("/api/push/hour", json={"hour": 24}).status_code == 422
+
+
+def _answer_all_l1(client, right=True):
+    for q in client.get("/api/lesson/l1").json()["qcm"]:
+        for i in range(len(q["options"])):
+            if client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"] == right:
+                break
+
+
+def test_panne_card_and_oral_answer(client):
+    cid = client.post("/api/cards/panne", json={"symptom": "checkout refusé sur le runner", "cause": "dossier appartenant à root",
+                                                "fix": "nettoyer le workspace et lancer dans un conteneur"}).json()["id"]
+    items = client.get("/api/oral").json()["items"]
+    assert any(i["id"] == cid and i["prompt"].startswith("Panne") for i in items)
+    r = client.post("/api/oral/answer", json={"kind": "card", "id": cid, "transcript": "je ne sais pas"}).json()
+    assert r["correct"] is False and "root" in r["answer"]
+    r = client.post("/api/oral/answer", json={"kind": "card", "id": cid,
+                                              "transcript": "le dossier appartenait à root, il faut nettoyer le workspace dans un conteneur"}).json()
+    assert r["correct"] is True
+    assert client.post("/api/oral/answer", json={"kind": "card", "id": "nope", "transcript": "x"}).status_code == 404
+
+
+def test_oral_qcm_by_letter(client):
+    q = client.get("/api/lesson/l1").json()["qcm"][0]
+    results = [client.post("/api/oral/answer", json={"kind": "qcm", "id": q["id"], "transcript": f"réponse {'abcdef'[i]}"}).json()["correct"]
+               for i in range(len(q["options"]))]
+    assert results.count(True) == 1
+
+
+def test_confidence_flag(client):
+    q = client.get("/api/lesson/l1").json()["qcm"][0]
+    wrong = [client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i, "confident": True}).json()
+             for i in range(len(q["options"]))]
+    assert any(r["sure_wrong"] for r in wrong) and not any(r["sure_wrong"] and r["correct"] for r in wrong)
+    assert q["id"] in client.get("/api/reviews").json()["due"]  # erreur sûre : due aujourd'hui
+
+
+def test_mixed_exam_and_cert_mock_exam(client, tmp_path):
+    assert all(e["id"] != "melange" for e in client.get("/api/exams").json())
+    _done(tmp_path, ("lesson", "l1"), ("qcm", "l1"), ("lesson", "l2"), ("qcm", "l2"))
+    ids = [e["id"] for e in client.get("/api/exams").json()]
+    pool = sum(len(client.get(f"/api/lesson/{l}").json()["qcm"]) for l in ("l1", "l2"))
+    if pool >= 5:
+        assert "melange" in ids
+    assert client.post("/api/cert", json={"key": "nope"}).status_code == 422
+    assert client.post("/api/cert", json={"key": "devops", "date": (date.today() + timedelta(days=30)).isoformat()}).status_code == 200
+    c = client.get("/api/cert").json()
+    assert c["days_left"] == 30 and c["title"].startswith("Entretien")
+    if pool >= 5:
+        ex = client.get("/api/exam/blanc").json()
+        assert ex["duration_s"] == round(45 * 60 / 40 * len(ex["questions"]))
+
+
+def test_missions_proof_and_local_check(client, tmp_path, monkeypatch):
+    (tmp_path / "content" / "missions.json").write_text(json.dumps([
+        {"id": "m1", "module": "demo", "title": "T", "goal": "G", "steps": ["a"], "check": "true"},
+        {"id": "m2", "module": "demo", "title": "T2", "goal": "G", "steps": ["a"], "check": "false"}]))
+    ms = client.get("/api/missions").json()
+    assert [m["id"] for m in ms] == ["m1", "m2"] and not ms[0]["ready"]
+    assert client.post("/api/missions/m2/check").json()["passed"] is False
+    r = client.post("/api/missions/m1/check").json()
+    assert r["passed"] and r["xp"] == 200
+    assert client.post("/api/missions/m1/check").json()["xp"] == 0  # une seule fois
+    assert client.post("/api/missions/m2/done", json={"proof": "pas un lien"}).status_code == 422
+    assert client.post("/api/missions/m2/done", json={"proof": "https://github.com/Teambull31/mcs/pull/3"}).json()["xp"] == 200
+    assert all(m["done"] for m in client.get("/api/missions").json())
+
+
+def test_article_needs_passed_exam_listing_and_goes_to_portfolio(client):
+    assert client.get("/api/articles").json() == []
+    text = "mot " * 120
+    assert client.put("/api/articles/demo", json={"text": text}).json()["xp"] == 50
+    assert client.put("/api/articles/demo", json={"text": text + "fin"}).json()["xp"] == 0
+    assert client.put("/api/articles/nope", json={"text": text}).status_code == 404
+    import io, zipfile
+    z = zipfile.ZipFile(io.BytesIO(client.get("/api/portfolio.zip").content))
+    assert "articles/demo.md" in z.namelist()
+
+
+def test_relisten_spaced(client, tmp_path):
+    p = tmp_path / "content" / "podcast"
+    p.mkdir()
+    (p / "episodes.json").write_text(json.dumps([{"file": "ep01.mp3", "title": "Un", "minutes": 9, "module": "autre"}]))
+    (p / "ep01.mp3").write_bytes(b"ID3")
+    client.post("/api/podcast/ep01.mp3/done")
+    labels = lambda: [s["label"] for s in client.get("/api/quest").json()["suggestions"]]
+    assert not any("Réécouter" in x for x in labels())  # J+1 pas encore
+    con = sqlite3.connect(next(tmp_path.glob("*.db")))
+    con.execute("UPDATE settings SET value = ? WHERE key = 'listened:ep01.mp3'", ((date.today() - timedelta(days=1)).isoformat() + "|1",))
+    con.commit()
+    con.close()
+    assert any("Réécouter (rappel n°1)" in x for x in labels())
+
+
+def test_pace_from_retention(client, tmp_path):
+    assert client.get("/api/quest").json()["pace"] == "normal"
+    con = sqlite3.connect(next(tmp_path.glob("*.db")))
+    con.executemany("INSERT INTO review_log(day, correct) VALUES (?, ?)", [(date.today().isoformat(), 0)] * 8 + [(date.today().isoformat(), 1)] * 2)
+    con.commit()
+    con.close()
+    assert client.get("/api/quest").json()["pace"] == "consolidate"
+
+
+def test_habit_cue_in_reminder(db):
+    from app import push
+    from tests.test_push import SUB
+    push.subscribe(db, SUB)
+    db.execute("INSERT INTO settings(key, value) VALUES ('habit_cue', 'Quand je démarre la voiture')")
+    sent = []
+    push.remind(db, date(2026, 10, 23), 0, sender=lambda *a, **k: sent.append(a), hour=None)
+    assert sent

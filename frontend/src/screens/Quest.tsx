@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Plan from './Plan'
+import Cert from './Cert'
 import { announceRest, getPushKey, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Suggestion, type Team } from '../api'
 
-export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
+export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe' | 'Boss', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
 
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
 
@@ -44,6 +45,8 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
   const go = (sg: Suggestion) => {
     if (sg.kind === 'feynman') onStart(sg.id, 'lesson', true)
     else if (sg.kind === 'episode') onGo?.('Écoute')
+    else if (sg.kind === 'mission') onGo?.('Boss')
+    else if (sg.kind === 'article') onGo?.('Équipe')
     else onGo?.('Révisions', sg.kind === 'exam' ? 'examen' : 'entretien')
   }
 
@@ -53,6 +56,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
         <button className="btn ghost" onClick={() => onGo('Équipe')}>🔔 Active le rappel quotidien : c'est la régularité qui fait retenir</button>
       )}
       <Plan onStart={(id) => onStart(id, 'lesson', false)} />
+      <Cert />
       <div className="card">
         <p className="tag">Rang actuel</p>
         <h2>{team ? team.rank : '…'}</h2>
@@ -60,6 +64,11 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
       </div>
       <div className="card">
         <h3>Quête du jour</h3>
+        {quest?.pace === 'consolidate' && (
+          <p className="fb">Jour de consolidation conseillé : moins de 60 % de bonnes réponses en révision cette semaine.
+            Fais les révisions et réécoute un épisode avant d'avancer.</p>
+        )}
+        {quest?.pace === 'fast' && <p className="fb ok">Plus de 85 % en révision : tu peux accélérer (format 60 min, leçon bonus).</p>}
         {quest?.review && (
           <div className="step">
             <span className={'dot' + (quest.review.done ? ' done' : '')} aria-hidden>{quest.review.done ? '✓' : ''}</span>
@@ -108,6 +117,9 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
           <button className="btn ghost" aria-label="Effacer le sujet" onClick={() => { setTopicText(''); act(setTopic(null)) }}>✕</button>
         </div>
       </div>
+      {onGo && (
+        <button className="btn ghost" onClick={() => onGo('Révisions', 'cartes')}>Fatigué ? Jour minimum : 2 minutes, 3 cartes, et le jour compte</button>
+      )}
       <button className="btn ghost" onClick={() => act(announceRest(), 'Repos annoncé.')}>Repos aujourd'hui</button>
       {msg && <p className="note" role="status">{msg}</p>}
     </section>
