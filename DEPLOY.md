@@ -121,8 +121,18 @@ Avec Docker : `docker compose exec -T formation python -m app.notify` dans un cr
 ## Mise à jour
 
 ```bash
-scripts/update.sh        # git pull --ff-only, reconstruction, redémarrage, test de fumée
+scripts/update.sh        # Docker : git pull --ff-only, reconstruction, redémarrage, test de fumée
 ```
+
+VPS actuel (services systemd `formation` et `formation-tp`, pas Docker), depuis le PC après le push :
+
+```bash
+scripts/deploy-vps.sh    # rsync des mp3 du podcast, pull, uv sync, build, redémarrage, fumée, préchauffage audio
+```
+
+Sauvegardes hors du VPS : `scripts/systemd/formation-backup-pull.{service,timer}` (unités utilisateur du PC)
+recopient chaque nuit `vps:backups/` dans `~/backups-formation/`. Installation :
+`cp scripts/systemd/formation-backup-pull.* ~/.config/systemd/user/ && systemctl --user enable --now formation-backup-pull.timer`.
 
 ## Test de fumée
 

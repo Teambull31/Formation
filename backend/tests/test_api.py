@@ -468,3 +468,43 @@ def test_podcast_lists_present_episodes_and_serves_them(client, tmp_path):
     assert [e["file"] for e in client.get("/api/podcast").json()] == ["ep01.mp3"]
     r = client.get("/api/podcast/ep01.mp3")
     assert r.status_code == 200 and r.content == b"ID3fake" and r.headers["content-type"] == "audio/mpeg"
+
+
+def _fake_edge(monkeypatch):
+    texts = []
+    monkeypatch.setenv("FORMATION_TTS", "edge")
+
+    def fake(text, out):
+        texts.append(text)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"ID3")
+        return out
+
+    monkeypatch.setattr("app.audio._synthesize_edge", fake)
+    return texts
+
+
+def test_fiche_audio(client, monkeypatch):
+    texts = _fake_edge(monkeypatch)
+    mid = next(m["id"] for m in client.get("/api/lessons").json() if m["fiche"])
+    r = client.get(f"/api/fiche-audio/{mid}.mp3")
+    assert r.status_code == 200 and texts[0].startswith("Fiche de révision")
+    assert client.get("/api/fiche-audio/nope.mp3").status_code == 404
+    assert client.get("/api/fiche-audio/..%2Fx.mp3").status_code == 404
+
+
+def test_revision_express_reads_due_mistakes(client, monkeypatch):
+    texts = _fake_edge(monkeypatch)
+    assert client.get("/api/revision").json() == {"items": 0, "key": None}
+    les = client.get("/api/lesson/l1").json()
+    q = les["qcm"][0]
+    wrong = next(i for i in range(len(q["options"])) if not client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"])
+    assert wrong is not None
+    import app.main as m  # l'erreur est due demain : on avance la date
+    from datetime import date, timedelta
+    monkeypatch.setattr(m, "date", type("D", (), {"today": staticmethod(lambda: date.today() + timedelta(days=30))}))
+    info = client.get("/api/revision").json()
+    assert info["items"] >= 1 and info["key"]
+    assert client.get("/api/revision/deadbeef.mp3").status_code == 404  # clé périmée
+    assert client.get(f"/api/revision/{info['key']}.mp3").status_code == 200
+    assert q["text"] in texts[0] and "Réponse :" in texts[0]

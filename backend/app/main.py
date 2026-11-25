@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import random
@@ -33,6 +34,7 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 FEYNMAN_XP = 60  # max par leçon ; seules les améliorations de score rapportent
+REVISION_MAX = 15  # questions par catégorie : environ 10 minutes d'écoute
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
 
 
@@ -134,7 +136,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         return await call_next(request)
 
     def get_db():
-        db = connect(db_path)
+        db = connect(db_path, schema=False)
         try:
             yield db
         finally:
@@ -160,13 +162,13 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                     return d, m, les
         raise HTTPException(404, "Leçon inconnue")
 
+    def all_questions() -> dict:
+        return {q.id: q for _, m in modules() for les in m.lessons for q in les.qcm}
+
     def find_question(qid: str):
-        for _, m in modules():
-            for les in m.lessons:
-                for q in les.qcm:
-                    if q.id == qid:
-                        return q
-        raise HTTPException(404, "Question inconnue")
+        if (q := all_questions().get(qid)) is None:
+            raise HTTPException(404, "Question inconnue")
+        return q
 
     def find_tp(tid: str):
         for d, m in modules():
@@ -239,21 +241,71 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                    "timeout_s": les.tp.timeout_s, "real": (d / "lessons" / "_real.sh").is_file()} if les.tp else None,
         }
 
+    audio_dir = Path(db_path).parent / "audio"
+
+    def spoken(stem: Path, text, source: Path | None) -> FileResponse:
+        """Audio en cache de `stem`, refait si absent ou plus ancien que `source`. `text` : fonction, appelée seulement s'il faut synthétiser."""
+        out = stem.with_suffix(".mp3")  # pas d'audio mp3 : speak() tente edge-tts puis bascule sur espeak (wav)
+        if not out.exists() or (source is not None and stale(out, source)):
+            try:
+                out = speak(text(), stem)
+            except RuntimeError as e:
+                if not out.exists():  # l'ancien audio vaut mieux que rien
+                    raise HTTPException(503, str(e))
+        return FileResponse(out, media_type="audio/mpeg" if out.suffix == ".mp3" else "audio/wav")
+
+    def mp3_id(name: str) -> str:
+        if not name.endswith(".mp3") or not SAFE_ID.fullmatch(name[:-4]):
+            raise HTTPException(404, "Audio inconnu")
+        return name[:-4]
+
     @app.get("/api/audio/{name}")
     def audio(name: str):
         lid, ext = name[:-4], name[-4:]
         if ext not in (".mp3", ".wav") or not SAFE_ID.fullmatch(lid):
             raise HTTPException(404, "Audio inconnu")
         d, _, les = find_lesson(lid)
-        stem = Path(db_path).parent / "audio" / lid
-        out = stem.with_suffix(".mp3")  # pas d'audio mp3 : speak() tente edge-tts puis bascule sur espeak (wav)
-        if stale(out, d / "lessons" / f"{lid}.md"):
-            try:
-                out = speak(strip_markdown(les.body_md), stem)
-            except RuntimeError as e:
-                if not out.exists():  # l'ancien audio vaut mieux que rien
-                    raise HTTPException(503, str(e))
-        return FileResponse(out, media_type="audio/mpeg" if out.suffix == ".mp3" else "audio/wav")
+        return spoken(audio_dir / lid, lambda: strip_markdown(les.body_md), d / "lessons" / f"{lid}.md")
+
+    @app.get("/api/fiche-audio/{name}")
+    def fiche_audio(name: str):
+        mid = mp3_id(name)
+        for d, m in modules():
+            if m.id == mid and m.fiche_md is not None:
+                return spoken(audio_dir / f"fiche-{mid}", lambda: f"Fiche de révision : {m.title}.\n" + strip_markdown(m.fiche_md),
+                              d / "fiche.md")
+        raise HTTPException(404, "Fiche inconnue")
+
+    def revision_text(db) -> str:
+        # révision express pour la voiture : question, temps de réflexion, réponse
+        lines = []
+        for c in cardlib.session(db, studied_cards(db), date.today())["cards"][:REVISION_MAX]:
+            lines.append(f"{c['front']}\nRéfléchis… … …\nRéponse : {c['back']}")
+        qs = all_questions()
+        for qid in due_reviews(db, date.today())[:REVISION_MAX]:
+            if (q := qs.get(qid)) is not None:
+                lines.append(f"{q.text}\nRéfléchis… … …\nRéponse : {q.options[q.answer]}. {q.explain}")
+        if not lines:
+            return ""
+        return "Révision express du jour.\n" + "\n".join(f"Question {i}. {t}" for i, t in enumerate(lines, 1)) + \
+            "\nC'est fini pour aujourd'hui. Bravo."
+
+    @app.get("/api/revision")
+    def revision(db=Depends(get_db)):
+        text = revision_text(db)
+        # la clé change avec le contenu : l'URL du mp3 change, le cache hors ligne ne sert jamais une vieille révision
+        return {"items": text.count("Réfléchis"), "key": hashlib.sha1(text.encode()).hexdigest()[:12] if text else None}
+
+    @app.get("/api/revision/{name}")
+    def revision_audio(name: str, db=Depends(get_db)):
+        key = mp3_id(name)
+        text = revision_text(db)
+        if not text or hashlib.sha1(text.encode()).hexdigest()[:12] != key:
+            raise HTTPException(404, "Révision périmée : rechargez la liste")
+        for old in audio_dir.glob("revision-*"):  # une seule révision gardée
+            if not old.name.startswith(f"revision-{key}."):
+                old.unlink(missing_ok=True)
+        return spoken(audio_dir / f"revision-{key}", lambda: text, None)
 
     podcast = content_dir / "podcast"
 
@@ -290,10 +342,9 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         due = []
         boxes = dict(db.execute("SELECT question_id, box FROM mistakes").fetchall())
         questions = []
+        qs = all_questions()  # un seul parcours des modules, pas un par question due
         for qid in due_reviews(db, date.today()):
-            try:
-                q = find_question(qid)
-            except HTTPException:  # question removed from content: not due anymore
+            if (q := qs.get(qid)) is None:  # question removed from content: not due anymore
                 continue
             due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})

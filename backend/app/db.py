@@ -28,10 +28,11 @@ CREATE TABLE IF NOT EXISTS exams(module_id TEXT PRIMARY KEY, best INTEGER NOT NU
 """
 
 
-def connect(path: str) -> sqlite3.Connection:
+def connect(path: str, schema: bool = True) -> sqlite3.Connection:
     # a per-request connection may be created in another worker thread than the route's
     db = sqlite3.connect(path, check_same_thread=False)
     db.row_factory = sqlite3.Row
-    db.executescript(SCHEMA)
-    db.commit()
+    if schema:  # create_app le fait une fois au démarrage ; inutile à chaque requête
+        db.executescript(SCHEMA)
+        db.commit()
     return db

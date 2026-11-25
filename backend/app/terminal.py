@@ -15,8 +15,6 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from app.tp import child_env
 
-from app.tp import child_env
-
 LOCAL_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
 QUEUE_MAX = 64
 

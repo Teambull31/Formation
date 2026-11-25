@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 
@@ -81,7 +82,7 @@ def speak(text: str, stem: Path) -> Path:
     stem = Path(stem)
     if os.environ.get("FORMATION_TTS", "edge") == "edge":
         mp3 = stem.with_suffix(".mp3")
-        tmp = mp3.with_name(mp3.name + ".tmp")
+        tmp = mp3.with_name(f"{mp3.name}.{os.getpid()}.{threading.get_ident()}.tmp")  # deux écoutes simultanées : un fichier chacune
         try:
             _synthesize_edge(text, tmp)
             os.replace(tmp, mp3)
@@ -90,10 +91,8 @@ def speak(text: str, stem: Path) -> Path:
             pass  # hors ligne ou service cassé : repli espeak
         finally:
             tmp.unlink(missing_ok=True)
-    wav = stem.with_suffix(".wav")
-    if wav.exists():
-        return wav
-    tmp = wav.with_name(wav.name + ".tmp")
+    wav = stem.with_suffix(".wav")  # l'appelant a déjà jugé l'audio périmé : on refait le wav (espeak est rapide)
+    tmp = wav.with_name(f"{wav.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     try:
         synthesize(text, tmp)
         os.replace(tmp, wav)

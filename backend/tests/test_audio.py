@@ -70,6 +70,26 @@ def test_speak_falls_back_to_espeak_when_edge_fails(tmp_path, monkeypatch):
     monkeypatch.setattr("app.audio.synthesize", fake_espeak)
     out = speak("bonjour", tmp_path / "a")
     assert out == tmp_path / "a.wav" and [p.name for p in tmp_path.iterdir()] == ["a.wav"]
+    monkeypatch.setattr("app.audio.synthesize", lambda text, out, engine="espeak": out.write_bytes(text.encode()))
+    speak("leçon modifiée", tmp_path / "a")  # un ancien wav ne bloque pas la mise à jour
+    assert out.read_text() == "leçon modifiée"
+
+
+def test_speak_two_threads_same_lesson(tmp_path, monkeypatch):
+    import threading
+    monkeypatch.setenv("FORMATION_TTS", "edge")
+    gate = threading.Barrier(2)
+
+    def slow_edge(text, out):
+        out.write_bytes(b"ID3" + text.encode())
+        gate.wait(5)  # les deux synthèses sont en cours en même temps
+        return out
+
+    monkeypatch.setattr("app.audio._synthesize_edge", slow_edge)
+    res = []
+    ts = [threading.Thread(target=lambda: res.append(speak("x", tmp_path / "a"))) for _ in range(2)]
+    [t.start() for t in ts]; [t.join() for t in ts]
+    assert len(res) == 2 and [p.name for p in tmp_path.iterdir()] == ["a.mp3"]
 
 
 def test_synthesize_edge_wraps_errors(tmp_path, monkeypatch):

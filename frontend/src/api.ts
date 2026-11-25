@@ -126,3 +126,7 @@ export const terminalUrl = () => `${location.protocol === 'https:' ? 'wss' : 'ws
 export interface Episode { file: string; title: string; minutes: number }
 export const getPodcast = () => call<Episode[]>('GET', '/api/podcast')
 export const podcastUrl = (file: string) => `/api/podcast/${encodeURIComponent(file)}`
+export const ficheAudioUrl = (moduleId: string) => `/api/fiche-audio/${encodeURIComponent(moduleId)}.mp3`
+export interface Revision { items: number; key: string | null }
+export const getRevision = () => call<Revision>('GET', '/api/revision')
+export const revisionUrl = (key: string) => `/api/revision/${encodeURIComponent(key)}.mp3`
