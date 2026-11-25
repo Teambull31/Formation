@@ -3,7 +3,7 @@ import { answerQcm, getReviews, type QcmResult, type Reviews } from '../api'
 import Confidence, { sureWrongNote } from './Confidence'
 
 // Leitner boxes: a wrong answer sends a question to box 1, right answers climb up to mastery.
-export default function Review({ onOpen }: { onOpen: (lessonId: string) => void }) {
+export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: string) => void; onContinue?: () => void }) {
   const [data, setData] = useState<Reviews | null>(null)
   const [err, setErr] = useState('')
   const [i, setI] = useState(0)
@@ -51,6 +51,7 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
       <section className="screen wrap">
         <h1>Révisions</h1>
         <p className="card">Rien à réviser aujourd'hui</p>
+        {onContinue && <button className="btn" onClick={onContinue}>Continuer la séance : cartes →</button>}
         {boxes}
       </section>
     )
@@ -64,7 +65,8 @@ export default function Review({ onOpen }: { onOpen: (lessonId: string) => void 
           <h2>{right} / {qs.length} correctes</h2>
           <p className="note">{right === qs.length ? 'Sans faute, bravo !' : 'Les erreurs reviennent dans la boîte 1.'}</p>
         </div>
-        <button className="btn" onClick={() => { setI(0); setRight(0); setRes(null); setTries((n) => n + 1) }}>Actualiser</button>
+        {onContinue && <button className="btn" onClick={onContinue}>Continuer la séance : cartes →</button>}
+        <button className="btn ghost" onClick={() => { setI(0); setRight(0); setRes(null); setTries((n) => n + 1) }}>Actualiser</button>
       </section>
     )
   }

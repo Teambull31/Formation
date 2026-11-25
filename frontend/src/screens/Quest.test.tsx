@@ -38,3 +38,22 @@ test('révisions en tête, TP en attente, suggestions et bandeau de rappel', asy
   fireEvent.click(await screen.findByText(/Active le rappel quotidien/))
   expect(onGo).toHaveBeenLastCalledWith('Équipe')
 })
+
+test('« Ma séance du jour » commence par les révisions, puis la première étape', async () => {
+  const base = { day: '2026-11-25', imposed_topic: null, bonus: null, pending_tp: [], suggestions: [],
+    steps: [{ kind: 'lesson' as const, lesson_id: 'ci4', minutes: 10, xp: 20, done: true }, { kind: 'qcm' as const, lesson_id: 'ci4', minutes: 5, xp: 40, done: false }] }
+  vi.mocked(api.getQuest).mockResolvedValueOnce({ ...base, review: { due: 2, done: false } }).mockResolvedValue({ ...base, review: null })
+  vi.mocked(api.getTeam).mockResolvedValue({ xp: 0, level: 1, rank: 'R', rank_capped: false, skills: {}, skill_levels: {}, tokens: 0, streak: 0, inventory: [] } as never)
+  vi.mocked(api.getReviews).mockResolvedValue({ due: [], questions: [], boxes: [], intervals: [] })
+  vi.mocked(api.getPushKey).mockResolvedValue({ key: 'k', subscribed: true, hour: 19 })
+  vi.mocked(api.getPlan).mockResolvedValue({ started: false, start: null, today: null, days: [], late: 0 })
+  const onStart = vi.fn()
+  const onGo = vi.fn()
+  const { unmount } = render(<Quest onStart={onStart} onGo={onGo} />)
+  fireEvent.click(await screen.findByText(/Ma séance du jour · 2 révisions/))
+  expect(onGo).toHaveBeenCalledWith('Révisions', 'cartes')
+  unmount()
+  render(<Quest onStart={onStart} onGo={onGo} />)
+  fireEvent.click(await screen.findByText(/Ma séance du jour · QCM ci4/))
+  expect(onStart).toHaveBeenCalledWith('ci4', 'qcm', false)
+})

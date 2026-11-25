@@ -50,8 +50,21 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
     else onGo?.('Révisions', sg.kind === 'exam' ? 'examen' : 'entretien')
   }
 
+  // un seul bouton pour démarrer : ce qui vient ensuite (révisions d'abord, puis la première étape pas faite)
+  const nextStep = quest?.steps.find((s) => !s.done)
+  const reviewFirst = !!(quest?.review && quest.review.due > 0 && !quest.review.done)
+  const startSession = () => {
+    if (reviewFirst && onGo) onGo('Révisions', due > 0 ? 'qcm' : 'cartes')
+    else if (nextStep) onStart(nextStep.lesson_id, nextStep.kind, false)
+  }
+
   return (
     <section className="screen wrap">
+      {quest && (reviewFirst || nextStep) && (
+        <button className="btn term" style={{ fontSize: 18, minHeight: 56 }} onClick={startSession}>
+          ▶ Ma séance du jour{reviewFirst ? ` · ${quest.review!.due} révisions puis ${nextStep ? nextStep.lesson_id : 'fin'}` : ` · ${LABEL[nextStep!.kind]} ${nextStep!.lesson_id}`}
+        </button>
+      )}
       {pushOff && onGo && (
         <button className="btn ghost" onClick={() => onGo('Équipe')}>🔔 Active le rappel quotidien : c'est la régularité qui fait retenir</button>
       )}

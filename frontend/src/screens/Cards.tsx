@@ -4,7 +4,7 @@ import { renderLesson } from '../renderLesson'
 import Panne from './Panne'
 
 // Cartes mémoire des leçons terminées : on se répond de tête, puis on dit honnêtement si on savait.
-export default function Cards({ onOpen }: { onOpen: (lessonId: string) => void }) {
+export default function Cards({ onOpen, onContinue }: { onOpen: (lessonId: string) => void; onContinue?: () => void }) {
   const [data, setData] = useState<C | null>(null)
   const [queue, setQueue] = useState<Card[]>([])
   const [shown, setShown] = useState(false)
@@ -49,6 +49,7 @@ export default function Cards({ onOpen }: { onOpen: (lessonId: string) => void }
         <div className="card" role="status">
           <h2>{data.cards.length ? `Séance terminée : ${known} carte(s) sue(s) du premier coup ou après reprise` : 'Rien à revoir aujourd\'hui'}</h2>
           <p className="note">Les cartes reviennent après 1, 2, 4, 7 puis 14 jours.</p>
+          {onContinue && <button className="btn" onClick={onContinue}>Continuer la séance : leçon du jour →</button>}
           <button className="btn ghost" onClick={() => setTries((n) => n + 1)}>Actualiser</button>
         </div>
       )}

@@ -9,7 +9,7 @@ import Interview from './screens/Interview'
 import Cards from './screens/Cards'
 import Exam from './screens/Exam'
 import Listen from './screens/Listen'
-import type { StepKind } from './api'
+import { getQuest, type StepKind } from './api'
 
 import { TABS, fromUrl, type Sub, type Tab } from './deeplink'
 interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
@@ -22,6 +22,12 @@ export default function App() {
     setLesson((l) => ({ id, kind, done, n: (l?.n ?? 0) + 1 }))
     setTab('Leçon')
   }
+  // séance guidée : révisions QCM → cartes → première étape pas faite de la quête
+  const toLesson = () => getQuest().then((q) => {
+    const s = q.steps.find((x) => !x.done)
+    if (s) open(s.lesson_id, s.kind, false)
+    else setTab('Quête')
+  }).catch(() => setTab('Quête'))
   return (
     <>
       <main>
@@ -38,8 +44,8 @@ export default function App() {
                 <button key={k} className="chip" aria-pressed={sub === k} onClick={() => setSub(k)}>{label}</button>
               ))}
             </div>
-            {sub === 'qcm' && <Review onOpen={(id) => open(id)} />}
-            {sub === 'cartes' && <Cards onOpen={(id) => open(id)} />}
+            {sub === 'qcm' && <Review onOpen={(id) => open(id)} onContinue={() => setSub('cartes')} />}
+            {sub === 'cartes' && <Cards onOpen={(id) => open(id)} onContinue={toLesson} />}
             {sub === 'examen' && <Exam onOpen={(id) => open(id)} />}
             {sub === 'entretien' && <Interview />}
           </>
