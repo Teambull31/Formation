@@ -26,7 +26,7 @@ curl -fsS -o /dev/null http://127.0.0.1:8001/api/lessons && echo "test de fumée
 git log --oneline -1
 # préchauffe en tâche de fond les audios des leçons modifiées (sinon la première écoute attend la synthèse)
 # (toutes les sorties redirigées, sinon la session SSH attend la fin du préchauffage)
-pkill -f app.warm_audio || true
+pkill -f "app[.]warm_audio" || true  # [.] : le motif ne se reconnaît pas dans cette commande
 cd backend
 nohup uv run python -m app.warm_audio ../content >~/warm_audio.log 2>&1 </dev/null &
 echo "préchauffage audio lancé (journal : ~/warm_audio.log)"'
