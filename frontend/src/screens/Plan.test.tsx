@@ -35,3 +35,13 @@ test('ouvre la leçon du jour', async () => {
   fireEvent.click(await screen.findByText('Ouvrir la leçon ci1'))
   expect(onStart).toHaveBeenCalledWith('ci1')
 })
+
+test('en retard : « Reprendre où j\'en suis » recale le plan', async () => {
+  const late = { started: true, start: '2026-11-21', today: 5, days, late: 1 }
+  vi.mocked(api.getPlan).mockResolvedValueOnce(late).mockResolvedValue({ ...late, today: 2, late: 0 })
+  const rebase = vi.spyOn(api, 'rebasePlan').mockResolvedValue({ ok: true })
+  render(<Plan onStart={() => {}} />)
+  fireEvent.click(await screen.findByText(/Reprendre où j'en suis/))
+  expect(rebase).toHaveBeenCalled()
+  expect(await screen.findByText('Jour 2 / 2 : Repos actif')).toBeTruthy()
+})

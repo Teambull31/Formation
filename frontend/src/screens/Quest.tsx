@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Plan from './Plan'
-import { announceRest, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Team } from '../api'
+import { announceRest, getPushKey, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Suggestion, type Team } from '../api'
+
+export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
 
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
 
-export default function Quest({ onStart, onReview }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void; onReview?: () => void }) {
+export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void; onGo?: Go }) {
   const [quest, setQuest] = useState<Q | null>(null)
   const [team, setTeam] = useState<Team | null>(null)
   const [minutes, setMinutes] = useState<30 | 60>(30)
   const [topic, setTopicText] = useState('')
   const [msg, setMsg] = useState('')
   const [due, setDue] = useState(0)
+  const [pushOff, setPushOff] = useState(false)
   useEffect(() => { getReviews().then((r) => setDue(r.questions.length)).catch(() => {}) }, [])
+  useEffect(() => { getPushKey().then((k) => setPushOff(!k.subscribed)).catch(() => {}) }, [])
 
   const req = useRef(0) // request counter: stale responses are ignored
   const load = useCallback((ok = '') => {
@@ -37,8 +41,17 @@ export default function Quest({ onStart, onReview }: { onStart: (lessonId: strin
     </div>
   )
 
+  const go = (sg: Suggestion) => {
+    if (sg.kind === 'feynman') onStart(sg.id, 'lesson', true)
+    else if (sg.kind === 'episode') onGo?.('Écoute')
+    else onGo?.('Révisions', sg.kind === 'exam' ? 'examen' : 'entretien')
+  }
+
   return (
     <section className="screen wrap">
+      {pushOff && onGo && (
+        <button className="btn ghost" onClick={() => onGo('Équipe')}>🔔 Active le rappel quotidien : c'est la régularité qui fait retenir</button>
+      )}
       <Plan onStart={(id) => onStart(id, 'lesson', false)} />
       <div className="card">
         <p className="tag">Rang actuel</p>
@@ -47,10 +60,40 @@ export default function Quest({ onStart, onReview }: { onStart: (lessonId: strin
       </div>
       <div className="card">
         <h3>Quête du jour</h3>
+        {quest?.review && (
+          <div className="step">
+            <span className={'dot' + (quest.review.done ? ' done' : '')} aria-hidden>{quest.review.done ? '✓' : ''}</span>
+            <div className="grow">
+              <div>Révisions du jour · {quest.review.due} à revoir</div>
+              <div className="time">5 min · +15 XP{quest.review.done ? ' · fait' : ' · à faire en premier : c\'est ce qui fait retenir'}</div>
+            </div>
+            {onGo && quest.review.due > 0 && <button className="btn ghost" onClick={() => onGo('Révisions', due > 0 ? 'qcm' : 'cartes')}>Réviser</button>}
+          </div>
+        )}
         {quest && quest.steps.length === 0 && <p>Module terminé, bravo !</p>}
         {quest?.steps.map(row)}
         {quest?.bonus && <><p className="tag">Bonus</p>{row(quest.bonus)}</>}
       </div>
+      {quest && quest.pending_tp.length > 0 && (
+        <div className="card">
+          <h3>TP à faire sur PC</h3>
+          <p className="note">La suite avance sans eux ; garde-les pour une session au PC (le week-end par exemple).</p>
+          {quest.pending_tp.map((lid) => (
+            <div className="row between" key={lid}>
+              <span>TP · {lid}</span>
+              <button className="chip" onClick={() => onStart(lid, 'tp', false)}>Ouvrir</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {quest && quest.suggestions.length > 0 && (
+        <div className="card">
+          <h3>Pour aller plus loin</h3>
+          {quest.suggestions.map((sg) => (
+            <button key={sg.kind + sg.id} className="opt" onClick={() => go(sg)}>{sg.label}</button>
+          ))}
+        </div>
+      )}
       <div className="card">
         <p className="tag">Format</p>
         <div className="row">
@@ -65,7 +108,6 @@ export default function Quest({ onStart, onReview }: { onStart: (lessonId: strin
           <button className="btn ghost" aria-label="Effacer le sujet" onClick={() => { setTopicText(''); act(setTopic(null)) }}>✕</button>
         </div>
       </div>
-      {due > 0 && onReview && <button className="btn term" onClick={onReview}>{due} à réviser</button>}
       <button className="btn ghost" onClick={() => act(announceRest(), 'Repos annoncé.')}>Repos aujourd'hui</button>
       {msg && <p className="note" role="status">{msg}</p>}
     </section>

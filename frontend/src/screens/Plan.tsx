@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getPlan, markPlanDay, startPlan, type Plan as P } from '../api'
+import { getPlan, markPlanDay, rebasePlan, startPlan, type Plan as P } from '../api'
 
 // Parcours de 30 jours : le jour courant en tête de la quête, le détail sur demande.
 export default function Plan({ onStart }: { onStart: (lessonId: string) => void }) {
@@ -41,6 +41,9 @@ export default function Plan({ onStart }: { onStart: (lessonId: string) => void 
   return (
     <div className="card">
       <p className="tag">Parcours · {doneCount} / {total} jours faits{plan.late ? ` · ${plan.late} jour(s) en retard` : ''}</p>
+      {plan.late > 0 && (
+        <button className="btn ghost" onClick={() => act(rebasePlan())}>Reprendre où j'en suis (le retard est effacé)</button>
+      )}
       <h3>{finished ? 'Parcours terminé : place aux examens finaux et au portfolio' : `Jour ${n} / ${total} : ${day.title}`}</h3>
       {!finished && (
         <>

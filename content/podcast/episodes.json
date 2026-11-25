@@ -2,101 +2,121 @@
  {
   "file": "ep01.mp3",
   "title": "Épisode 1 — Tout est fichier, tout a un propriétaire",
-  "minutes": 13
+  "minutes": 13,
+  "module": "linux"
  },
  {
   "file": "ep02.mp3",
   "title": "Épisode 2 — Pipes, flux standard et redirections",
-  "minutes": 11
+  "minutes": 11,
+  "module": "linux"
  },
  {
   "file": "ep03.mp3",
   "title": "Épisode 3 — Bash strict, script de déploiement et cron",
-  "minutes": 11
+  "minutes": 11,
+  "module": "linux"
  },
  {
   "file": "ep04.mp3",
   "title": "Épisode 4 — Les bases de Git",
-  "minutes": 9
+  "minutes": 9,
+  "module": "cicd"
  },
  {
   "file": "ep05.mp3",
   "title": "Épisode 5 — Anatomie d'un workflow GitHub Actions",
-  "minutes": 10
+  "minutes": 10,
+  "module": "cicd"
  },
  {
   "file": "ep06.mp3",
   "title": "Épisode 6 — Jobs de déploiement, cache et secrets",
-  "minutes": 10
+  "minutes": 10,
+  "module": "cicd"
  },
  {
   "file": "ep07.mp3",
   "title": "Épisode 7 — Image, conteneur, couche",
-  "minutes": 10
+  "minutes": 10,
+  "module": "docker"
  },
  {
   "file": "ep08.mp3",
   "title": "Épisode 8 — Un Dockerfile dans le bon ordre",
-  "minutes": 11
+  "minutes": 11,
+  "module": "docker"
  },
  {
   "file": "ep09.mp3",
   "title": "Épisode 9 — Docker Compose",
-  "minutes": 11
+  "minutes": 11,
+  "module": "docker"
  },
  {
   "file": "ep10.mp3",
   "title": "Épisode 10 — Les bases de Kubernetes",
-  "minutes": 10
+  "minutes": 10,
+  "module": "k8s"
  },
  {
   "file": "ep11.mp3",
   "title": "Épisode 11 — Deployment et Service",
-  "minutes": 12
+  "minutes": 12,
+  "module": "k8s"
  },
  {
   "file": "ep12.mp3",
   "title": "Épisode 12 — ConfigMap, Secret et sondes",
-  "minutes": 11
+  "minutes": 11,
+  "module": "k8s"
  },
  {
   "file": "ep13.mp3",
   "title": "Épisode 13 — Terraform : les bases et le state",
-  "minutes": 12
+  "minutes": 12,
+  "module": "terraform"
  },
  {
   "file": "ep14.mp3",
   "title": "Épisode 14 — Terraform : variables, outputs et modules",
-  "minutes": 11
+  "minutes": 11,
+  "module": "terraform"
  },
  {
   "file": "ep15.mp3",
   "title": "Épisode 15 — Les bases d'Ansible",
-  "minutes": 12
+  "minutes": 12,
+  "module": "ansible"
  },
  {
   "file": "ep16.mp3",
   "title": "Épisode 16 — Ansible : rôles, variables et Vault",
-  "minutes": 12
+  "minutes": 12,
+  "module": "ansible"
  },
  {
   "file": "ep17.mp3",
   "title": "Épisode 17 — Sécurité : moindre privilège et injection",
-  "minutes": 10
+  "minutes": 10,
+  "module": "secu"
  },
  {
   "file": "ep18.mp3",
   "title": "Épisode 18 — Observabilité",
-  "minutes": 11
+  "minutes": 11,
+  "module": "projet"
  },
  {
   "file": "ep19.mp3",
   "title": "Épisode 19 — Automatiser avec Python et les modèles de langage",
-  "minutes": 11
+  "minutes": 11,
+  "module": "auto1"
  },
  {
   "file": "ep20.mp3",
   "title": "Épisode 20 — Le trajet complet d'un commit",
-  "minutes": 10
+  "minutes": 10,
+  "module": "projet"
  }
 ]

@@ -1,5 +1,5 @@
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Literal
 
@@ -26,6 +26,9 @@ class Quest:
     steps: list[Step]
     bonus: Step | None
     imposed_topic: str | None
+    pending_tp: list[str] = field(default_factory=list)  # leçons vues dont le TP attend une session au PC
+    review: dict | None = None  # {"due": n, "done": bool} : révisions espacées du jour
+    suggestions: list[dict] = field(default_factory=list)  # épisode, examen, entretien, Feynman
 
 
 def _setting(db: sqlite3.Connection, key: str) -> str | None:
@@ -50,11 +53,29 @@ def applicable_kinds(lesson, local: bool = True) -> tuple[str, ...]:
                  and (k != "qcm" or lesson.qcm))
 
 
-def build_daily_quest(db: sqlite3.Connection, module: Module, today: date, minutes: int = 30, local: bool = True) -> Quest:
+def advanced(db: sqlite3.Connection, lesson, local: bool = True) -> bool:
+    """Leçon et QCM faits : on peut passer à la suite, le TP peut attendre (il demande un PC)."""
+    return all(_is_done(db, k, lesson.id) for k in applicable_kinds(lesson, local) if k != "tp")
+
+
+def pending_tps(db: sqlite3.Connection, module: Module, local: bool = True) -> list[str]:
+    return [les.id for les in module.lessons if "tp" in applicable_kinds(les, local)
+            and advanced(db, les, local) and not _is_done(db, "tp", les.id)]
+
+
+def build_daily_quest(db: sqlite3.Connection, module: Module, today: date, minutes: int = 30, local: bool = True,
+                      target: str | None = None, tp_only: bool = False) -> Quest:
+    """Première leçon pas encore vue (ou `target`, imposée par le plan). Un TP en attente ne bloque plus la suite :
+    il ne revient en quête (tp_only) qu'une fois toutes les leçons vues."""
     topic = _setting(db, "imposed_topic")
     ids = [lesson.id for lesson in module.lessons]
     kinds = [applicable_kinds(lesson, local) for lesson in module.lessons]
-    todo = [i for i, lid in enumerate(ids) if not all(_is_done(db, k, lid) for k in kinds[i])]
+    if tp_only:
+        todo = [ids.index(lid) for lid in pending_tps(db, module, local)]
+    else:
+        todo = [i for i, les in enumerate(module.lessons) if not advanced(db, les, local)]
+        if target in ids and ids.index(target) in todo:
+            todo.insert(0, ids.index(target))
     if not todo:
         return Quest(today, [], None, topic)
     i = todo[0]

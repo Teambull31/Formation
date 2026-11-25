@@ -32,9 +32,14 @@ def test_never_seen_question_not_due(db):
     assert due_reviews(db, D1) == []
 
 
-def test_correct_untracked_is_noop(db):
+def test_first_right_answer_comes_back_in_a_week(db):
     record_answer(db, "q1", True, D1)
+    assert due_reviews(db, D1 + timedelta(days=6)) == []
+    assert due_reviews(db, D1 + timedelta(days=7)) == ["q1"]
+    record_answer(db, "q1", True, D1 + timedelta(days=7))  # box 3 -> 4
+    record_answer(db, "q1", True, D1 + timedelta(days=21))  # au-delà de la dernière boîte : maîtrisée
     assert db.execute("SELECT COUNT(*) FROM mistakes").fetchone()[0] == 0
+    assert tuple(db.execute("SELECT COUNT(*), SUM(correct) FROM review_log").fetchone()) == (2, 2)  # 1re réponse : pas une révision
 
 
 def test_mastered_removed(db):

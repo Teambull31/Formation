@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { audioUrl, completeStep, ficheAudioUrl, getLessons, getPodcast, getRevision, podcastUrl, revisionUrl } from '../api'
+import { audioUrl, completeStep, ficheAudioUrl, getLessons, getPodcast, getRevision, podcastDone, podcastUrl, revisionDone, revisionUrl } from '../api'
 
 interface Track { src: string; title: string; group: string; minutes: number | null; lessonId?: string }
 const AUDIO_CACHE = 'formation-audio' // même nom que dans public/sw.js
@@ -71,7 +71,11 @@ export default function Listen() {
     mem.current.pos[track!.src] = 0
     save(mem.current)
     // leçon écoutée jusqu'au bout = étape « leçon » validée (mêmes règles que le bouton de l'onglet Leçon)
-    if (track!.lessonId) completeStep('lesson', track!.lessonId).catch(() => { /* hors ligne : tant pis */ })
+    const t = track!
+    const quiet = () => { /* hors ligne : tant pis */ }
+    if (t.lessonId) completeStep('lesson', t.lessonId).catch(quiet)
+    else if (t.src.startsWith('/api/podcast/')) podcastDone(decodeURIComponent(t.src.slice('/api/podcast/'.length))).catch(quiet)
+    else if (t.src.startsWith('/api/revision/')) revisionDone().catch(quiet) // révision express écoutée = révisions du jour
     play(cur! + 1)
   }
   const [saved, setSaved] = useState<Set<string>>(new Set())

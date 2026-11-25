@@ -48,8 +48,16 @@ def test_remote_quest_skips_local_only_tp_and_reaches_next_module(tmp_path):
     assert _kinds(_client(tmp_path, True)) == [("lesson", "b1"), ("qcm", "b1")]
 
 
-def test_local_quest_still_serves_local_only_tp(tmp_path):
-    assert _kinds(_client(tmp_path, False)) == [("lesson", "l2"), ("qcm", "l2"), ("tp", "l2")]
+def test_local_quest_moves_on_and_keeps_the_pending_tp(tmp_path):
+    c = _client(tmp_path, False)
+    q = c.get("/api/quest").json()
+    assert _kinds(c) == [("lesson", "b1"), ("qcm", "b1")] and q["pending_tp"] == ["l2"]  # le TP ne bloque plus
+    con = sqlite3.connect(tmp_path / "f.db")
+    con.executemany("INSERT INTO quest_steps(day, kind, lesson_id, done) VALUES ('2026-01-01', ?, 'b1', 1)", [("lesson",), ("qcm",)])
+    con.commit()
+    con.close()
+    q = c.get("/api/quest").json()  # toutes les leçons vues : le TP en attente revient en quête
+    assert _kinds(c) == [("lesson", "l2"), ("qcm", "l2"), ("tp", "l2")] and q["pending_tp"] == []
 
 
 def test_remote_quest_still_serves_lesson_and_qcm_of_local_only_lesson(tmp_path):

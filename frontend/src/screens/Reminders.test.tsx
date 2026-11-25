@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 vi.mock('../api', async (orig) => {
   const real = await orig<typeof import('../api')>()
-  return { ...real, getPushKey: vi.fn(), pushSubscribe: vi.fn(), pushUnsubscribe: vi.fn(), pushTest: vi.fn() }
+  return { ...real, getPushKey: vi.fn(), setPushHour: vi.fn(), pushSubscribe: vi.fn(), pushUnsubscribe: vi.fn(), pushTest: vi.fn() }
 })
 import * as api from '../api'
 import Reminders from './Reminders'
 
+beforeEach(() => { vi.mocked(api.getPushKey).mockResolvedValue({ key: 'BAQ', subscribed: false, hour: 19 }) })
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals() })
 
 test('navigateur sans Web Push : message explicatif, aucun bouton', () => {
@@ -36,7 +37,7 @@ test('permission refusée : on n\'abonne rien', async () => {
 })
 
 test('permission accordée : abonnement envoyé au serveur', async () => {
-  vi.mocked(api.getPushKey).mockResolvedValue({ key: 'BAQ', subscribed: false })
+  vi.mocked(api.getPushKey).mockResolvedValue({ key: 'BAQ', subscribed: false, hour: 19 })
   vi.mocked(api.pushSubscribe).mockResolvedValue({ ok: true })
   const subscribe = stubPush('granted')
   render(<Reminders />)
@@ -45,4 +46,13 @@ test('permission accordée : abonnement envoyé au serveur', async () => {
   expect(subscribe.mock.calls[0][0].userVisibleOnly).toBe(true)
   expect(api.pushSubscribe).toHaveBeenCalledWith({ endpoint: 'https://fcm.googleapis.com/x' })
   expect(screen.getByText('Désactiver le rappel')).toBeTruthy()
+})
+
+test("l'heure du rappel se règle", async () => {
+  vi.mocked(api.setPushHour).mockResolvedValue({ ok: true })
+  stubPush('granted')
+  render(<Reminders />)
+  const sel = await screen.findByDisplayValue('19 h')
+  fireEvent.change(sel, { target: { value: '7' } })
+  expect(api.setPushHour).toHaveBeenCalledWith(7)
 })

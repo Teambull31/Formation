@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getPushKey, pushSubscribe, pushTest, pushUnsubscribe } from '../api'
+import { getPushKey, pushSubscribe, pushTest, pushUnsubscribe, setPushHour } from '../api'
 
 // Web Push needs a service worker, hence https (or localhost) and, on iPhone, the installed app.
 export const pushSupported = () =>
@@ -15,6 +15,9 @@ export default function Reminders() {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const ok = pushSupported()
+  const [hour, setHour] = useState<number | null>(null)
+  useEffect(() => { getPushKey().then((k) => setHour(k.hour)).catch(() => {}) }, [])
+  const pickHour = (h: number) => { setHour(h); setPushHour(h).catch((e: Error) => setMsg(e.message)) }
 
   useEffect(() => {
     if (ok) navigator.serviceWorker.ready.then((r) => r.pushManager.getSubscription()).then((s) => setOn(!!s)).catch(() => {})
@@ -49,7 +52,16 @@ export default function Reminders() {
         <p className="note">Indisponible ici : il faut l'appli ouverte en https (sur iPhone, installée sur l'écran d'accueil).</p>
       ) : (
         <>
-          <p className="note">Une notification en fin de journée si tu n'as encore rien fait, jamais les jours de repos.</p>
+          <p className="note">Une notification à l'heure choisie si tu n'as encore rien fait ce jour-là, jamais les jours de repos.
+            Astuce : juste avant ton trajet, pour lancer l'épisode ou la révision express.</p>
+          {hour !== null && (
+            <label className="row">
+              <span className="tag">Heure</span>
+              <select value={hour} onChange={(e) => pickHour(Number(e.target.value))}>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h} h</option>)}
+              </select>
+            </label>
+          )}
           <div className="row wrapf">
             <button className="btn" disabled={busy} onClick={() => run(on ? disable : enable)}>
               {on ? 'Désactiver le rappel' : 'Activer le rappel'}

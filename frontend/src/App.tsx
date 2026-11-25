@@ -26,7 +26,7 @@ export default function App() {
   return (
     <>
       <main>
-        {tab === 'Quête' && <Quest onStart={open} onReview={() => setTab('Révisions')} />}
+        {tab === 'Quête' && <Quest onStart={open} onGo={(t, sb) => { if (sb) setSub(sb); setTab(t) }} />}
         {tab === 'Leçon' && (
           <Lesson key={lesson?.n} id={lesson?.id ?? null} kind={lesson?.kind} done={lesson?.done} onOpen={(id) => open(id)} />
         )}

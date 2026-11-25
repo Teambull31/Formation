@@ -81,6 +81,14 @@ def send_all(db: sqlite3.Connection, title: str, body: str, *, sender=webpush) -
     return sent
 
 
+DEFAULT_HOUR = 19  # heure locale (FORMATION_TZ) du rappel ; réglable dans l'appli
+
+
+def remind_hour(db: sqlite3.Connection) -> int:
+    v = _setting(db, "remind_hour")
+    return int(v) if v is not None and v.isdigit() else DEFAULT_HOUR
+
+
 def reminder_due(db: sqlite3.Connection, today: date) -> bool:
     """Rappel seulement s'il y a des abonnés, aucune activité ni repos aujourd'hui, et pas déjà rappelé aujourd'hui."""
     day = today.isoformat()
@@ -90,7 +98,11 @@ def reminder_due(db: sqlite3.Connection, today: date) -> bool:
                           (day, day)).fetchone()
 
 
-def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, plan_line: str | None = None) -> int:
+def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, plan_line: str | None = None,
+           hour: int | None = None) -> int:
+    """`hour` : heure locale courante ; le timer tourne chaque heure et seul le créneau choisi envoie (None : pas de filtre)."""
+    if hour is not None and hour != remind_hour(db):
+        return 0
     if not reminder_due(db, today):
         return 0
     body = f"Ta série de {streak} jours t'attend : 15 minutes suffisent." if streak else "15 minutes aujourd'hui, et la série démarre."

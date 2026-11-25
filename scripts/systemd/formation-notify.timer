@@ -1,8 +1,8 @@
 [Unit]
-Description=Rappel quotidien Formation à 18h30
+Description=Rappel quotidien Formation (vérifié chaque heure ; l'heure se règle dans l'appli)
 
 [Timer]
-OnCalendar=*-*-* 18:30:00
+OnCalendar=hourly
 Persistent=false
 
 [Install]

@@ -60,6 +60,8 @@ def _box_due(today: date, box: int) -> tuple[int, str]:
 
 def record_card(db: sqlite3.Connection, card_id: str, known: bool, today: date) -> dict:
     row = db.execute("SELECT box FROM cards WHERE card_id = ?", (card_id,)).fetchone()
+    if row:  # carte déjà vue : c'est une révision, elle compte pour le taux de rétention
+        db.execute("INSERT INTO review_log(day, correct) VALUES (?, ?)", (today.isoformat(), int(known)))
     box = (row[0] + 1 if row else 1) if known else 0
     box, due = _box_due(today, box)
     if row:

@@ -119,3 +119,13 @@ def test_api_rejects_unknown_push_service(client):
 
 def test_api_test_without_subscription_is_503(client):
     assert client.post("/api/push/test").status_code == 503
+
+
+def test_reminder_only_at_chosen_hour(db):
+    sent = []
+    push.subscribe(db, SUB)
+    sender = lambda *a, **k: sent.append(1)  # noqa: E731
+    assert push.remind(db, date(2026, 10, 23), 0, sender=sender, hour=18) == 0  # défaut : 19 h
+    assert push.remind(db, date(2026, 10, 23), 0, sender=sender, hour=19) == 1
+    db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('remind_hour', '7')")
+    assert push.remind(db, date(2026, 10, 24), 0, sender=sender, hour=7) == 1

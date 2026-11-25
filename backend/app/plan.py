@@ -1,7 +1,7 @@
 """Plan de 30 jours (content/plan.json) : jour courant, jours faits, retard."""
 import json
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 
@@ -25,6 +25,14 @@ def _setting(db: sqlite3.Connection, key: str) -> str | None:
 def start(db: sqlite3.Connection, today: date) -> None:
     db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('plan_start', ?)", (today.isoformat(),))
     db.execute("DELETE FROM settings WHERE key LIKE 'plan_done:%'")
+    db.commit()
+
+
+def rebase(db: sqlite3.Connection, days: list[dict], today: date) -> None:
+    """« Reprendre où j'en suis » : aujourd'hui devient le premier jour pas fait, plus de retard affiché."""
+    first = next((d["day"] for d in days if not d["done"]), len(days))
+    db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES ('plan_start', ?)",
+               ((today - timedelta(days=first - 1)).isoformat(),))
     db.commit()
 
 

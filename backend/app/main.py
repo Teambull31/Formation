@@ -4,7 +4,7 @@ import os
 import random
 import re
 from dataclasses import asdict, replace
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -24,7 +24,8 @@ from app.gacha import NoTokens, pull
 from app.interview import keyword_grade, load_questions
 from app import portfolio, push
 from app.progress import award_xp, get_profile, level_for_xp
-from app.quests import XP, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak, set_imposed_topic
+from app.quests import (XP, Quest, advanced, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak,
+                        pending_tps, set_imposed_topic)
 from app.review import INTERVALS, box_counts, due_reviews, record_answer
 from app.terminal import exec_ok, register_terminal, strictly_local
 from app.tp import run_check, seed_workspace
@@ -33,6 +34,7 @@ from app.weekly import build_brief, import_module
 HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
+REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
 FEYNMAN_XP = 60  # max par leçon ; seules les améliorations de score rapportent
 REVISION_MAX = 15  # questions par catégorie : environ 10 minutes d'écoute
 SAFE_ID = re.compile(r"[A-Za-z0-9_-]+")
@@ -93,6 +95,10 @@ class CardIn(BaseModel):
 
 class ExamIn(BaseModel):
     answers: dict[str, int] = Field(max_length=100)
+
+
+class HourIn(BaseModel):
+    hour: int = Field(ge=0, le=23)
 
 
 class PlanDayIn(BaseModel):
@@ -177,18 +183,83 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                     return d / "lessons" / f"{les.id}.tp", m, les.tp
         raise HTTPException(404, "TP inconnu")
 
+    def setting(db, key: str) -> str | None:
+        row = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def put(db, key: str, value: str = "1") -> None:
+        db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES (?, ?)", (key, value))
+
+    def review_due(db) -> int:
+        return len(due_reviews(db, date.today())) + len(cardlib.session(db, studied_cards(db), date.today())["cards"])
+
+    def review_progress(db) -> None:
+        """Une révision vient d'être faite : jour actif ; révisions du jour toutes faites = XP, une fois par jour."""
+        today = date.today().isoformat()
+        db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (today,))
+        if review_due(db) == 0 and setting(db, f"review_done:{today}") is None:
+            put(db, f"review_done:{today}")
+            award_xp(db, "revision", REVIEW_XP)  # commits
+        db.commit()
+
+    def episodes() -> list[dict]:
+        idx = podcast / "episodes.json"
+        eps = json.loads(idx.read_text(encoding="utf-8")) if idx.is_file() else []
+        return [e for e in eps if (podcast / e["file"]).is_file()]  # mp3 hors git : ne lister que les présents
+
+    def suggestions(db, mods, module_id: str | None, local: bool) -> list[dict]:
+        out = []
+        ep = next((e for e in episodes() if e.get("module") == module_id and setting(db, f"listened:{e['file']}") is None), None)
+        if ep:
+            out.append({"kind": "episode", "id": ep["file"], "label": f"À écouter : {ep['title']}"})
+        best = dict(db.execute("SELECT module_id, best FROM exams").fetchall())
+        for _, m in mods:  # module entièrement vu : l'examen consolide
+            if examlib.pool(m) and best.get(m.id, 0) < examlib.PASS_PCT and all(advanced(db, les, local) for les in m.lessons):
+                out.append({"kind": "exam", "id": m.id, "label": f"Examen final : {m.title}"})
+                break
+        last = setting(db, "interview_last")
+        if last is None or (date.today() - date.fromisoformat(last)).days >= 7:
+            out.append({"kind": "interview", "id": "", "label": "Entraînement d'entretien de la semaine (2 questions)"})
+        explained = {r[0] for r in db.execute("SELECT lesson_id FROM feynman")}
+        tp_done = [r[0] for r in db.execute("SELECT lesson_id FROM quest_steps WHERE kind = 'tp' AND done = 1 ORDER BY day")]
+        if lid := next((x for x in tp_done if x not in explained), None):
+            out.append({"kind": "feynman", "id": lid, "label": f"Explique {lid} à un junior (Feynman)"})
+        return out
+
+    def plan_target(db, local: bool) -> str | None:
+        """Plan commencé : la quête suit son ordre (première leçon du plan pas encore vue)."""
+        if setting(db, "plan_start") is None:
+            return None
+        les = {x.id: x for _, m in modules() for x in m.lessons}
+        return next((lid for d in planlib.load_plan(content_dir) for lid in d.get("lessons", [])
+                     if lid in les and not advanced(db, les[lid], local)), None)
+
     @app.get("/api/quest")
     def quest(request: Request, minutes: str = Query("30", pattern="^(30|60)$"), db=Depends(get_db)):
         minutes = int(minutes)
         local = strictly_local(request)
         today = date.today()
         mods = modules()
-        for _, m in mods:
-            q = build_daily_quest(db, m, today, minutes, local)
-            if q.steps:
-                return asdict(q)
-        return asdict(build_daily_quest(db, mods[0][1], today, minutes, local)) if mods else \
-            {"day": today, "steps": [], "bonus": None, "imposed_topic": None}
+        target = plan_target(db, local)
+        q, mid = None, None
+        for tp_only in (False, True):  # d'abord les leçons pas vues (tous modules), ensuite les TP en attente
+            ordered = sorted(mods, key=lambda dm: not any(les.id == target for les in dm[1].lessons))
+            for _, m in ordered:
+                c = build_daily_quest(db, m, today, minutes, local, target=target, tp_only=tp_only)
+                if c.steps:
+                    q, mid = c, m.id
+                    break
+            if q:
+                break
+        if q is None:
+            q = build_daily_quest(db, mods[0][1], today, minutes, local) if mods else Quest(today, [], None, None)
+        q.pending_tp = [lid for _, m in mods for lid in pending_tps(db, m, local)
+                        if not any(s.lesson_id == lid and s.kind == "tp" for s in q.steps)]
+        n = review_due(db)
+        done = setting(db, f"review_done:{today.isoformat()}") is not None
+        q.review = {"due": n, "done": done} if n or done else None
+        q.suggestions = suggestions(db, mods, mid, local)
+        return asdict(q)
 
     @app.post("/api/quest/step")
     def quest_step(body: StepIn, request: Request, db=Depends(get_db)):
@@ -296,6 +367,19 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         # la clé change avec le contenu : l'URL du mp3 change, le cache hors ligne ne sert jamais une vieille révision
         return {"items": text.count("Réfléchis"), "key": hashlib.sha1(text.encode()).hexdigest()[:12] if text else None}
 
+    @app.post("/api/revision/done")
+    def revision_done(db=Depends(get_db)):
+        # révision express écoutée jusqu'au bout : compte comme les révisions du jour (les boîtes ne bougent pas)
+        today = date.today().isoformat()
+        db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (today,))
+        xp = 0
+        if setting(db, f"review_done:{today}") is None:
+            put(db, f"review_done:{today}")
+            award_xp(db, "revision", REVIEW_XP)
+            xp = REVIEW_XP
+        db.commit()
+        return {"xp": xp}
+
     @app.get("/api/revision/{name}")
     def revision_audio(name: str, db=Depends(get_db)):
         key = mp3_id(name)
@@ -311,9 +395,16 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/podcast")
     def podcast_list():
-        idx = podcast / "episodes.json"
-        eps = json.loads(idx.read_text(encoding="utf-8")) if idx.is_file() else []
-        return [e for e in eps if (podcast / e["file"]).is_file()]  # mp3 hors git : ne lister que les présents
+        return episodes()
+
+    @app.post("/api/podcast/{name}/done")
+    def podcast_done(name: str, db=Depends(get_db)):
+        if mp3_id(name) and name not in {e["file"] for e in episodes()}:
+            raise HTTPException(404, "Épisode inconnu")
+        put(db, f"listened:{name}")
+        db.execute("INSERT OR IGNORE INTO activity_days(day) VALUES (?)", (date.today().isoformat(),))
+        db.commit()
+        return {"ok": True}
 
     @app.get("/api/podcast/{name}")
     def podcast_file(name: str):
@@ -328,9 +419,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         if not 0 <= body.chosen < len(q.options):
             raise HTTPException(400, "Choix hors des options")
         correct = body.chosen == q.answer
+        was_due = q.id in due_reviews(db, date.today())
         db.execute("INSERT OR IGNORE INTO qcm_first(question_id, correct) VALUES (?, ?)", (q.id, int(correct)))
-        db.commit()  # record_answer returns early on a right answer with nothing tracked
+        db.commit()
         record_answer(db, q.id, correct, date.today())
+        if was_due:
+            review_progress(db)
         return {
             "correct": correct,
             "explanation": q.explain if correct else llm.explain_error(q, body.chosen),
@@ -360,7 +454,13 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/push/key")
     def push_key(db=Depends(get_db)):
-        return {"key": push.vapid(db)[1], "subscribed": push.count_subs(db) > 0}
+        return {"key": push.vapid(db)[1], "subscribed": push.count_subs(db) > 0, "hour": push.remind_hour(db)}
+
+    @app.post("/api/push/hour")
+    def push_hour(body: HourIn, db=Depends(get_db)):
+        put(db, "remind_hour", str(body.hour))
+        db.commit()
+        return {"ok": True}
 
     @app.post("/api/push/subscribe")
     def push_subscribe(body: PushSub, db=Depends(get_db)):
@@ -404,6 +504,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         top = max(g["score"], best)
         xp = round(INTERVIEW_XP * top / 100) - round(INTERVIEW_XP * best / 100)
         db.execute("INSERT OR REPLACE INTO interview(question_id, best) VALUES (?, ?)", (qid, top))
+        put(db, "interview_last", date.today().isoformat())
         if xp:
             award_xp(db, "entretien", xp)  # commits the score row too
         else:
@@ -476,15 +577,27 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def card_answer(card_id: str, body: CardIn, db=Depends(get_db)):
         if card_id not in {c.id for c in studied_cards(db)}:
             raise HTTPException(404, "Carte inconnue")
-        return cardlib.record_card(db, card_id, body.known, date.today())
+        r = cardlib.record_card(db, card_id, body.known, date.today())
+        review_progress(db)
+        return r
+
+    def plan_status(db, local: bool) -> dict:
+        les = {x.id: x for _, m in modules() for x in m.lessons}
+        # jour fait = leçons et QCM vus ; les TP en attente sont suivis à part (quête, « TP à faire sur PC »)
+        return planlib.status(db, planlib.load_plan(content_dir), date.today(),
+                              lambda lid: lid in les and advanced(db, les[lid], local))
 
     @app.get("/api/plan")
     def plan(request: Request, db=Depends(get_db)):
-        local = strictly_local(request)
-        les = {x.id: x for _, m in modules() for x in m.lessons}
-        done = {(r[0], r[1]) for r in db.execute("SELECT kind, lesson_id FROM quest_steps WHERE done = 1")}
-        return planlib.status(db, planlib.load_plan(content_dir), date.today(),
-                              lambda lid: lid in les and all((k, lid) in done for k in applicable_kinds(les[lid], local)))
+        return plan_status(db, strictly_local(request))
+
+    @app.post("/api/plan/rebase")
+    def plan_rebase(request: Request, db=Depends(get_db)):
+        st = plan_status(db, strictly_local(request))
+        if not st["started"]:
+            raise HTTPException(409, "Plan pas commencé")
+        planlib.rebase(db, st["days"], date.today())
+        return {"ok": True}
 
     @app.post("/api/plan/start")
     def plan_start(db=Depends(get_db)):
@@ -541,6 +654,15 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
                 "xp": xp, "detail": detail}
 
+    @app.get("/api/retention")
+    def retention(db=Depends(get_db)):
+        since = (date.today() - timedelta(days=7)).isoformat()
+        n, ok = db.execute("SELECT COUNT(*), COALESCE(SUM(correct), 0) FROM review_log WHERE day > ?", (since,)).fetchone()
+        solid = db.execute("SELECT COUNT(*) FROM cards WHERE box >= 3").fetchone()[0] + \
+            db.execute("SELECT COUNT(*) FROM mistakes WHERE box >= 4").fetchone()[0]
+        weak = db.execute("SELECT COUNT(*) FROM mistakes WHERE box < 3").fetchone()[0]
+        return {"answered7": n, "rate7": round(100 * ok / n) if n else None, "solid": solid, "weak": weak}
+
     @app.get("/api/team")
     def team(db=Depends(get_db)):
         p = get_profile(db)
@@ -582,7 +704,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.post("/api/weekly/brief")
     def weekly_brief(body: BriefIn, db=Depends(get_db)):
-        weak = [r[0] for r in db.execute("SELECT question_id FROM mistakes ORDER BY question_id")]
+        weak = [r[0] for r in db.execute("SELECT question_id FROM mistakes WHERE box < 3 ORDER BY question_id")]
         return {"brief": build_brief(get_profile(db), body.topic, body.format, weak)}
 
     @app.post("/api/weekly/import", dependencies=[Depends(local_only)])

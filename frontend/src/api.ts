@@ -36,7 +36,11 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
 
 export type StepKind = 'lesson' | 'qcm' | 'tp' | 'bonus'
 export interface Step { kind: StepKind; lesson_id: string; minutes: number; xp: number; done: boolean }
-export interface Quest { day: string; steps: Step[]; bonus: Step | null; imposed_topic: string | null }
+export interface Suggestion { kind: 'episode' | 'exam' | 'interview' | 'feynman'; id: string; label: string }
+export interface Quest {
+  day: string; steps: Step[]; bonus: Step | null; imposed_topic: string | null
+  pending_tp: string[]; review: { due: number; done: boolean } | null; suggestions: Suggestion[]
+}
 export interface Lesson {
   id: string; title: string; minutes: number; body_md: string
   qcm: { id: string; text: string; options: string[] }[]
@@ -70,7 +74,8 @@ export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: nu
 export const getReviews = () => call<Reviews>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })
-export const getPushKey = () => call<{ key: string; subscribed: boolean }>('GET', '/api/push/key')
+export const getPushKey = () => call<{ key: string; subscribed: boolean; hour: number }>('GET', '/api/push/key')
+export const setPushHour = (hour: number) => call<Ok>('POST', '/api/push/hour', { hour })
 export const pushSubscribe = (sub: PushSubscriptionJSON) => call<Ok>('POST', '/api/push/subscribe', sub)
 export const pushUnsubscribe = (endpoint: string) => call<Ok>('POST', '/api/push/unsubscribe', { endpoint })
 export const pushTest = () => call<{ sent: number }>('POST', '/api/push/test')
@@ -98,6 +103,7 @@ export const answerCard = (id: string, known: boolean) =>
 export interface PlanDay { day: number; title: string; lessons: string[]; todo: string[]; done: boolean; manual: boolean }
 export interface Plan { started: boolean; start: string | null; today: number | null; days: PlanDay[]; late: number }
 export const getPlan = () => call<Plan>('GET', '/api/plan')
+export const rebasePlan = () => call<Ok>('POST', '/api/plan/rebase')
 export const startPlan = () => call<Ok>('POST', '/api/plan/start')
 export const markPlanDay = (day: number, done: boolean) => call<Ok>('POST', `/api/plan/day/${day}`, { done })
 export interface ExamSummary { id: string; title: string; questions: number; best: number | null }
@@ -130,3 +136,7 @@ export const ficheAudioUrl = (moduleId: string) => `/api/fiche-audio/${encodeURI
 export interface Revision { items: number; key: string | null }
 export const getRevision = () => call<Revision>('GET', '/api/revision')
 export const revisionUrl = (key: string) => `/api/revision/${encodeURIComponent(key)}.mp3`
+export const podcastDone = (file: string) => call<Ok>('POST', `/api/podcast/${encodeURIComponent(file)}/done`)
+export const revisionDone = () => call<{ xp: number }>('POST', '/api/revision/done')
+export interface Retention { answered7: number; rate7: number | null; solid: number; weak: number }
+export const getRetention = () => call<Retention>('GET', '/api/retention')
