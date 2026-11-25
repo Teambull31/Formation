@@ -68,13 +68,6 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
       {pushOff && onGo && (
         <button className="btn ghost" onClick={() => onGo('Équipe')}>🔔 Active le rappel quotidien : c'est la régularité qui fait retenir</button>
       )}
-      <Plan onStart={(id) => onStart(id, 'lesson', false)} />
-      <Cert />
-      <div className="card">
-        <p className="tag">Rang actuel</p>
-        <h2>{team ? team.rank : '…'}</h2>
-        {team && <p className="stat">{team.xp} XP · niveau {team.level} · série {team.streak} j</p>}
-      </div>
       <div className="card">
         <h3>Quête du jour</h3>
         {quest?.pace === 'consolidate' && (
@@ -116,24 +109,34 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
           ))}
         </div>
       )}
-      <div className="card">
-        <p className="tag">Format</p>
-        <div className="row">
-          {([30, 60] as const).map((m) => (
-            <button key={m} className="chip" aria-pressed={minutes === m} onClick={() => setMinutes(m)}>{m} min</button>
-          ))}
-        </div>
-        <label className="tag" htmlFor="topic">Sujet imposé</label>
-        <div className="row">
-          <input id="topic" type="text" className="grow" value={topic} onChange={(e) => setTopicText(e.target.value)} />
-          <button className="btn" onClick={() => act(setTopic(topic.trim() || null))}>OK</button>
-          <button className="btn ghost" aria-label="Effacer le sujet" onClick={() => { setTopicText(''); act(setTopic(null)) }}>✕</button>
-        </div>
-      </div>
       {onGo && (
         <button className="btn ghost" onClick={() => onGo('Révisions', 'cartes')}>Fatigué ? Jour minimum : 2 minutes, 3 cartes, et le jour compte</button>
       )}
       <button className="btn ghost" onClick={() => act(announceRest(), 'Repos annoncé.')}>Repos aujourd'hui</button>
+      <details className="card">
+        <summary>Plan, objectif, profil et réglages{team ? ` · série ${team.streak} j · niveau ${team.level}` : ''}</summary>
+        <Plan onStart={(id) => onStart(id, 'lesson', false)} />
+        <Cert />
+        <div className="card">
+          <p className="tag">Rang actuel</p>
+          <h2>{team ? team.rank : '…'}</h2>
+          {team && <p className="stat">{team.xp} XP · niveau {team.level} · série {team.streak} j</p>}
+        </div>
+        <div className="card">
+          <p className="tag">Format</p>
+          <div className="row">
+            {([30, 60] as const).map((m) => (
+              <button key={m} className="chip" aria-pressed={minutes === m} onClick={() => setMinutes(m)}>{m} min</button>
+            ))}
+          </div>
+          <label className="tag" htmlFor="topic">Sujet imposé</label>
+          <div className="row">
+            <input id="topic" type="text" className="grow" value={topic} onChange={(e) => setTopicText(e.target.value)} />
+            <button className="btn" onClick={() => act(setTopic(topic.trim() || null))}>OK</button>
+            <button className="btn ghost" aria-label="Effacer le sujet" onClick={() => { setTopicText(''); act(setTopic(null)) }}>✕</button>
+          </div>
+        </div>
+      </details>
       {msg && <p className="note" role="status">{msg}</p>}
     </section>
   )
