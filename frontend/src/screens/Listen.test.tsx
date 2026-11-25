@@ -35,3 +35,16 @@ test('révision du jour et fiches en tête ; une leçon finie est validée', asy
   fireEvent.ended(container.querySelector('audio')!)
   expect(api.completeStep).toHaveBeenCalledWith('lesson', 'ci1')
 })
+
+test('préparer la route : révision du jour + épisodes pas écoutés, téléchargés seuls à l\'ouverture', async () => {
+  const add = vi.fn().mockResolvedValue(undefined)
+  vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue({ keys: vi.fn().mockResolvedValue([]), add, delete: vi.fn() }) })
+  vi.mocked(api.getRevision).mockResolvedValue({ items: 3, key: 'k1' })
+  vi.mocked(api.getPodcast).mockResolvedValue([
+    { file: 'ep01.mp3', title: 'Un', minutes: 10, listened: 1 }, { file: 'ep02.mp3', title: 'Deux', minutes: 10, listened: 0 }])
+  vi.mocked(api.getLessons).mockResolvedValue([])
+  render(<Listen />)
+  expect(await screen.findByText(/Route prête : 2 piste/)).toBeTruthy()
+  expect(add.mock.calls.map((c) => c[0])).toEqual(['/api/revision/k1.mp3', '/api/podcast/ep02.mp3'])
+  vi.unstubAllGlobals()
+})

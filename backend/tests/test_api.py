@@ -466,6 +466,8 @@ def test_podcast_lists_present_episodes_and_serves_them(client, tmp_path):
     (p / "episodes.json").write_text('[{"file": "ep01.mp3", "title": "Un", "minutes": 10}, {"file": "ep02.mp3", "title": "Absent", "minutes": 9}]')
     (p / "ep01.mp3").write_bytes(b"ID3fake")
     assert [e["file"] for e in client.get("/api/podcast").json()] == ["ep01.mp3"]
+    client.post("/api/podcast/ep01.mp3/done")
+    assert client.get("/api/podcast").json()[0]["listened"] == 1
     r = client.get("/api/podcast/ep01.mp3")
     assert r.status_code == 200 and r.content == b"ID3fake" and r.headers["content-type"] == "audio/mpeg"
 

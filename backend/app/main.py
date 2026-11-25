@@ -451,8 +451,10 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     podcast = content_dir / "podcast"
 
     @app.get("/api/podcast")
-    def podcast_list():
-        return episodes()
+    def podcast_list(db=Depends(get_db)):
+        # nombre d'écoutes complètes : l'onglet Écoute prépare d'abord les épisodes pas encore écoutés
+        heard = {k[len("listened:"):]: v for k, v in db.execute("SELECT key, value FROM settings WHERE key LIKE 'listened:%'")}
+        return [{**e, "listened": int(heard[e["file"]].split("|")[1]) if "|" in heard.get(e["file"], "") else 0} for e in episodes()]
 
     @app.post("/api/podcast/{name}/done")
     def podcast_done(name: str, db=Depends(get_db)):

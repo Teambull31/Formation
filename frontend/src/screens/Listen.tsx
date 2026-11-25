@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import Oral from './Oral'
 import { audioUrl, completeStep, ficheAudioUrl, getLessons, getPodcast, getRevision, podcastDone, podcastUrl, revisionDone, revisionUrl } from '../api'
 
-interface Track { src: string; title: string; group: string; minutes: number | null; lessonId?: string }
+interface Track { src: string; title: string; group: string; minutes: number | null; lessonId?: string; fresh?: boolean }
+const ROUTE_EPISODES = 3 // épisodes pas encore écoutés gardés prêts sur le téléphone
+const AUTO_KEY = 'route-auto'
 const AUDIO_CACHE = 'formation-audio' // même nom que dans public/sw.js
 const RATES = [1, 1.25, 1.5]
 const RECALL_S = 30 // pause « qu'as-tu retenu ? » après un épisode
@@ -29,7 +31,7 @@ export default function Listen() {
     Promise.all([getPodcast(), getLessons(), getRevision().catch(() => ({ items: 0, key: null }))]).then(([eps, mods, rev]) => {
       const t: Track[] = [
         ...(rev.key ? [{ src: revisionUrl(rev.key), title: `Révision express (${rev.items} questions)`, group: 'Aujourd\'hui', minutes: null }] : []),
-        ...eps.map((e) => ({ src: podcastUrl(e.file), title: e.title, group: 'Le livre du soir DevOps', minutes: e.minutes })),
+        ...eps.map((e) => ({ src: podcastUrl(e.file), title: e.title, group: 'Le livre du soir DevOps', minutes: e.minutes, fresh: !e.listened })),
         ...mods.filter((m) => m.fiche).map((m) => ({ src: ficheAudioUrl(m.id), title: m.title, group: 'Fiches de révision', minutes: null })),
         ...mods.flatMap((m) => m.lessons.map((l) => ({ src: audioUrl(l.id), title: l.title, group: `Leçons — ${m.title}`, minutes: l.minutes, lessonId: l.id }))),
       ]
@@ -92,12 +94,14 @@ export default function Listen() {
     play(cur! + 1)
   }
   const [saved, setSaved] = useState<Set<string>>(new Set())
+  const [cacheRead, setCacheRead] = useState(false)
+  const [auto, setAuto] = useState(() => { try { return localStorage.getItem(AUTO_KEY) !== '0' } catch { return true } })
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const offline = typeof caches !== 'undefined' // seulement en HTTPS (contexte sécurisé)
   useEffect(() => {
     if (!offline) return
     caches.open(AUDIO_CACHE).then((c) => c.keys()).then((ks) => setSaved(new Set(ks.map((k) => new URL(k.url).pathname))))
-      .catch(() => {})
+      .catch(() => {}).finally(() => setCacheRead(true))
   }, [offline])
   const download = async (srcs: string[]) => {
     const todo = srcs.filter((s) => !saved.has(s) && !busy.has(s))
@@ -113,6 +117,19 @@ export default function Listen() {
       setBusy((b) => { const n = new Set(b); n.delete(s); return n })
     }
   }
+  // « Préparer la route » : la révision du jour et les prochains épisodes pas encore écoutés
+  const route = tracks.filter((t) => t.group === "Aujourd'hui").map((t) => t.src)
+    .concat(tracks.filter((t) => t.fresh).slice(0, ROUTE_EPISODES).map((t) => t.src))
+  const routeMissing = route.filter((s) => !saved.has(s))
+  const prepared = useRef(false)
+  useEffect(() => {
+    if (!offline || !auto || !cacheRead || !tracks.length || prepared.current) return
+    prepared.current = true // une fois par ouverture de l'onglet ; seuls les manquants sont téléchargés
+    if (routeMissing.length) download(routeMissing)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offline, auto, cacheRead, tracks])
+  const toggleAuto = () => { setAuto(!auto); try { localStorage.setItem(AUTO_KEY, auto ? '0' : '1') } catch { /* facultatif */ } }
+
   const forget = async (src: string) => {
     await (await caches.open(AUDIO_CACHE)).delete(src)
     setSaved((x) => { const n = new Set(x); n.delete(src); return n })
@@ -155,6 +172,17 @@ export default function Listen() {
           ))}
         </div>
       </div>
+      {offline && route.length > 0 && (
+        <div className="card">
+          <button className="btn" disabled={!routeMissing.length} onClick={() => download(routeMissing)}>
+            {routeMissing.length ? `Préparer la route (${route.length - routeMissing.length} / ${route.length} prêts)` : `✓ Route prête : ${route.length} piste(s) sur le téléphone`}
+          </button>
+          <label className="row">
+            <input type="checkbox" checked={auto} onChange={toggleAuto} />
+            <span className="note">Préparer automatiquement à l'ouverture de l'onglet</span>
+          </label>
+        </div>
+      )}
       {offline && (
         <button className="btn ghost" onClick={() => download(tracks.filter((t) => t.group === 'Le livre du soir DevOps').map((t) => t.src))}>
           Télécharger les épisodes du livre pour la route ({[...saved].filter((s) => s.startsWith('/api/podcast/')).length} / {tracks.filter((t) => t.group === 'Le livre du soir DevOps').length})

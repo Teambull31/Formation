@@ -131,7 +131,7 @@ export const weeklyBrief = (topic: string, format: string) =>
 export const weeklyImport = (path: string) => call<{ module_id: string }>('POST', '/api/weekly/import', { path })
 
 export const terminalUrl = () => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/terminal`
-export interface Episode { file: string; title: string; minutes: number }
+export interface Episode { file: string; title: string; minutes: number; listened?: number; module?: string }
 export const getPodcast = () => call<Episode[]>('GET', '/api/podcast')
 export const podcastUrl = (file: string) => `/api/podcast/${encodeURIComponent(file)}`
 export const ficheAudioUrl = (moduleId: string) => `/api/fiche-audio/${encodeURIComponent(moduleId)}.mp3`
