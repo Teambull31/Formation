@@ -4,6 +4,7 @@ import {
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
+import { splitPages } from '../pages'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Confidence, { sureWrongNote } from './Confidence'
@@ -133,6 +134,15 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
   const denied = useCallback(() => setLocal(false), [])
   const [dir, setDir] = useState('.') // TP sub-directory of the workspace, from /start
   const tpId = les?.tp?.id
+  // lecture par pages courtes, une question du QCM entre deux pages ; « tout sur une page » reste possible
+  const [page, setPage] = useState<number | null>(null) // null : page sauvegardée de cette leçon
+  const [whole, setWhole] = useState(() => { try { return localStorage.getItem('lecture-entiere') === '1' } catch { return false } })
+  const goPage = (n: number) => {
+    setPage(n)
+    window.scrollTo(0, 0)
+    try { if (les) localStorage.setItem(`page:${les.id}`, String(n)) } catch { /* facultatif */ }
+  }
+  const toggleWhole = () => { setWhole(!whole); try { localStorage.setItem('lecture-entiere', whole ? '0' : '1') } catch { /* facultatif */ } }
 
   useEffect(() => {
     // once per TP; 403 means the terminal is hidden anyway
@@ -174,6 +184,10 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
   const guard = (e: unknown) => { if (isForbidden(e)) setLocal(false); else setBanner((e as Error).message) }
   const run = (p: () => Promise<unknown>) => { setBusy(true); p().finally(() => setBusy(false)) }
   const tp = les.tp
+  const pages = splitPages(les.body_md)
+  const last = pages.length - 1
+  const saved = () => { try { return Number(localStorage.getItem(`page:${les.id}`)) || 0 } catch { return 0 } }
+  const cur = Math.max(0, Math.min(page ?? saved(), last))
   const at = order.findIndex((l) => l.id === les.id) // -1 for remedial lessons outside the catalogue
   const prev = at > 0 ? order[at - 1] : null
   const next = at >= 0 && at < order.length - 1 ? order[at + 1] : null
@@ -185,19 +199,45 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
       <p className="time">{les.minutes} min</p>
       {les.qcm.length > 0 && !done.includes('lesson') && (!kind || kind === 'lesson') && <PreQuestions qs={les.qcm} />}
       <Audio id={les.id} />
+      {pages.length > 1 && (
+        <div className="row between">
+          <span className="stat">{whole ? `${pages.length} parties` : `Page ${cur + 1} / ${pages.length}`}</span>
+          <button className="chip" onClick={toggleWhole}>{whole ? 'Lire par pages' : 'Tout sur une page'}</button>
+        </div>
+      )}
       {/* dangerouslySetInnerHTML only ever receives renderLesson output (escape-first) */}
-      <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(les.body_md) }} />
-      <button className="btn" disabled={done.includes('lesson')} onClick={() => mark('lesson')}>
-        {done.includes('lesson') ? 'Leçon terminée' : 'Terminer la leçon'}
-      </button>
-      {les.qcm.length > 0 && <h2>QCM</h2>}
-      {les.qcm.map((q) => <Qcm key={q.id} q={q} onOpen={onOpen} onAnswered={() => setAnswered((n) => n + 1)} />)}
-      {les.qcm.length > 0 && (
+      {pages.map((md, i) => (
+        <div key={i} hidden={!whole && i !== cur}>
+          <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(md) }} />
+          {!whole && i < last && les.qcm[i] && <p className="tag">Vérifie avant de continuer</p>}
+        </div>
+      ))}
+      {/* toutes les questions restent montées (réponses conservées) ; en lecture par pages, la question i suit la page i */}
+      {les.qcm.map((q, i) => (
+        <div key={q.id} hidden={!whole && (i < last ? i !== cur : cur !== last)}>
+          <Qcm q={q} onOpen={onOpen} onAnswered={() => setAnswered((n) => n + 1)} />
+        </div>
+      ))}
+      {!whole && cur < last && (
+        <div className="row">
+          {cur > 0 && <button className="btn ghost" onClick={() => goPage(cur - 1)}>← Page précédente</button>}
+          <button className="btn grow" onClick={() => goPage(cur + 1)}>Page suivante →</button>
+        </div>
+      )}
+      {(whole || cur === last) && (
+        <>
+          {!whole && cur > 0 && <button className="btn ghost" onClick={() => goPage(cur - 1)}>← Page précédente</button>}
+          <button className="btn" disabled={done.includes('lesson')} onClick={() => mark('lesson')}>
+            {done.includes('lesson') ? 'Leçon terminée' : 'Terminer la leçon'}
+          </button>
+        </>
+      )}
+      {les.qcm.length > 0 && (whole || cur === last) && (
         <button className="btn ghost" disabled={done.includes('qcm') || answered < les.qcm.length} onClick={() => mark('qcm')}>
           {done.includes('qcm') ? 'QCM validé' : 'Valider le QCM'}
         </button>
       )}
-      {tp && (
+      {tp && (whole || cur === last) && (
         <>
           <h2>TP : {tp.title}</h2>
           <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(tp.instructions_md) }} />
@@ -220,7 +260,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
           {real && <><p>{real.passed ? 'Les vrais outils acceptent votre travail.' : 'Labo réel : à corriger (ou outil absent).'}</p><pre className="out">{real.output}</pre></>}
         </>
       )}
-      {local && <Feynman lessonId={les.id} title={les.title} />}
+      {local && (whole || cur === last) && <Feynman lessonId={les.id} title={les.title} />}
       {kind === 'bonus' && (
         <button className="btn" disabled={done.includes('bonus')} onClick={() => mark('bonus')}>
           {done.includes('bonus') ? 'Bonus terminé' : 'Terminer le bonus'}

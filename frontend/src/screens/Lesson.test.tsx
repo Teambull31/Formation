@@ -54,3 +54,22 @@ test('questions avant lecture puis QCM avec la confiance envoyée', async () => 
   expect(await screen.findByText(/en étant sûr de toi/)).toBeTruthy()
   expect(ans).toHaveBeenCalledWith('q1', 1, true)
 })
+
+test('lecture par pages : une question entre deux pages, la fin sur la dernière', async () => {
+  localStorage.clear()
+  const long = 'mot '.repeat(250)
+  const qcm = [{ id: 'q1', text: 'Question un ?', options: ['a', 'b'] }, { id: 'q2', text: 'Question deux ?', options: ['a', 'b'] }]
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: `## Partie 1\n${long}\n## Partie 2\n${long}`, qcm })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  render(<Lesson id="a" kind="qcm" onOpen={() => {}} />)
+  expect(await screen.findByText('Page 1 / 2')).toBeTruthy()
+  expect(screen.getByText('Question un ?').closest('[hidden]')).toBeNull()
+  expect(screen.getByText('Question deux ?').closest('[hidden]')).not.toBeNull()
+  expect(screen.queryByText('Terminer la leçon')).toBeNull()
+  fireEvent.click(screen.getByText('Page suivante →'))
+  expect(screen.getByText('Page 2 / 2')).toBeTruthy()
+  expect(screen.getByText('Question deux ?').closest('[hidden]')).toBeNull()
+  expect(screen.getByText('Terminer la leçon')).toBeTruthy()
+  fireEvent.click(screen.getByText('Tout sur une page'))
+  expect(screen.getByText('Question un ?').closest('[hidden]')).toBeNull()
+})
