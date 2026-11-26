@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, getRetention, getWeak, isForbidden, weeklyBrief, weeklyImport, type Retention, type Weak } from '../api'
+import { ApiError, clearUnclear, getRetention, getUnclear, getWeak, isForbidden, weeklyBrief, weeklyImport, type Retention, type Unclear, type Weak } from '../api'
 
 const FORMATS = ['30 min', '60 min', 'mixte']
 
-export default function Weekly({ onOpen }: { onOpen?: (lessonId: string) => void }) {
+export default function Weekly({ onOpen }: { onOpen?: (lessonId: string, focus?: string) => void }) {
   const [topic, setTopic] = useState('')
   const [format, setFormat] = useState(FORMATS[0])
   const [brief, setBrief] = useState('')
@@ -15,6 +15,8 @@ export default function Weekly({ onOpen }: { onOpen?: (lessonId: string) => void
   useEffect(() => { getRetention().then(setRet).catch(() => {}) }, [])
   const [weak, setWeak] = useState<Weak[]>([])
   useEffect(() => { getWeak().then(setWeak).catch(() => {}) }, [])
+  const [unclear, setUnclear] = useState<Unclear[]>([])
+  useEffect(() => { getUnclear().then(setUnclear).catch(() => {}) }, [])
   const pre = useRef<HTMLPreElement>(null)
 
   const gen = () =>
@@ -67,6 +69,19 @@ export default function Weekly({ onOpen }: { onOpen?: (lessonId: string) => void
             <div className="row between" key={w.lesson_id}>
               <span className="grow">{w.title} <span className="time">· {w.module} · {w.count} erreur(s)</span></span>
               {onOpen && <button className="chip" onClick={() => onOpen(w.lesson_id)}>Revoir</button>}
+            </div>
+          ))}
+        </div>
+      )}
+      {unclear.length > 0 && (
+        <div className="card">
+          <h3>Pages pas claires</h3>
+          <p className="note">Relis-les à froid : souvent, ça passe. Sinon, « Explique autrement ».</p>
+          {unclear.map((u) => (
+            <div className="row between" key={u.id}>
+              <span className="grow">{u.title} <span className="time">· {u.excerpt}</span></span>
+              {onOpen && <button className="chip" onClick={() => onOpen(u.lesson_id, u.excerpt)}>Revoir</button>}
+              <button className="chip" onClick={() => clearUnclear(u.id).then(() => setUnclear(unclear.filter((x) => x.id !== u.id)))}>Compris ✓</button>
             </div>
           ))}
         </div>

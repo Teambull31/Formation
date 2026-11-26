@@ -125,3 +125,15 @@ test('« Explique autrement » affiche la reformulation de la page', async () =>
   expect(await screen.findByText('Comme une recette de cuisine.')).toBeTruthy()
   expect(r.mock.calls[0][1].startsWith('## Partie 1')).toBe(true)
 })
+
+test('« 👎 Pas clair » note la page avec son titre de section', async () => {
+  localStorage.clear()
+  const long = 'mot '.repeat(250)
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: `## Partie 1\n${long}\n## Partie 2\n${long}` })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  const m = vi.spyOn(api, 'markUnclear').mockResolvedValue({ ok: true })
+  render(<Lesson id="a" onOpen={() => {}} />)
+  fireEvent.click(await screen.findByText('👎 Pas clair'))
+  expect(await screen.findByText(/reviendra dans « Semaine »/)).toBeTruthy()
+  expect(m).toHaveBeenCalledWith('a', 'Partie 1')
+})

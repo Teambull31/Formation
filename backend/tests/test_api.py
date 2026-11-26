@@ -580,3 +580,13 @@ def test_rephrase_endpoint(client, monkeypatch):
     monkeypatch.setattr(llm, "rephrase", down)
     assert client.post("/api/lesson/l1/rephrase", json={"text": "une page de cours assez longue"}).status_code == 503
     assert client.post("/api/lesson/nope/rephrase", json={"text": "une page de cours assez longue"}).status_code == 404
+
+
+def test_unclear_pages_noted_listed_and_cleared(client):
+    for _ in range(2):  # deux fois la même page : une seule ligne
+        assert client.post("/api/unclear", json={"lesson_id": "l1", "excerpt": "Partie 1"}).status_code == 200
+    items = client.get("/api/unclear").json()
+    assert len(items) == 1 and items[0]["lesson_id"] == "l1" and items[0]["excerpt"] == "Partie 1"
+    assert client.post("/api/unclear", json={"lesson_id": "nope", "excerpt": "x"}).status_code == 404
+    client.delete(f"/api/unclear/{items[0]['id']}")
+    assert client.get("/api/unclear").json() == []

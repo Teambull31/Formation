@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, rephrase, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
+  answerQcm, audioUrl, markUnclear, rephrase, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
@@ -14,6 +14,8 @@ import Confidence, { sureWrongNote } from './Confidence'
 const Terminal = lazy(() => import('./Terminal'))
 
 const RATES = [1, 1.5, 2]
+// repère d'une page : sa première ligne de texte (titre de section le plus souvent), retrouvée ensuite par bestPage
+const excerpt = (md: string) => (md.split('\n').find((l) => l.trim()) ?? '').replace(/^#+\s*/, '').trim().slice(0, 200)
 const THINK_MS = 6000 // temps de réflexion après une question lue
 
 function Audio({ id }: { id: string }) {
@@ -159,6 +161,7 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
   const [reading, setReading] = useState(false)
   const [other, setOther] = useState<{ page: number; text: string } | null>(null) // « explique autrement »
   const [otherBusy, setOtherBusy] = useState(false)
+  const [flagged, setFlagged] = useState<Set<number>>(new Set()) // pages notées « pas claires »
   const [readingAll, setReadingAll] = useState(false)
   const all = useRef(false)
   const canSpeak = typeof speechSynthesis !== 'undefined'
@@ -274,6 +277,10 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
                   .catch((e: Error) => setBanner(e.message)).finally(() => setOtherBusy(false))
               }}>{otherBusy ? 'Reformulation…' : 'Pas clair ? Explique autrement'}</button>
             ))}
+          {!whole && i === cur && (flagged.has(i) ? <p className="time">Notée : elle reviendra dans « Semaine ».</p> : (
+            <button className="chip" onClick={() => markUnclear(les.id, excerpt(md))
+              .then(() => setFlagged(new Set([...flagged, i]))).catch((e: Error) => setBanner(e.message))}>👎 Pas clair</button>
+          ))}
           {!whole && i < last && les.qcm[i] && <p className="tag">Vérifie avant de continuer</p>}
         </div>
       ))}

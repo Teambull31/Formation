@@ -76,6 +76,11 @@ class PanneIn(BaseModel):
     fix: str = Field(min_length=3, max_length=500)
 
 
+class UnclearIn(BaseModel):
+    lesson_id: str = Field(min_length=1, max_length=64)
+    excerpt: str = Field(min_length=1, max_length=200)
+
+
 class RephraseIn(BaseModel):
     text: str = Field(min_length=20, max_length=8000)
 
@@ -856,6 +861,28 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             db.commit()
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
                 "xp": xp, "detail": detail}
+
+    @app.post("/api/unclear")
+    def unclear_add(body: UnclearIn, db=Depends(get_db)):
+        # page « pas claire » : à revoir plus tard, et signal pour retravailler le contenu
+        find_lesson(body.lesson_id)
+        db.execute("INSERT OR IGNORE INTO unclear(lesson_id, excerpt, at) VALUES (?, ?, ?)",
+                   (body.lesson_id, body.excerpt, date.today().isoformat()))
+        db.commit()
+        return {"ok": True}
+
+    @app.get("/api/unclear")
+    def unclear_list(db=Depends(get_db)):
+        titles = {les.id: les.title for _, m in modules() for les in m.lessons}
+        return [{"id": i, "lesson_id": lid, "title": titles.get(lid, lid), "excerpt": ex, "at": at}
+                for i, lid, ex, at in db.execute("SELECT id, lesson_id, excerpt, at FROM unclear ORDER BY at, id")
+                if lid in titles]
+
+    @app.delete("/api/unclear/{item_id}")
+    def unclear_done(item_id: int, db=Depends(get_db)):
+        db.execute("DELETE FROM unclear WHERE id = ?", (item_id,))
+        db.commit()
+        return {"ok": True}
 
     @app.get("/api/weak")
     def weak(db=Depends(get_db)):
