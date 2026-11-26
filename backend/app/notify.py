@@ -7,7 +7,7 @@ from pathlib import Path
 from app.content import ModuleError, load_module
 from app.db import connect
 from app.plan import load_plan, today_line
-from app.push import remind, tp_digest, weekly_digest
+from app.push import remind, streak_saver, tp_digest, weekly_digest
 from app.quests import current_streak, pending_tps
 from app.review import due_reviews
 
@@ -47,6 +47,7 @@ def main() -> int:
     n = remind(db, today, current_streak(db, today), plan_line=line, hour=now.hour,
                question=question_of_day(db, content, today))
     n += weekly_digest(db, today, hour=now.hour)
+    n += streak_saver(db, today, current_streak(db, today), hour=now.hour)
     n += tp_digest(db, today, [lid for m in modules(content) for lid in pending_tps(db, m)], hour=now.hour)
     print(f"{n} notification(s) envoyée(s)")
     return 0

@@ -168,3 +168,23 @@ def tp_digest(db: sqlite3.Connection, today: date, pending: list[str], *, sender
         _put(db, "tp_sent", week)
         db.commit()
     return n
+
+
+SAVER_HOUR = 21  # dernier appel du soir
+
+
+def streak_saver(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, hour: int | None = None) -> int:
+    """21 h, une série en cours et rien fait aujourd'hui : un second rappel, centré sur le minimum (3 cartes)."""
+    if hour is not None and (hour != SAVER_HOUR or remind_hour(db) == SAVER_HOUR):
+        return 0
+    if streak <= 0 or count_subs(db) == 0 or _setting(db, "saver_last") == today.isoformat():
+        return 0
+    if db.execute("SELECT 1 FROM activity_days WHERE day = ? UNION SELECT 1 FROM rest_days WHERE day = ?",
+                  (today.isoformat(), today.isoformat())).fetchone():
+        return 0
+    n = send_all(db, f"Formation · ta série de {streak} jours", "Elle s'arrête ce soir. 2 minutes suffisent : 3 cartes.",
+                 sender=sender, extra={"url": "/?tab=revisions&sub=cartes&mini=1", "actions": [ACTIONS[1], ACTIONS[0]]})
+    if n:
+        _put(db, "saver_last", today.isoformat())
+        db.commit()
+    return n

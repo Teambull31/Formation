@@ -57,7 +57,8 @@ export default function Reminders() {
       ) : (
         <>
           <p className="note">Une notification à l'heure choisie si tu n'as encore rien fait ce jour-là, jamais les jours de repos.
-            Astuce : juste avant ton trajet, pour lancer l'épisode ou la révision express.</p>
+            Astuce : juste avant ton trajet, pour lancer l'épisode ou la révision express.
+            Si ta série est en jeu et que rien n'est fait, un dernier rappel « 2 min » part à 21 h.</p>
           <label className="tag" htmlFor="cue">Mon déclencheur (l'habitude s'accroche à un geste quotidien)</label>
           <select id="cue" value={CUES.includes(cue) ? cue : cue ? '__' : ''} onChange={(e) => pickCue(e.target.value === '__' ? cue : e.target.value)}>
             <option value="">Aucun</option>

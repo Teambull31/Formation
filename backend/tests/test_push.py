@@ -185,3 +185,18 @@ def test_tp_digest_saturday_morning_once(db):
     assert push.tp_digest(db, sat, ["ci3", "ci5"], sender=s, hour=10) == 1
     assert push.tp_digest(db, sat, ["ci3", "ci5"], sender=s, hour=10) == 0
     assert sent[0]["title"].endswith("2 TP t'attendent") and "ci3, ci5" in sent[0]["body"]
+
+
+def test_streak_saver_at_21h_only_if_streak_and_nothing_done(db):
+    import json as _json
+    push.subscribe(db, SUB)
+    sent = []
+    s = lambda *a, **k: sent.append(_json.loads(k["data"]))  # noqa: E731
+    d = date(2026, 11, 26)
+    assert push.streak_saver(db, d, 0, sender=s, hour=21) == 0  # pas de série à perdre
+    assert push.streak_saver(db, d, 3, sender=s, hour=20) == 0
+    assert push.streak_saver(db, d, 3, sender=s, hour=21) == 1
+    assert push.streak_saver(db, d, 3, sender=s, hour=21) == 0  # une fois par soir
+    assert sent[0]["url"].endswith("mini=1") and sent[0]["actions"][0]["action"] == "mini"
+    db.execute("INSERT INTO activity_days VALUES ('2026-11-27')")
+    assert push.streak_saver(db, date(2026, 11, 27), 4, sender=s, hour=21) == 0  # déjà travaillé
