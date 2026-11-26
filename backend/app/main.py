@@ -659,7 +659,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         try:
             g = {**llm.grade_explanation(les.title, les.body_md, body.explanation), "mode": "ollama"}
         except llm.LlmUnavailable as e:  # repli : les termes clés de la leçon employés dans l'explication
-            terms = [c.back for c in cardlib.lesson_cards(les) if c.kind == "terme"][:FEYNMAN_TERMS]
+            terms = cardlib.key_terms(les, FEYNMAN_TERMS)
             if not terms:
                 raise HTTPException(503, str(e))
             score, missing = keyword_grade(body.explanation, [[t, t] for t in terms])

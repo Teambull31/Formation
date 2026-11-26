@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from app.content import Lesson
+from app.interview import norm
 from app.review import INTERVALS
 
 NEW_PER_DAY = 10
@@ -50,6 +51,22 @@ def lesson_cards(les: Lesson) -> list[Card]:
                 front = BOLD.sub(lambda m: BLANK if m.group(1) == term else m.group(1), sent, count=0)
                 out.append(_card(les.id, "terme", front.strip(), term))
     return out
+
+
+# gras d'insistance, pas des notions : « **jamais** », « **avant** », « **À retenir :** »
+EMPHASIS = {"avant", "apres", "pas", "et", "un", "une", "jamais", "toujours", "exactement", "sans", "sous", "sur", "dans",
+            "meme", "chaque", "ou", "que", "qui", "seul", "seule", "pourquoi", "comment", "quand", "lire", "ecrire",
+            "oublie", "ignore", "deux fois", "une seule fois", "entier", "tout", "tous", "rien", "plus", "moins", "ne",
+            "non", "oui", "ici", "avec", "pour", "par", "puis", "donc", "mais", "aussi", "encore", "deja", "seulement",
+            "uniquement", "d'abord", "ensuite", "enfin", "vraiment", "bien", "mal", "tres"}
+
+
+def key_terms(les: Lesson, n: int) -> list[str]:
+    """Notions clés d'une leçon : termes en gras hors insistance, les plus présents dans le texte d'abord."""
+    body = norm(les.body_md)
+    terms = {c.back for c in lesson_cards(les) if c.kind == "terme"
+             and not c.back.rstrip().endswith(":") and norm(c.back).strip() not in EMPHASIS}
+    return sorted(terms, key=lambda t: (-body.count(norm(t)), t))[:n]
 
 
 def _box_due(today: date, box: int) -> tuple[int, str]:

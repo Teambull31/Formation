@@ -452,9 +452,11 @@ def test_feynman_without_ollama_grades_by_lesson_key_terms(client, monkeypatch, 
     monkeypatch.setattr(llm, "grade_explanation", down)
     md = next((tmp_path / "content").rglob("l1.md"))
     md.write_text(md.read_text() + "\n\nUn **runner** exécute les jobs du pipeline sur une machine dédiée."
-                  "\n\nLe **cache** garde les dépendances entre deux exécutions du pipeline.\n")
+                  "\n\nLe **cache** garde les dépendances entre deux exécutions du pipeline."
+                  "\n\nOn ne pousse **jamais** un secret dans le dépôt, même pour un test rapide.\n")
     r = client.post("/api/feynman/l1", json={"explanation": "Le runner prend les jobs et les lance un par un sur sa machine."}).json()
     assert r["mode"] == "mots-clés" and "le terme « cache »" in r["missing"] and "le terme « runner »" not in r["missing"]
+    assert "le terme « jamais »" not in r["missing"]  # gras d'insistance : pas une notion attendue
     assert 0 < r["score"] < 100 and r["xp"] > 0
     monkeypatch.setattr(cardlib, "lesson_cards", lambda les: [])  # aucun terme clé : impossible de noter
     r = client.post("/api/feynman/l1", json=EXPL)
