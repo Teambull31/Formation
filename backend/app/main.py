@@ -653,9 +653,8 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             db.commit()
         return {**g, "xp": xp, "best": top, "model_answer": q["model_answer"]}
 
-    @app.post("/api/feynman/{lesson_id}")
+    @app.post("/api/feynman/{lesson_id}", dependencies=[Depends(local_only)])
     def feynman(lesson_id: str, body: FeynmanIn, db=Depends(get_db)):
-        # note un texte sans rien exécuter : ouvert au téléphone, comme l'entretien
         _, m, les = find_lesson(lesson_id)
         try:
             g = {**llm.grade_explanation(les.title, les.body_md, body.explanation), "mode": "ollama"}

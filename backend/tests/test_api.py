@@ -121,7 +121,7 @@ def test_quest_step_tp_requires_passing_check(client, tmp_path):
 
 
 BAD = [("post", "/api/tp/t1/check"), ("post", "/api/boss/attempt"),
-       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"),
+       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"), ("post", "/api/feynman/l1"),
        ("get", "/api/portfolio.zip")]
 
 
@@ -461,9 +461,8 @@ def test_feynman_without_ollama_grades_by_lesson_key_terms(client, monkeypatch, 
     assert r.status_code == 503 and "Ollama" in r.json()["detail"]
 
 
-def test_feynman_is_open_to_remote_like_interview(remote_client, monkeypatch):
-    _grade(monkeypatch, 70)
-    assert remote_client.post("/api/feynman/l1", json=EXPL).json()["score"] == 70
+def test_remote_cannot_feynman(remote_client):
+    assert remote_client.post("/api/feynman/l1", json=EXPL).status_code == 403
 
 
 
