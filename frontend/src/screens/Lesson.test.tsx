@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 vi.mock('../api', async (orig) => {
@@ -95,5 +95,21 @@ test('« Écouter » lit la page affichée à voix haute', async () => {
   fireEvent.click(await screen.findByText('🔊 Écouter'))
   expect(said[0].startsWith('Partie 1\nImportant')).toBe(true)
   expect(screen.getByText('■ Stop')).toBeTruthy()
+  vi.unstubAllGlobals()
+})
+
+test('« Tout lire » enchaîne les pages à voix haute puis annonce la fin', async () => {
+  localStorage.clear()
+  const said: string[] = []
+  vi.stubGlobal('SpeechSynthesisUtterance', class { text: string; onend?: () => void; constructor(t: string) { this.text = t } })
+  vi.stubGlobal('speechSynthesis', { speak: (u: { text: string; onend?: () => void }) => { said.push(u.text); setTimeout(() => u.onend?.(), 0) }, cancel: vi.fn() })
+  const long = 'mot '.repeat(250)
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: `## Partie 1\n${long}\n## Partie 2\n${long}` })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  render(<Lesson id="a" onOpen={() => {}} />)
+  fireEvent.click(await screen.findByText('▶ Tout lire'))
+  expect(await screen.findByText('Page 2 / 2')).toBeTruthy()
+  await waitFor(() => expect(said.at(-1)).toBe('Fin de la leçon. Réponds au QCM pour la valider.'))
+  expect(said.filter((t) => t.startsWith('Partie')).length).toBe(2)
   vi.unstubAllGlobals()
 })

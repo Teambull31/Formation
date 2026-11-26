@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { say } from '../speech'
 import { answerInterview, answerOral, getInterview, getOral, type OralItem, type OralResult } from '../api'
 
 // Révision orale mains libres : la question est lue, tu réponds à voix haute, le serveur note et range la réponse.
@@ -13,17 +14,6 @@ const RecClass = (): RecCtor | undefined => {
 const LISTEN_MS = 9000
 const INTERVIEW_MS = 75000 // réponse d'entretien : jusqu'à 75 s de parole
 const INTERVIEW_N = 2
-
-function say(text: string): Promise<void> {
-  return new Promise((done) => {
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'fr-FR'
-    u.rate = 0.95
-    u.onend = () => done()
-    u.onerror = () => done()
-    speechSynthesis.speak(u)
-  })
-}
 
 function listen(R: RecCtor, ms = LISTEN_MS, continuous = false): Promise<string> {
   return new Promise((done) => {

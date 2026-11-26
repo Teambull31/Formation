@@ -5,6 +5,7 @@ import {
 } from '../api'
 import { renderLesson } from '../renderLesson'
 import { bestPage, speakable, splitPages } from '../pages'
+import { pause, say } from '../speech'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Confidence, { sureWrongNote } from './Confidence'
@@ -12,6 +13,7 @@ import Confidence, { sureWrongNote } from './Confidence'
 const Terminal = lazy(() => import('./Terminal'))
 
 const RATES = [1, 1.5, 2]
+const THINK_MS = 6000 // temps de réflexion après une question lue
 
 function Audio({ id }: { id: string }) {
   const [rate, setRate] = useState(1)
@@ -139,16 +141,24 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
   // lecture par pages courtes, une question du QCM entre deux pages ; « tout sur une page » reste possible
   const [page, setPage] = useState<number | null>(null) // null : page sauvegardée de cette leçon
   const [whole, setWhole] = useState(() => { try { return localStorage.getItem('lecture-entiere') === '1' } catch { return false } })
+  const showPage = (n: number) => {
+    setPage(n)
+    window.scrollTo(0, 0)
+    try { if (les) localStorage.setItem(`page:${les.id}`, String(n)) } catch { /* facultatif */ }
+  }
   const goPage = (n: number) => {
     if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
     setReading(false)
+    all.current = false
+    setReadingAll(false)
     setPage(n)
     window.scrollTo(0, 0)
     try { if (les) localStorage.setItem(`page:${les.id}`, String(n)) } catch { /* facultatif */ }
   }
   const [reading, setReading] = useState(false)
+  const [readingAll, setReadingAll] = useState(false)
+  const all = useRef(false)
   const canSpeak = typeof speechSynthesis !== 'undefined'
-  useEffect(() => () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel() }, []) // quitter la leçon coupe la lecture
   const readAloud = (md: string) => {
     speechSynthesis.cancel()
     if (reading) return setReading(false)
@@ -159,7 +169,26 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
     setReading(true)
     speechSynthesis.speak(u)
   }
+  // lecture continue : page, puis sa question (options lues, temps de réflexion), page suivante… mains libres
+  const readAll = async (pages: string[], from: number) => {
+    if (all.current) { all.current = false; setReadingAll(false); speechSynthesis.cancel(); return }
+    all.current = true
+    setReadingAll(true)
+    for (let i = from; i < pages.length && all.current; i++) {
+      showPage(i)
+      await say(speakable(pages[i]))
+      const q = les?.qcm[i]
+      if (all.current && q && i < pages.length - 1) {
+        await say(`Question : ${q.text} ${q.options.map((o, k) => `${'ABCDEF'[k]} : ${o}`).join('. ')}. Réfléchis.`)
+        await pause(THINK_MS)
+      }
+    }
+    if (all.current) await say('Fin de la leçon. Réponds au QCM pour la valider.')
+    all.current = false
+    setReadingAll(false)
+  }
   const toggleWhole = () => { setWhole(!whole); try { localStorage.setItem('lecture-entiere', whole ? '0' : '1') } catch { /* facultatif */ } }
+  useEffect(() => () => { all.current = false; if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel() }, []) // quitter la leçon coupe la lecture
 
   useEffect(() => {
     // once per TP; 403 means the terminal is hidden anyway
@@ -220,8 +249,11 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
         <div className="row between">
           <span className="stat">{whole ? `${pages.length} parties` : `Page ${cur + 1} / ${pages.length}`}</span>
           <span className="row">
-            {canSpeak && !whole && (
+            {canSpeak && !whole && !readingAll && (
               <button className="chip" aria-pressed={reading} onClick={() => readAloud(pages[cur])}>{reading ? '■ Stop' : '🔊 Écouter'}</button>
+            )}
+            {canSpeak && !whole && !reading && (
+              <button className="chip" aria-pressed={readingAll} onClick={() => readAll(pages, cur)}>{readingAll ? '■ Stop' : '▶ Tout lire'}</button>
             )}
             <button className="chip" onClick={toggleWhole}>{whole ? 'Lire par pages' : 'Tout sur une page'}</button>
           </span>
