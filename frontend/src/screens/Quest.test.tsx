@@ -37,8 +37,8 @@ test('révisions en tête, TP en attente, suggestions et bandeau de rappel', asy
   expect(onGo).toHaveBeenLastCalledWith('Écoute')
   fireEvent.click(screen.getByText('Explique ci1 à un junior (Feynman)'))
   expect(onStart).toHaveBeenLastCalledWith('ci1', 'lesson', true)
-  fireEvent.click(await screen.findByText(/Active le rappel quotidien/))
-  expect(onGo).toHaveBeenLastCalledWith('Équipe')
+  expect(screen.getByText('Bien démarrer')).toBeTruthy() // rappel pas actif : le guide de démarrage s'affiche
+  expect(screen.getByText('Activer le rappel quotidien')).toBeTruthy()
 })
 
 test('« Ma séance du jour » commence par les révisions, puis la première étape', async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Plan from './Plan'
 import Cert from './Cert'
+import Onboarding from './Onboarding'
 import { announceRest, getPushKey, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Suggestion, type Team } from '../api'
 
 export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe' | 'Boss', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
@@ -80,9 +81,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
           </div>
         </div>
       )}
-      {pushOff && onGo && (
-        <button className="btn ghost" onClick={() => onGo('Équipe')}>🔔 Active le rappel quotidien : c'est la régularité qui fait retenir</button>
-      )}
+      {onGo && <Onboarding pushOff={pushOff} sessionDone={!!quest?.week?.days || !!team?.xp} onReminders={() => onGo('Équipe')} />}
       <div className="card">
         <h3>Quête du jour</h3>
         {quest?.pace === 'consolidate' && (
