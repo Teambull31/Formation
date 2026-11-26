@@ -59,3 +59,19 @@ test('« Ma séance du jour » commence par les révisions, puis la première é
   fireEvent.click(await screen.findByText(/Ma séance du jour \(≈ 5 min\) · QCM ci4/))
   expect(onStart).toHaveBeenCalledWith('ci4', 'qcm', false)
 })
+
+test('objectif daté : affiché sur l\'accueil avec son rythme, hors du bloc replié', async () => {
+  vi.mocked(api.getQuest).mockResolvedValue({ day: '2026-11-26', imposed_topic: null, bonus: null, pending_tp: [], suggestions: [], review: null,
+    steps: [{ kind: 'lesson', lesson_id: 'tf1', minutes: 10, xp: 20, done: false }] })
+  vi.mocked(api.getTeam).mockResolvedValue({ xp: 0, level: 1, rank: 'R', rank_capped: false, skills: {}, skill_levels: {}, tokens: 0, streak: 0, inventory: [] } as never)
+  vi.mocked(api.getReviews).mockResolvedValue({ due: [], questions: [], boxes: [], intervals: [] })
+  vi.mocked(api.getPushKey).mockResolvedValue({ key: 'k', subscribed: true, hour: 19 })
+  vi.mocked(api.getPlan).mockResolvedValue({ started: false, start: null, today: null, days: [], late: 0 })
+  vi.spyOn(api, 'getCert').mockResolvedValue({ key: 'terraform', date: '2027-01-10', title: 'HashiCorp Terraform Associate', days_left: 45,
+    options: [], pace: { left: 9, per_week: 2, recent: 2, on_track: true, advice: 'Il reste 9 leçon(s) : vise 2 par semaine.' } })
+  render(<Quest onStart={() => {}} onGo={() => {}} />)
+  await screen.findByText('Plan, profil et réglages', { exact: false }) // l'objectif a quitté le bloc replié
+  expect(await screen.findByText(/Dans le rythme ✓/)).toBeTruthy()
+  const objective = screen.getByText(/J-45/)
+  expect(objective.isConnected && !objective.closest('details')).toBe(true)
+})

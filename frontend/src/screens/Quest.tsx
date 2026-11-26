@@ -20,6 +20,9 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
   const [msg, setMsg] = useState('')
   const [due, setDue] = useState(0)
   const [pushOff, setPushOff] = useState(false)
+  // objectif daté : sur l'accueil (il donne le cap du jour) ; sinon son réglage reste dans le bloc replié
+  const [certOn, setCertOn] = useState(false)
+  const onCert = useCallback((c: { key: string | null; date: string | null }) => setCertOn(!!c.key && !!c.date), [])
   useEffect(() => { getReviews().then((r) => setDue(r.questions.length)).catch(() => {}) }, [])
   useEffect(() => { getPushKey().then((k) => setPushOff(!k.subscribed)).catch(() => {}) }, [])
 
@@ -88,6 +91,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
           </div>
         </div>
       )}
+      {certOn && <Cert onChange={onCert} />}
       {onGo && <Onboarding pushOff={pushOff} sessionDone={!!quest?.week?.days || !!team?.xp} onReminders={() => onGo('Équipe')} />}
       <div className="card">
         <h3>Quête du jour</h3>
@@ -135,9 +139,9 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
       )}
       <button className="btn ghost" onClick={() => act(announceRest(), 'Repos annoncé.')}>Repos aujourd'hui</button>
       <details className="card">
-        <summary>Plan, objectif, profil et réglages{team ? ` · série ${team.streak} j · niveau ${team.level}` : ''}</summary>
+        <summary>{certOn ? 'Plan, profil et réglages' : 'Plan, objectif, profil et réglages'}{team ? ` · série ${team.streak} j · niveau ${team.level}` : ''}</summary>
         <Plan onStart={(id) => onStart(id, 'lesson', false)} />
-        <Cert />
+        {!certOn && <Cert onChange={onCert} />}
         <div className="card">
           <p className="tag">Rang actuel</p>
           <h2>{team ? team.rank : '…'}</h2>

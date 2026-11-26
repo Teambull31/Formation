@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { getCert, setCert, type Cert as C } from '../api'
 
 // Un cap daté : la certification visée, le compte à rebours, et son examen blanc (onglet Révisions → Examen).
-export default function Cert() {
+export default function Cert({ onChange }: { onChange?: (c: C) => void }) {
   const [c, setC] = useState<C | null>(null)
   const [edit, setEdit] = useState(false)
   const [key, setKey] = useState('')
   const [when, setWhen] = useState('')
   const load = () => getCert().then((x) => { setC(x); setKey(x.key ?? x.options[0]?.key ?? ''); setWhen(x.date ?? '') }).catch(() => {})
   useEffect(() => { load() }, [])
+  useEffect(() => { if (c) onChange?.(c) }, [c, onChange]) // le parent place l'objectif (accueil ou bloc replié)
   if (!c) return null
   if (!edit) {
     return c.key ? (
