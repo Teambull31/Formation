@@ -137,7 +137,7 @@ def test_reminder_carries_question_url_and_actions(db):
     sent = []
     push.remind(db, date(2026, 10, 23), 0, sender=lambda *a, **k: sent.append(_json.loads(k["data"])), question="Où vit un workflow ?")
     assert sent[0]["title"].endswith("question du jour") and sent[0]["body"].startswith("Où vit un workflow ?")
-    assert sent[0]["url"] == "/?tab=revisions" and [a["action"] for a in sent[0]["actions"]] == ["ecoute", "revisions"]
+    assert sent[0]["url"] == "/?tab=revisions" and [a["action"] for a in sent[0]["actions"]] == ["ecoute", "mini"]
 
 
 def test_question_of_day_reads_due_question(db, tmp_path):

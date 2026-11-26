@@ -12,6 +12,7 @@ import Listen from './screens/Listen'
 import { getQuest, type StepKind } from './api'
 
 import { TABS, saveLast, startAt, type Sub, type Tab } from './deeplink'
+const MINI_CARDS = 3 // « J'ai 2 min » : trois cartes, et la journée compte
 interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
 
 export default function App() {
@@ -47,7 +48,7 @@ export default function App() {
               ))}
             </div>
             {sub === 'qcm' && <Review onOpen={(id) => open(id)} onContinue={() => setSub('cartes')} />}
-            {sub === 'cartes' && <Cards onOpen={(id) => open(id)} onContinue={toLesson} />}
+            {sub === 'cartes' && <Cards onOpen={(id) => open(id)} onContinue={toLesson} limit={start.mini ? MINI_CARDS : undefined} />}
             {sub === 'examen' && <Exam onOpen={(id) => open(id)} />}
             {sub === 'entretien' && <Interview />}
           </>

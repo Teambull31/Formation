@@ -78,7 +78,7 @@ self.addEventListener('notificationclick', (event) => {
 // Toucher la notification ouvre l'appli (ou la ramène au premier plan) sur la quête du jour.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const byAction = { ecoute: '/?tab=ecoute', revisions: '/?tab=revisions' }
+  const byAction = { ecoute: '/?tab=ecoute', revisions: '/?tab=revisions', mini: '/?tab=revisions&sub=cartes&mini=1' }
   const url = byAction[event.action] || (event.notification.data && event.notification.data.url) || '/?tab=quete'
   event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
     const w = wins.find((c) => new URL(c.url).origin === self.location.origin)

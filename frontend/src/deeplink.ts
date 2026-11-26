@@ -29,7 +29,8 @@ export function loadLast(now = Date.now()): Last | null {
 
 /** Où démarrer : un lien explicite (?tab=) gagne, sinon la reprise, sinon la quête. */
 export function startAt(search = typeof window === 'undefined' ? '' : window.location.search, now = Date.now()) {
-  if (new URLSearchParams(search).has('tab')) return { ...fromUrl(search), lessonId: null }
+  const q = new URLSearchParams(search)
+  if (q.has('tab')) return { ...fromUrl(search), lessonId: null, mini: q.get('mini') === '1' }
   const l = loadLast(now)
-  return l ? { tab: l.tab, sub: l.sub, lessonId: l.lessonId } : { tab: 'Quête' as Tab, sub: 'qcm' as Sub, lessonId: null }
+  return l ? { tab: l.tab, sub: l.sub, lessonId: l.lessonId, mini: false } : { tab: 'Quête' as Tab, sub: 'qcm' as Sub, lessonId: null, mini: false }
 }

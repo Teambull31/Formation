@@ -32,3 +32,17 @@ test('invite à terminer une leçon quand il n\'y a aucune carte', async () => {
   render(<Cards onOpen={() => {}} />)
   expect(await screen.findByText(/Terminez une leçon/)).toBeTruthy()
 })
+
+test('« J\'ai 2 min » : trois cartes au plus, puis la journée compte', async () => {
+  const cs = ['a', 'b', 'c', 'd'].map((x) => card(x, `Question ${x}`, `Réponse ${x}`))
+  vi.mocked(api.getCards).mockResolvedValue({ cards: cs, boxes: [0, 0, 0, 0, 0, 0], total: 4, unseen: 4 })
+  vi.mocked(api.answerCard).mockResolvedValue({ box: 1, due: '2026-11-28', mastered: false })
+  render(<Cards onOpen={() => {}} limit={3} />)
+  for (const x of ['a', 'b', 'c']) {
+    expect(await screen.findByText(`Question ${x}`)).toBeTruthy()
+    fireEvent.click(screen.getByText('Voir la réponse'))
+    fireEvent.click(await screen.findByText('Je savais'))
+  }
+  expect(await screen.findByText(/la journée compte/)).toBeTruthy()
+  expect(api.answerCard).toHaveBeenCalledTimes(3)
+})

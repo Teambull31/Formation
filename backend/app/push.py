@@ -98,7 +98,8 @@ def reminder_due(db: sqlite3.Connection, today: date) -> bool:
                           (day, day)).fetchone()
 
 
-ACTIONS = [{"action": "ecoute", "title": "🎧 Écoute"}, {"action": "revisions", "title": "Réviser"}]
+# deux boutons au plus sur Android : l'audio, ou le minimum qui fait compter la journée
+ACTIONS = [{"action": "ecoute", "title": "🎧 Écoute"}, {"action": "mini", "title": "⏱ J'ai 2 min"}]
 
 
 def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, plan_line: str | None = None,

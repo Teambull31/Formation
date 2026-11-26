@@ -11,9 +11,10 @@ test('lien direct vers un onglet et un sous-onglet, repli sur la quête', () => 
 
 test('reprise : dernier onglet et leçon si récents, le lien explicite gagne', () => {
   localStorage.clear()
-  expect(startAt('', 1000)).toEqual({ tab: 'Quête', sub: 'qcm', lessonId: null })
+  expect(startAt('', 1000)).toEqual({ tab: 'Quête', sub: 'qcm', lessonId: null, mini: false })
   saveLast({ tab: 'Leçon', sub: 'qcm', lessonId: 'ci4' }, 1000)
-  expect(startAt('', 1000 + 3600_000)).toEqual({ tab: 'Leçon', sub: 'qcm', lessonId: 'ci4' })
+  expect(startAt('', 1000 + 3600_000)).toEqual({ tab: 'Leçon', sub: 'qcm', lessonId: 'ci4', mini: false })
+  expect(startAt('?tab=revisions&sub=cartes&mini=1', 1000)).toMatchObject({ tab: 'Révisions', sub: 'cartes', mini: true })
   expect(startAt('', 1000 + 13 * 3600_000).tab).toBe('Quête') // plus de 12 h : retour à la quête
   expect(startAt('?tab=ecoute', 1000).tab).toBe('Écoute')
   localStorage.setItem('reprise', '{pas du json')
