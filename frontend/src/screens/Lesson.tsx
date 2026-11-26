@@ -10,6 +10,7 @@ import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Keys from './Keys'
 import Recall from './Recall'
+import { correction, optClass } from '../qcm'
 import Confidence, { sureWrongNote } from './Confidence'
 // xterm (~300 ko) chargé seulement quand un TP ouvre le terminal : l'appli démarre plus vite sur téléphone
 const Terminal = lazy(() => import('./Terminal'))
@@ -46,12 +47,11 @@ function Qcm({ q, onOpen, onAnswered }: { q: L['qcm'][number]; onOpen: (id: stri
       <p>{q.text}</p>
       {!res && <Confidence value={sure} onChange={setSure} />}
       {q.options.map((o, i) => (
-        <button key={i} className={'opt' + (res && res.chosen === i ? (res.r.correct ? ' right' : ' wrong') : '')}
-          disabled={!!res} onClick={() => pick(i)}>{o}</button>
+        <button key={i} className={optClass(res, i, o)} disabled={!!res} onClick={() => pick(i)}>{o}</button>
       ))}
       {res && (
         <div className={'fb' + (res.r.correct ? ' ok' : '')} role="status">
-          <p>{res.r.correct ? 'Correct.' : 'Raté.'} {res.r.explanation}</p>
+          <p>{res.r.correct ? 'Correct.' : 'Raté.'}{correction(res.r)} {res.r.explanation}</p>
           {res.r.sure_wrong && <p><strong>{sureWrongNote}</strong></p>}
           {res.r.remedial_lesson_id && (
             <button className="btn ghost" onClick={() => onOpen(res.r.remedial_lesson_id!)}>Ouvrir la mini-leçon</button>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { correction, optClass } from '../qcm'
 import { answerQcm, getRecall, type QcmResult, type RecallQ } from '../api'
 
 // Entrelacement : une question d'une ancienne leçon glissée en fin de leçon, pour mélanger les sujets.
@@ -12,10 +13,10 @@ export default function Recall({ lessonId }: { lessonId: string }) {
       <p className="tag">Rappel · {q.title}</p>
       <h3>{q.text}</h3>
       {q.options.map((o, k) => (
-        <button key={k} className={'opt' + (res?.chosen === k ? (res.r.correct ? ' right' : ' wrong') : '')}
+        <button key={k} className={optClass(res, k, o)}
           disabled={!!res} onClick={() => answerQcm(q.id, k, null).then((r) => setRes({ chosen: k, r })).catch(() => {})}>{o}</button>
       ))}
-      {res && <p className={'fb' + (res.r.correct ? ' ok' : '')} role="status">{res.r.correct ? 'Juste, toujours en tête ✓' : 'À revoir : elle revient dans tes révisions.'} {res.r.explanation}</p>}
+      {res && <p className={'fb' + (res.r.correct ? ' ok' : '')} role="status">{res.r.correct ? 'Juste, toujours en tête ✓' : `À revoir : elle revient dans tes révisions.${correction(res.r)}`} {res.r.explanation}</p>}
     </div>
   )
 }

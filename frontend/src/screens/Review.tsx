@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { answerQcm, getReviews, type QcmResult, type Reviews } from '../api'
+import { correction, optClass } from '../qcm'
 import Confidence, { sureWrongNote } from './Confidence'
 
 // Leitner boxes: a wrong answer sends a question to box 1, right answers climb up to mastery.
@@ -103,12 +104,11 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
         <p>{q.text}</p>
         {!res && <Confidence value={sure} onChange={setSure} />}
         {q.options.map((o, c) => (
-          <button key={c} className={'opt' + (res && res.chosen === c ? (res.r.correct ? ' right' : ' wrong') : '')}
-            disabled={busy || !!res} onClick={() => pick(c)}>{o}</button>
+          <button key={c} className={optClass(res, c, o)} disabled={busy || !!res} onClick={() => pick(c)}>{o}</button>
         ))}
         {res && (
           <div className={'fb' + (res.r.correct ? ' ok' : '')} role="status">
-            <p>{res.r.correct ? 'Correct.' : 'Raté.'} {res.r.explanation}</p>
+            <p>{res.r.correct ? 'Correct.' : 'Raté.'}{correction(res.r)} {res.r.explanation}</p>
             {res.r.sure_wrong && <p><strong>{sureWrongNote}</strong></p>}
             {res.r.lesson_id && (
               <button className="btn ghost" onClick={() => onOpen(res.r.lesson_id!, `${q.text} ${res.r.answer ?? ''}`)}>
