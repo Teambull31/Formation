@@ -418,6 +418,15 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                               d / "fiche.md")
         raise HTTPException(404, "Fiche inconnue")
 
+    def interview_of_day(db) -> dict | None:
+        """Parmi les 5 questions d'entretien les moins réussies (jamais tentées d'abord), une différente chaque jour."""
+        qs = load_questions(content_dir)
+        if not qs:
+            return None
+        best = dict(db.execute("SELECT question_id, best FROM interview").fetchall())
+        weakest = sorted(qs, key=lambda q: (best.get(q["id"], -1), q["id"]))[:5]
+        return weakest[date.today().toordinal() % len(weakest)]
+
     def revision_text(db) -> str:
         # révision express pour la voiture : question, temps de réflexion, réponse
         lines = []
@@ -427,6 +436,10 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         for qid in due_reviews(db, date.today())[:REVISION_MAX]:
             if (q := qs.get(qid)) is not None:
                 lines.append(f"{q.text}\nRéfléchis… … …\nRéponse : {q.options[q.answer]}. {q.explain}")
+        if iq := interview_of_day(db):  # une question d'entretien par jour : la révision n'est jamais vide
+            short = ". ".join(iq["model_answer"].split(". ")[:3]).rstrip(".")
+            lines.append(f"Question d'entretien : {iq['question']}\nRéponds à voix haute, comme face à un recruteur… … … … …\n"
+                         f"Réponse type : {short}.")
         if not lines:
             return ""
         return "Révision express du jour.\n" + "\n".join(f"Question {i}. {t}" for i, t in enumerate(lines, 1)) + \

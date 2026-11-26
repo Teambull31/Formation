@@ -1,3 +1,4 @@
+import json
 import shutil
 from pathlib import Path
 
@@ -555,3 +556,16 @@ def test_cards_per_day_setting(client):
     d = client.get("/api/cards").json()
     assert d["per_day"] == 2 and len(d["cards"]) == 2
     assert client.post("/api/cards/per-day", json={"per_day": 99}).status_code == 422
+
+
+def test_revision_express_always_has_an_interview_question(client, tmp_path, monkeypatch):
+    texts = _fake_edge(monkeypatch)
+    (tmp_path / "content" / "interview").mkdir()
+    (tmp_path / "content" / "interview" / "questions.json").write_text(json.dumps([
+        {"id": "iv1", "role": "DevOps", "question": "Qu'est-ce que l'idempotence ?", "time_limit": 90,
+         "keywords": [["idée", "idempot"]], "model_answer": "Rejouer sans changer le résultat. Exemple : terraform apply. Fin. Ignoré."}]))
+    info = client.get("/api/revision").json()
+    assert info["key"]  # rien d'autre à réviser : la question d'entretien suffit
+    assert client.get(f"/api/revision/{info['key']}.mp3").status_code == 200
+    assert "Question d'entretien : Qu'est-ce que l'idempotence ?" in texts[0]
+    assert "Réponse type : Rejouer sans changer le résultat. Exemple : terraform apply. Fin." in texts[0] and "Ignoré" not in texts[0]
