@@ -140,7 +140,7 @@ export const getRevision = () => call<Revision>('GET', '/api/revision')
 export const revisionUrl = (key: string) => `/api/revision/${encodeURIComponent(key)}.mp3`
 export const podcastDone = (file: string) => call<Ok>('POST', `/api/podcast/${encodeURIComponent(file)}/done`)
 export const revisionDone = () => call<{ xp: number }>('POST', '/api/revision/done')
-export interface Retention { answered7: number; rate7: number | null; solid: number; weak: number }
+export interface Retention { answered7: number; rate7: number | null; solid: number; weak: number; summary?: string }
 export const getRetention = () => call<Retention>('GET', '/api/retention')
 export interface OralItem { kind: 'card' | 'qcm'; id: string; prompt: string }
 export const getOral = () => call<{ items: OralItem[] }>('GET', '/api/oral')

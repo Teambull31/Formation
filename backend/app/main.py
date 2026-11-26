@@ -895,7 +895,8 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         solid = db.execute("SELECT COUNT(*) FROM cards WHERE box >= 3").fetchone()[0] + \
             db.execute("SELECT COUNT(*) FROM mistakes WHERE box >= 4").fetchone()[0]
         weak = db.execute("SELECT COUNT(*) FROM mistakes WHERE box < 3").fetchone()[0]
-        return {"answered7": n, "rate7": round(100 * ok / n) if n else None, "solid": solid, "weak": weak}
+        return {"answered7": n, "rate7": round(100 * ok / n) if n else None, "solid": solid, "weak": weak,
+                "summary": push.weekly_text(db, date.today())}
 
     @app.get("/api/team")
     def team(db=Depends(get_db)):

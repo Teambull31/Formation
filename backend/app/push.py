@@ -3,7 +3,7 @@ import base64
 import json
 import os
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 from urllib.parse import urlsplit
 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -120,5 +120,31 @@ def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, 
                  extra={"url": "/?tab=revisions" if question else "/?tab=quete", "actions": ACTIONS})
     if n:
         _put(db, "last_reminder", today.isoformat())
+        db.commit()
+    return n
+
+
+def weekly_text(db: sqlite3.Connection, today: date) -> str:
+    """Bilan des 7 derniers jours : régularité, leçons vues, mémoire (taux de réussite en révision)."""
+    since = (today - timedelta(days=6)).isoformat()
+    days = db.execute("SELECT COUNT(*) FROM activity_days WHERE day >= ?", (since,)).fetchone()[0]
+    lessons = db.execute("SELECT COUNT(DISTINCT lesson_id) FROM quest_steps WHERE kind = 'lesson' AND done = 1 AND day >= ?",
+                         (since,)).fetchone()[0]
+    n, ok = db.execute("SELECT COUNT(*), COALESCE(SUM(correct), 0) FROM review_log WHERE day >= ?", (since,)).fetchone()
+    mem = f"{round(100 * ok / n)} % de bonnes réponses en révision" if n else "aucune révision"
+    goal = min(7, max(days + 1, 4))  # viser un jour de plus, au moins 4
+    return f"{days} jour(s) actif(s) sur 7, {lessons} leçon(s), {mem}. Objectif de la semaine : {goal} jours."
+
+
+def weekly_digest(db: sqlite3.Connection, today: date, *, sender=webpush, hour: int | None = None) -> int:
+    """Le dimanche, à l'heure du rappel : bilan de la semaine, une fois par semaine, même si on a déjà travaillé."""
+    if today.weekday() != 6 or (hour is not None and hour != remind_hour(db)) or count_subs(db) == 0:
+        return 0
+    week = f"{today.isocalendar().year}-W{today.isocalendar().week}"
+    if _setting(db, "weekly_sent") == week:
+        return 0
+    n = send_all(db, "Formation · ta semaine", weekly_text(db, today), sender=sender, extra={"url": "/?tab=semaine"})
+    if n:
+        _put(db, "weekly_sent", week)
         db.commit()
     return n

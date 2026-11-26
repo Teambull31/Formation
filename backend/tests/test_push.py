@@ -155,3 +155,19 @@ def test_question_of_day_reads_due_question(db, tmp_path):
 def _json_first_qid(root):
     import json as _json
     return _json.loads((root / "modules" / "demo" / "lessons" / "l1.qcm.json").read_text())[0]["id"]
+
+
+def test_weekly_digest_on_sunday_once(db):
+    import json as _json
+    push.subscribe(db, SUB)
+    sun = date(2026, 11, 29)
+    db.executemany("INSERT INTO activity_days VALUES (?)", [("2026-11-24",), ("2026-11-26",), ("2026-11-29",)])
+    db.executemany("INSERT INTO review_log(day, correct) VALUES (?, ?)", [("2026-11-26", 1)] * 3 + [("2026-11-26", 0)])
+    sent = []
+    s = lambda *a, **k: sent.append(_json.loads(k["data"]))  # noqa: E731
+    assert push.weekly_digest(db, date(2026, 11, 28), sender=s) == 0  # samedi
+    assert push.weekly_digest(db, sun, sender=s, hour=8) == 0  # pas l'heure choisie (19 h)
+    assert push.weekly_digest(db, sun, sender=s, hour=19) == 1
+    assert push.weekly_digest(db, sun, sender=s, hour=19) == 0  # une fois par semaine
+    assert sent[0]["body"].startswith("3 jour(s) actif(s) sur 7") and "75 %" in sent[0]["body"] and "4 jours" in sent[0]["body"]
+    assert sent[0]["url"] == "/?tab=semaine"

@@ -49,7 +49,9 @@ export default function Weekly() {
     <section className="screen wrap">
       {ret && (
         <div className="card">
-          <h3>Ce que tu retiens</h3>
+          <h3>Ta semaine</h3>
+          {ret.summary && <p>{ret.summary}</p>}
+          <p className="tag">Ce que tu retiens</p>
           <p className="stat">{ret.rate7 === null ? 'Pas encore de révision cette semaine' : `${ret.rate7} % de bonnes réponses en révision sur 7 jours (${ret.answered7})`}</p>
           <p className="stat">{ret.solid} notion(s) solide(s) · {ret.weak} à consolider</p>
           <p className="note">L'XP mesure l'effort ; ce taux mesure la mémoire. Au-dessus de 85 %, tu peux accélérer.</p>
