@@ -117,4 +117,4 @@ def rephrase(title: str, page_md: str, *, post=httpx.post) -> str:
     try:
         return _ask(prompt, post, timeout=GRADE_TIMEOUT)
     except Exception as e:  # Ollama absent, délai, réponse illisible
-        raise LlmUnavailable("Le modèle local ne répond pas : relis la fiche du module ou repose la question plus tard.") from e
+        raise LlmUnavailable("Le modèle local ne répond pas : touche un terme en gras pour sa définition, ou relis la fiche du module.") from e
