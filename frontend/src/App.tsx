@@ -5,6 +5,7 @@ import Team from './screens/Team'
 import Boss from './screens/Boss'
 import Weekly from './screens/Weekly'
 import Review from './screens/Review'
+import Glossary from './screens/Glossary'
 import Interview from './screens/Interview'
 import Cards from './screens/Cards'
 import Exam from './screens/Exam'
@@ -43,7 +44,7 @@ export default function App() {
         {tab === 'Révisions' && (
           <>
             <div className="wrap row" role="group" aria-label="Type de révision">
-              {([['qcm', 'Questions'], ['cartes', 'Cartes'], ['examen', 'Examen'], ['entretien', 'Entretien']] as const).map(([k, label]) => (
+              {([['qcm', 'Questions'], ['cartes', 'Cartes'], ['examen', 'Examen'], ['entretien', 'Entretien'], ['glossaire', 'Glossaire']] as const).map(([k, label]) => (
                 <button key={k} className="chip" aria-pressed={sub === k} onClick={() => setSub(k)}>{label}</button>
               ))}
             </div>
@@ -51,6 +52,7 @@ export default function App() {
             {sub === 'cartes' && <Cards onOpen={(id) => open(id)} onContinue={toLesson} limit={start.mini ? MINI_CARDS : undefined} />}
             {sub === 'examen' && <Exam onOpen={(id) => open(id)} />}
             {sub === 'entretien' && <Interview />}
+            {sub === 'glossaire' && <Glossary onOpen={(id, focus) => open(id, null, false, focus)} />}
           </>
         )}
         {tab === 'Écoute' && <Listen />}
