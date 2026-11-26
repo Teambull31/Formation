@@ -121,7 +121,7 @@ def test_quest_step_tp_requires_passing_check(client, tmp_path):
 
 
 BAD = [("post", "/api/tp/t1/check"), ("post", "/api/boss/attempt"),
-       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"), ("post", "/api/feynman/l1"),
+       ("post", "/api/weekly/import"), ("post", "/api/tp/t1/hint"),
        ("get", "/api/portfolio.zip")]
 
 
@@ -442,20 +442,29 @@ def test_feynman_validation_and_unknown_lesson(client, monkeypatch):
     assert client.post("/api/feynman/zz", json=EXPL).status_code == 404
 
 
-def test_feynman_503_when_ollama_down(client, monkeypatch):
+def test_feynman_without_ollama_grades_by_lesson_key_terms(client, monkeypatch, tmp_path):
+    import app.cards as cardlib
     import app.llm as llm
 
     def down(*a, **k):
         raise llm.LlmUnavailable("Ollama indisponible")
 
     monkeypatch.setattr(llm, "grade_explanation", down)
+    md = next((tmp_path / "content").rglob("l1.md"))
+    md.write_text(md.read_text() + "\n\nUn **runner** exécute les jobs du pipeline sur une machine dédiée."
+                  "\n\nLe **cache** garde les dépendances entre deux exécutions du pipeline.\n")
+    r = client.post("/api/feynman/l1", json={"explanation": "Le runner prend les jobs et les lance un par un sur sa machine."}).json()
+    assert r["mode"] == "mots-clés" and "le terme « cache »" in r["missing"] and "le terme « runner »" not in r["missing"]
+    assert 0 < r["score"] < 100 and r["xp"] > 0
+    monkeypatch.setattr(cardlib, "lesson_cards", lambda les: [])  # aucun terme clé : impossible de noter
     r = client.post("/api/feynman/l1", json=EXPL)
     assert r.status_code == 503 and "Ollama" in r.json()["detail"]
-    assert client.get("/api/team").json()["xp"] == 0
 
 
-def test_remote_cannot_feynman(remote_client):
-    assert remote_client.post("/api/feynman/l1", json=EXPL).status_code == 403
+def test_feynman_is_open_to_remote_like_interview(remote_client, monkeypatch):
+    _grade(monkeypatch, 70)
+    assert remote_client.post("/api/feynman/l1", json=EXPL).json()["score"] == 70
+
 
 
 def test_podcast_lists_present_episodes_and_serves_them(client, tmp_path):

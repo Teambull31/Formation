@@ -20,7 +20,7 @@ export default function Feynman({ lessonId, title }: { lessonId: string; title: 
   return (
     <div className="card">
       <h2>Explique-le à un junior</h2>
-      <p className="note">Avec tes mots, sans relire le cours : « {title} ». Ollama te note et te dit ce qui manque.</p>
+      <p className="note">Avec tes mots, sans relire le cours : « {title} ». Ollama te note et te dit ce qui manque ; sans lui, tes termes clés sont comptés.</p>
       <textarea className="area" rows={6} value={text} maxLength={4000} aria-label="Ton explication"
         onChange={(e) => setText(e.target.value)} />
       <button className="btn" disabled={busy || text.trim().length < MIN} onClick={send}>

@@ -352,7 +352,7 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
           {real && <><p>{real.passed ? 'Les vrais outils acceptent votre travail.' : 'Labo réel : à corriger (ou outil absent).'}</p><pre className="out">{real.output}</pre></>}
         </>
       )}
-      {local && (whole || cur === last) && <Feynman lessonId={les.id} title={les.title} />}
+      {(whole || cur === last) && <Feynman lessonId={les.id} title={les.title} />}
       {kind === 'bonus' && (
         <button className="btn" disabled={done.includes('bonus')} onClick={() => mark('bonus')}>
           {done.includes('bonus') ? 'Bonus terminé' : 'Terminer le bonus'}

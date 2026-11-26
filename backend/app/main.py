@@ -39,6 +39,7 @@ INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rappo
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
 REVISE_DAYS = 7  # dernière semaine avant l'examen : révisions et examen blanc, pas de nouvelles leçons
 WEAK_MAX = 5
+FEYNMAN_TERMS = 8  # repli sans Ollama : termes clés attendus dans l'explication
 AHEAD = 3  # questions proposées d'avance quand rien n'est dû
 KEYS_MAX = 6  # « À retenir » en fin de leçon
 MISSION_XP = 200  # mission réelle sur un de tes dépôts
@@ -652,13 +653,19 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             db.commit()
         return {**g, "xp": xp, "best": top, "model_answer": q["model_answer"]}
 
-    @app.post("/api/feynman/{lesson_id}", dependencies=[Depends(local_only)])
+    @app.post("/api/feynman/{lesson_id}")
     def feynman(lesson_id: str, body: FeynmanIn, db=Depends(get_db)):
+        # note un texte sans rien exécuter : ouvert au téléphone, comme l'entretien
         _, m, les = find_lesson(lesson_id)
         try:
-            g = llm.grade_explanation(les.title, les.body_md, body.explanation)
-        except llm.LlmUnavailable as e:
-            raise HTTPException(503, str(e))
+            g = {**llm.grade_explanation(les.title, les.body_md, body.explanation), "mode": "ollama"}
+        except llm.LlmUnavailable as e:  # repli : les termes clés de la leçon employés dans l'explication
+            terms = [c.back for c in cardlib.lesson_cards(les) if c.kind == "terme"][:FEYNMAN_TERMS]
+            if not terms:
+                raise HTTPException(503, str(e))
+            score, missing = keyword_grade(body.explanation, [[t, t] for t in terms])
+            g = {"score": score, "missing": [f"le terme « {t} »" for t in missing], "mode": "mots-clés",
+                 "feedback": "Ollama est indisponible : notation approximative, d'après les termes clés de la leçon que tu emploies."}
         row = db.execute("SELECT best FROM feynman WHERE lesson_id = ?", (les.id,)).fetchone()
         best = row[0] if row else 0
         top = max(g["score"], best)
