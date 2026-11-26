@@ -60,7 +60,7 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
           <div key={b} className="grow" role="listitem" aria-label={`Boîte ${b + 1} : ${n}`}
             style={{ textAlign: 'center', borderBottom: `2px solid ${q?.box === b ? 'var(--gold)' : 'var(--line)'}` }}>
             <div className="stat">{n}</div>
-            <div className="time">B{b + 1} · {data.intervals[b]} j</div>
+            <div className="time">{data.intervals[b]} j</div>
           </div>
         ))}
       </div>

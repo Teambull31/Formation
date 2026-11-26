@@ -78,7 +78,7 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
         <div className="card" role="status">
           {limit && data.cards.length > 0 && <p className="fb ok">2 minutes faites : la journée compte ✓</p>}
           <h2>{data.cards.length ? `Séance terminée : ${known} carte(s) sue(s) du premier coup ou après reprise` : 'Rien à revoir aujourd\'hui'}</h2>
-          <p className="note">Les cartes reviennent après 1, 2, 4, 7 puis 14 jours.</p>
+          <p className="note">Les cartes reviennent après 1, 2, 4, 7, 14, 30 puis 60 jours.</p>
           {onContinue && <button className="btn" onClick={onContinue}>Continuer la séance : leçon du jour →</button>}
           <button className="btn ghost" onClick={() => setTries((n) => n + 1)}>Actualiser</button>
         </div>

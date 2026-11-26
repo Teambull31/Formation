@@ -37,15 +37,18 @@ def test_first_right_answer_comes_back_in_a_week(db):
     assert due_reviews(db, D1 + timedelta(days=6)) == []
     assert due_reviews(db, D1 + timedelta(days=7)) == ["q1"]
     record_answer(db, "q1", True, D1 + timedelta(days=7))  # box 3 -> 4
-    record_answer(db, "q1", True, D1 + timedelta(days=21))  # au-delà de la dernière boîte : maîtrisée
+    record_answer(db, "q1", True, D1 + timedelta(days=21))  # 4 -> 5 : revient dans 30 jours, pas encore retirée
+    assert due_reviews(db, D1 + timedelta(days=50)) == [] and due_reviews(db, D1 + timedelta(days=51)) == ["q1"]
+    record_answer(db, "q1", True, D1 + timedelta(days=51))  # 5 -> 6 : dans 60 jours
+    record_answer(db, "q1", True, D1 + timedelta(days=111))  # au-delà de la dernière boîte : maîtrisée
     assert db.execute("SELECT COUNT(*) FROM mistakes").fetchone()[0] == 0
-    assert tuple(db.execute("SELECT COUNT(*), SUM(correct) FROM review_log").fetchone()) == (2, 2)  # 1re réponse : pas une révision
+    assert tuple(db.execute("SELECT COUNT(*), SUM(correct) FROM review_log").fetchone()) == (4, 4)  # 1re réponse : pas une révision
 
 
 def test_mastered_removed(db):
     record_answer(db, "q1", False, D1)
     d = D1
-    for _ in range(5):  # boxes 0->1..4, then 4->mastered
+    for _ in range(7):  # boxes 0->1..6, then 6->mastered
         d += timedelta(days=30)
         record_answer(db, "q1", True, d)
     assert db.execute("SELECT COUNT(*) FROM mistakes").fetchone()[0] == 0

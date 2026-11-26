@@ -1,7 +1,8 @@
 import sqlite3
 from datetime import date, timedelta
 
-INTERVALS = [1, 2, 4, 7, 14]
+# 30 puis 60 jours avant de retirer : une notion vue un mois plus tôt tient encore le jour de l'examen
+INTERVALS = [1, 2, 4, 7, 14, 30, 60]
 
 
 FIRST_RIGHT_BOX = 3  # réussi du premier coup : revient dans INTERVALS[3] jours, pour vérifier que ça tient

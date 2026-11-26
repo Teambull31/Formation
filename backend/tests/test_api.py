@@ -68,14 +68,14 @@ def test_reviews_lists_due_questions_and_box_counts(client, monkeypatch):
             return date.today() + timedelta(days=1)
 
     r = client.get("/api/reviews").json()
-    assert r["due"] == [] and r["questions"] == [] and r["boxes"] == [0] * 5 and r["intervals"] == [1, 2, 4, 7, 14]
+    assert r["due"] == [] and r["questions"] == [] and r["boxes"] == [0] * 7 and r["intervals"] == [1, 2, 4, 7, 14, 30, 60]
     client.post("/api/qcm/answer", json={"question_id": "q1", "chosen": 0})  # wrong -> box 0, due tomorrow
     monkeypatch.setattr(m, "date", Tomorrow)
     r = client.get("/api/reviews").json()
     assert r["due"] == ["q1"]
     q = r["questions"][0]
     assert q["id"] == "q1" and q["options"] and q["box"] == 0 and "answer" not in q and "explain" not in q
-    assert r["boxes"] == [1, 0, 0, 0, 0]
+    assert r["boxes"] == [1, 0, 0, 0, 0, 0, 0]
 
 
 def test_right_answer(client):
