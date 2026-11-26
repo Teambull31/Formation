@@ -62,9 +62,8 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
   // un seul bouton pour démarrer : ce qui vient ensuite (révisions d'abord, puis la première étape pas faite)
   const nextStep = quest?.steps.find((s) => !s.done)
   const reviewFirst = !!(quest?.review && quest.review.due > 0 && !quest.review.done)
-  // durée annoncée : savoir avant de commencer que ça tient dans la pause (≈ 30 s par révision)
-  const left = quest ? quest.steps.filter((s) => !s.done).reduce((n, s) => n + s.minutes, 0)
-    + (reviewFirst ? Math.ceil(quest.review!.due * REVIEW_S / 60) : 0) : 0
+  // durée du premier bloc seulement (≈ 30 s par révision) : s'engager sur 8 minutes, pas sur 38 ; la séance enchaîne ensuite seule
+  const reviewMin = quest?.review ? Math.max(1, Math.ceil(quest.review.due * REVIEW_S / 60)) : 0
   const startSession = () => {
     if (reviewFirst && onGo) onGo('Révisions', due > 0 ? 'qcm' : 'cartes')
     else if (nextStep) onStart(nextStep.lesson_id, nextStep.kind, false)
@@ -87,7 +86,9 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
       {quest && !reviewFirst && !nextStep && <TodayRecap />}
       {quest && (reviewFirst || nextStep) && (
         <button className="btn term" style={{ fontSize: 18, minHeight: 56 }} onClick={startSession}>
-          ▶ Ma séance du jour{left > 0 ? ` (≈ ${left} min)` : ''}{reviewFirst ? ` · ${quest.review!.due} révisions puis ${nextStep ? nextStep.lesson_id : 'fin'}` : ` · ${LABEL[nextStep!.kind]} ${nextStep!.lesson_id}`}
+          ▶ Ma séance du jour · {reviewFirst
+            ? `${quest.review!.due} révisions (≈ ${reviewMin} min)${nextStep ? ` puis ${nextStep.lesson_id}` : ''}`
+            : `${LABEL[nextStep!.kind]} ${nextStep!.lesson_id} (≈ ${nextStep!.minutes} min)`}
         </button>
       )}
       {quest?.week && (
@@ -118,7 +119,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
             <span className={'dot' + (quest.review.done ? ' done' : '')} aria-hidden>{quest.review.done ? '✓' : ''}</span>
             <div className="grow">
               <div>Révisions du jour · {quest.review.due} à revoir</div>
-              <div className="time">5 min · +15 XP{quest.review.done ? ' · fait' : ' · à faire en premier : c\'est ce qui fait retenir'}</div>
+              <div className="time">≈ {reviewMin} min · +15 XP{quest.review.done ? ' · fait' : ' · à faire en premier : c\'est ce qui fait retenir'}</div>
             </div>
             {onGo && quest.review.due > 0 && <button className="btn ghost" onClick={() => onGo('Révisions', due > 0 ? 'qcm' : 'cartes')}>Réviser</button>}
           </div>

@@ -52,11 +52,11 @@ test('« Ma séance du jour » commence par les révisions, puis la première é
   const onStart = vi.fn()
   const onGo = vi.fn()
   const { unmount } = render(<Quest onStart={onStart} onGo={onGo} />)
-  fireEvent.click(await screen.findByText(/Ma séance du jour \(≈ 6 min\) · 2 révisions/))
+  fireEvent.click(await screen.findByText(/Ma séance du jour · 2 révisions \(≈ 1 min\) puis ci4/))
   expect(onGo).toHaveBeenCalledWith('Révisions', 'cartes')
   unmount()
   render(<Quest onStart={onStart} onGo={onGo} />)
-  fireEvent.click(await screen.findByText(/Ma séance du jour \(≈ 5 min\) · QCM ci4/))
+  fireEvent.click(await screen.findByText(/Ma séance du jour · QCM ci4 \(≈ 5 min\)/))
   expect(onStart).toHaveBeenCalledWith('ci4', 'qcm', false)
 })
 
