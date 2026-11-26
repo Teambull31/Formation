@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
   answerQcm, audioUrl, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
@@ -8,7 +8,8 @@ import { bestPage, speakable, splitPages } from '../pages'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Confidence, { sureWrongNote } from './Confidence'
-import Terminal from './Terminal'
+// xterm (~300 ko) chargé seulement quand un TP ouvre le terminal : l'appli démarre plus vite sur téléphone
+const Terminal = lazy(() => import('./Terminal'))
 
 const RATES = [1, 1.5, 2]
 
@@ -265,7 +266,7 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
           {local ? (
             <>
               {dir !== '.' && <p className="note">Dans le terminal : cd {dir}</p>}
-              <Terminal onDenied={denied} />
+              <Suspense fallback={<p className="note">Chargement du terminal…</p>}><Terminal onDenied={denied} /></Suspense>
               <div className="row wrapf">
                 <button className="btn term" disabled={busy} onClick={() => run(() =>
                   checkTp(tp.id).then((r) => { setCheck(r); if (r.passed) return mark('tp') }).catch(guard))}>Vérifier</button>
