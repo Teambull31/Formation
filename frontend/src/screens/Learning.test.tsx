@@ -4,7 +4,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 
 vi.mock('../api', async (orig) => {
   const real = await orig<typeof import('../api')>()
-  return { ...real, getOral: vi.fn(), answerOral: vi.fn(), addPanne: vi.fn(), getMissions: vi.fn(), checkMission: vi.fn(),
+  return { ...real, getOral: vi.fn(), answerOral: vi.fn(), getInterview: vi.fn(), answerInterview: vi.fn(), addPanne: vi.fn(), getMissions: vi.fn(), checkMission: vi.fn(),
     proveMission: vi.fn(), getArticles: vi.fn(), saveArticle: vi.fn(), getCert: vi.fn(), setCert: vi.fn() }
 })
 import * as api from '../api'
@@ -87,4 +87,28 @@ test('certification : choisir puis afficher le compte à rebours', async () => {
   await act(async () => { fireEvent.click(screen.getByText('Enregistrer')) })
   expect(api.setCert).toHaveBeenCalledWith('terraform', '2027-01-10')
   expect(await screen.findByText(/J-46/)).toBeTruthy()
+})
+
+test('entretien oral : question la moins réussie, réponse dictée longue, note lue', async () => {
+  const spoken: string[] = []
+  vi.stubGlobal('SpeechSynthesisUtterance', class { text: string; onend?: () => void; constructor(t: string) { this.text = t } })
+  vi.stubGlobal('speechSynthesis', { speak: (u: { text: string; onend?: () => void }) => { spoken.push(u.text); setTimeout(() => u.onend?.(), 0) }, cancel: vi.fn() })
+  vi.stubGlobal('webkitSpeechRecognition', class {
+    continuous = false
+    onresult: ((e: unknown) => void) | null = null
+    onend: (() => void) | null = null
+    start() { setTimeout(() => { this.onresult?.({ results: [[{ transcript: 'un pipeline lance les tests' }], [{ transcript: 'puis déploie en production' }]] }); this.onend?.() }, 0) }
+    stop() {}
+  })
+  vi.mocked(api.getInterview).mockResolvedValue({ questions: [
+    { id: 'i1', role: 'DevOps', question: 'Facile ?', time_limit: 60, best: 90 },
+    { id: 'i2', role: 'DevOps', question: "C'est quoi un pipeline ?", time_limit: 60, best: null },
+    { id: 'i3', role: 'DevOps', question: 'Autre ?', time_limit: 60, best: 40 }] })
+  vi.mocked(api.answerInterview).mockResolvedValue({ score: 60, xp: 18, best: 60, mode: 'mots-clés', feedback: '', missing: ['rollback'], model_answer: 'Un pipeline automatise build, tests et déploiement. Il permet un rollback.' })
+  render(<Oral />)
+  fireEvent.click(screen.getByText('Entretien oral (2 questions)'))
+  await waitFor(() => expect(spoken.some((t) => t === "Fin de l'entretien.")).toBe(true))
+  expect(api.answerInterview).toHaveBeenNthCalledWith(1, 'i2', 'un pipeline lance les tests puis déploie en production')
+  expect(api.answerInterview).toHaveBeenNthCalledWith(2, 'i3', 'un pipeline lance les tests puis déploie en production')
+  expect(spoken.some((t) => t.startsWith('60 sur 100. Il manquait : rollback.'))).toBe(true)
 })

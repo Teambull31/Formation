@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
-import { answerOral, getOral, type OralItem, type OralResult } from '../api'
+import { answerInterview, answerOral, getInterview, getOral, type OralItem, type OralResult } from '../api'
 
 // Révision orale mains libres : la question est lue, tu réponds à voix haute, le serveur note et range la réponse.
 // Synthèse et reconnaissance vocales du navigateur (https obligatoire, micro autorisé).
-interface Rec { lang: string; interimResults: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+interface Rec { lang: string; interimResults: boolean; continuous?: boolean; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
   onend: (() => void) | null; onerror: (() => void) | null; start(): void; stop(): void }
 type RecCtor = new () => Rec
 const RecClass = (): RecCtor | undefined => {
@@ -11,6 +11,8 @@ const RecClass = (): RecCtor | undefined => {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition
 }
 const LISTEN_MS = 9000
+const INTERVIEW_MS = 75000 // réponse d'entretien : jusqu'à 75 s de parole
+const INTERVIEW_N = 2
 
 function say(text: string): Promise<void> {
   return new Promise((done) => {
@@ -23,17 +25,18 @@ function say(text: string): Promise<void> {
   })
 }
 
-function listen(R: RecCtor): Promise<string> {
+function listen(R: RecCtor, ms = LISTEN_MS, continuous = false): Promise<string> {
   return new Promise((done) => {
     const r = new R()
     let text = ''
     r.lang = 'fr-FR'
     r.interimResults = false
-    r.onresult = (e) => { text = e.results[0][0].transcript }
+    r.continuous = continuous
+    r.onresult = (e) => { text = Array.from(e.results, (x) => x[0].transcript).join(' ') }
     r.onend = () => done(text)
     r.onerror = () => done(text)
     r.start()
-    setTimeout(() => { try { r.stop() } catch { /* déjà arrêtée */ } }, LISTEN_MS)
+    setTimeout(() => { try { r.stop() } catch { /* déjà arrêtée */ } }, ms)
   })
 }
 
@@ -77,6 +80,33 @@ export default function Oral() {
     stop()
   }
 
+  // entretien oral : les questions les moins réussies, réponse longue, note et idées manquantes lues
+  const interview = async () => {
+    on.current = true
+    setRunning(true); setMsg(''); setScore({ right: 0, total: 0 })
+    try {
+      const qs = (await getInterview()).questions.slice().sort((a, b) => (a.best ?? -1) - (b.best ?? -1)).slice(0, INTERVIEW_N)
+      await say(`Entretien : ${qs.length} questions. Réponds comme face à un recruteur, tu as environ une minute.`)
+      for (const [n, q] of qs.entries()) {
+        if (!on.current) return
+        setItem({ kind: 'qcm', id: q.id, prompt: q.question }); setHeard(''); setRes(null)
+        await say(`Question ${n + 1}. ${q.question}`)
+        if (!on.current) return
+        const t = await listen(R!, INTERVIEW_MS, true)
+        setHeard(t)
+        if (t.trim().length < 20) { await say('Réponse trop courte, on passe.'); continue }
+        const g = await answerInterview(q.id, t)
+        setRes({ correct: g.score >= 70, answer: g.model_answer, explain: '' })
+        const missing = g.missing.length ? `Il manquait : ${g.missing.join(', ')}.` : 'Toutes les idées clés y sont.'
+        await say(`${g.score} sur 100. ${missing} Réponse type : ${g.model_answer.split('. ').slice(0, 2).join('. ')}.`)
+      }
+      await say("Fin de l'entretien.")
+    } catch (e) {
+      setMsg((e as Error).message)
+    }
+    stop()
+  }
+
   return (
     <div className="card">
       <h3>Révision orale (mains libres)</h3>
@@ -86,6 +116,7 @@ export default function Oral() {
         <>
           <p className="note">Lance-la avant de démarrer, puis ne touche plus l'écran : tout se fait à la voix.</p>
           <button className={'btn' + (running ? ' ghost' : ' term')} onClick={running ? stop : start}>{running ? 'Arrêter' : 'Commencer la révision orale'}</button>
+          {!running && <button className="btn ghost" onClick={interview}>Entretien oral ({INTERVIEW_N} questions)</button>}
           {item && <p>{item.prompt}</p>}
           {heard && <p className="note">Entendu : « {heard} »</p>}
           {res && <p className={'fb' + (res.correct ? ' ok' : '')}>{res.correct ? 'Juste.' : `Réponse : ${res.answer}`}</p>}
