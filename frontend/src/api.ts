@@ -169,3 +169,5 @@ export const saveArticle = (id: string, text: string) => call<{ xp: number; word
 export interface Cert { key: string | null; date: string | null; title: string | null; days_left: number | null; options: { key: string; title: string }[] }
 export const getCert = () => call<Cert>('GET', '/api/cert')
 export const setCert = (key: string | null, date: string | null) => call<Ok>('POST', '/api/cert', { key, date })
+export interface LessonKey { id: string; kind: string; front: string; back: string }
+export const getLessonKeys = (id: string) => call<LessonKey[]>('GET', `/api/lesson/${encodeURIComponent(id)}/keys`)

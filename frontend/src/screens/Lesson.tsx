@@ -8,6 +8,7 @@ import { bestPage, speakable, splitPages } from '../pages'
 import { pause, say } from '../speech'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
+import Keys from './Keys'
 import Confidence, { sureWrongNote } from './Confidence'
 // xterm (~300 ko) chargé seulement quand un TP ouvre le terminal : l'appli démarre plus vite sur téléphone
 const Terminal = lazy(() => import('./Terminal'))
@@ -280,6 +281,7 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
       )}
       {(whole || cur === last) && (
         <>
+          <Keys lessonId={les.id} />
           {!whole && cur > 0 && <button className="btn ghost" onClick={() => goPage(cur - 1)}>← Page précédente</button>}
           <button className="btn" disabled={done.includes('lesson')} onClick={() => mark('lesson')}>
             {done.includes('lesson') ? 'Leçon terminée' : 'Terminer la leçon'}

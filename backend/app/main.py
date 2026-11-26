@@ -37,6 +37,7 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
+KEYS_MAX = 6  # « À retenir » en fin de leçon
 MISSION_XP = 200  # mission réelle sur un de tes dépôts
 ARTICLE_XP = 50
 MISSION_TIMEOUT = 120
@@ -387,6 +388,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         if not name.endswith(".mp3") or not SAFE_ID.fullmatch(name[:-4]):
             raise HTTPException(404, "Audio inconnu")
         return name[:-4]
+
+    @app.get("/api/lesson/{lesson_id}/keys")
+    def lesson_keys(lesson_id: str):
+        # fin de leçon : ses pièges et termes clés, à se rappeler avant de voir la réponse
+        _, _, les = find_lesson(lesson_id)
+        return [{"id": c.id, "kind": c.kind, "front": c.front, "back": c.back} for c in cardlib.lesson_cards(les)][:KEYS_MAX]
 
     @app.get("/api/audio/{name}")
     def audio(name: str):

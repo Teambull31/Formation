@@ -519,3 +519,11 @@ def test_wrong_answer_points_back_to_its_lesson(client):
     right = next(r for r in rs if r["correct"])
     assert wrong["lesson_id"] == "l1" and wrong["answer"] in q["options"]
     assert right["lesson_id"] is None and right["answer"] is None
+
+
+def test_lesson_keys_lists_lesson_cards(client, tmp_path):
+    md = next((tmp_path / "content").rglob("l1.md"))
+    md.write_text(md.read_text() + "\n\n!!Ne jamais committer un secret.!!\n\nUn **runner** exécute les jobs.\n")
+    keys = client.get("/api/lesson/l1/keys").json()
+    assert keys and all({"front", "back", "kind"} <= set(k) for k in keys)
+    assert client.get("/api/lesson/nope/keys").status_code == 404
