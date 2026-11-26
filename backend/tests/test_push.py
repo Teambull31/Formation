@@ -171,3 +171,17 @@ def test_weekly_digest_on_sunday_once(db):
     assert push.weekly_digest(db, sun, sender=s, hour=19) == 0  # une fois par semaine
     assert sent[0]["body"].startswith("3 jour(s) actif(s) sur 7") and "75 %" in sent[0]["body"] and "4 jours" in sent[0]["body"]
     assert sent[0]["url"] == "/?tab=semaine"
+
+
+def test_tp_digest_saturday_morning_once(db):
+    import json as _json
+    push.subscribe(db, SUB)
+    sent = []
+    s = lambda *a, **k: sent.append(_json.loads(k["data"]))  # noqa: E731
+    sat = date(2026, 11, 28)
+    assert push.tp_digest(db, sat, [], sender=s, hour=10) == 0  # rien en attente
+    assert push.tp_digest(db, date(2026, 11, 27), ["ci3"], sender=s, hour=10) == 0  # vendredi
+    assert push.tp_digest(db, sat, ["ci3"], sender=s, hour=9) == 0
+    assert push.tp_digest(db, sat, ["ci3", "ci5"], sender=s, hour=10) == 1
+    assert push.tp_digest(db, sat, ["ci3", "ci5"], sender=s, hour=10) == 0
+    assert sent[0]["title"].endswith("2 TP t'attendent") and "ci3, ci5" in sent[0]["body"]

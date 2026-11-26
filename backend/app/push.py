@@ -149,3 +149,22 @@ def weekly_digest(db: sqlite3.Connection, today: date, *, sender=webpush, hour: 
         _put(db, "weekly_sent", week)
         db.commit()
     return n
+
+
+TP_HOUR = 10  # samedi matin : le moment typique d'une session au PC
+
+
+def tp_digest(db: sqlite3.Connection, today: date, pending: list[str], *, sender=webpush, hour: int | None = None) -> int:
+    """Le samedi matin : les TP mis de côté (leçon vue, TP pas fait) pour la session au PC, une fois par semaine."""
+    if today.weekday() != 5 or (hour is not None and hour != TP_HOUR) or not pending or count_subs(db) == 0:
+        return 0
+    week = f"{today.isocalendar().year}-W{today.isocalendar().week}"
+    if _setting(db, "tp_sent") == week:
+        return 0
+    shown = ", ".join(pending[:4]) + (" …" if len(pending) > 4 else "")
+    n = send_all(db, f"Formation · {len(pending)} TP t'attendent", f"Session PC du week-end : {shown}. Ouvre l'appli sur l'ordinateur.",
+                 sender=sender, extra={"url": "/?tab=quete"})
+    if n:
+        _put(db, "tp_sent", week)
+        db.commit()
+    return n
