@@ -1,4 +1,5 @@
 // One typed function per backend route. Same-origin relative URLs only.
+import { cacheable, enqueue, offlineReply, queueable, recall, remember } from './offline'
 export class ApiError extends Error {
   status: number
   errors: string[] // 422 import validation errors
@@ -14,11 +15,18 @@ export class ApiError extends Error {
 export const isForbidden = (e: unknown) => e instanceof ApiError && e.status === 403
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const r = await fetch(url, {
-    method,
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  let r: Response
+  try {
+    r = await fetch(url, {
+      method,
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch (e) { // pas de réseau : dernière lecture connue, ou réponse mise en file
+    if (method === 'GET' && cacheable(url)) { const hit = recall(url); if (hit !== undefined) return hit as T }
+    if (queueable(method, url)) { enqueue({ method, url, body }); return offlineReply(url) as T }
+    throw e
+  }
   if (!r.ok) {
     let msg = r.statusText
     let errors: string[] = []
@@ -31,7 +39,9 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
     }
     throw new ApiError(r.status, msg, errors)
   }
-  return r.json() as Promise<T>
+  const data = await r.json()
+  if (method === 'GET' && cacheable(url)) remember(url, data)
+  return data as T
 }
 
 export type StepKind = 'lesson' | 'qcm' | 'tp' | 'bonus'
