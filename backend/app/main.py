@@ -76,6 +76,10 @@ class PanneIn(BaseModel):
     fix: str = Field(min_length=3, max_length=500)
 
 
+class PerDayIn(BaseModel):
+    per_day: int = Field(ge=0, le=50)
+
+
 class CueIn(BaseModel):
     cue: str = Field(max_length=120)
 
@@ -230,7 +234,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         db.execute("INSERT OR REPLACE INTO settings(key, value) VALUES (?, ?)", (key, value))
 
     def review_due(db) -> int:
-        return len(due_reviews(db, date.today())) + len(cardlib.session(db, studied_cards(db), date.today())["cards"])
+        return len(due_reviews(db, date.today())) + len(card_session(db)["cards"])
 
     def review_progress(db) -> None:
         """Une révision vient d'être faite : jour actif ; révisions du jour toutes faites = XP, une fois par jour."""
@@ -417,7 +421,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def revision_text(db) -> str:
         # révision express pour la voiture : question, temps de réflexion, réponse
         lines = []
-        for c in cardlib.session(db, studied_cards(db), date.today())["cards"][:REVISION_MAX]:
+        for c in card_session(db)["cards"][:REVISION_MAX]:
             lines.append(f"{c['front']}\nRéfléchis… … …\nRéponse : {c['back']}")
         qs = all_questions()
         for qid in due_reviews(db, date.today())[:REVISION_MAX]:
@@ -658,6 +662,16 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         r = run_check(replace(tp, check='bash "$LESSON_DIR/../_real.sh"', timeout_s=REAL_TIMEOUT), workspace, lesson_dir)
         return {"passed": r.passed, "output": r.output}
 
+    def card_session(db) -> dict:
+        v = setting(db, "cards_per_day")
+        return cardlib.session(db, studied_cards(db), date.today(), int(v) if v and v.isdigit() else cardlib.NEW_PER_DAY)
+
+    @app.post("/api/cards/per-day")
+    def cards_per_day(body: PerDayIn, db=Depends(get_db)):
+        put(db, "cards_per_day", str(body.per_day))
+        db.commit()
+        return {"ok": True}
+
     def studied_cards(db) -> list[cardlib.Card]:
         done = {r[0] for r in db.execute("SELECT lesson_id FROM quest_steps WHERE kind = 'lesson' AND done = 1")}
         mine = [cardlib.Card(f"panne-{r[0]}", "", "panne", r[1], r[2]) for r in db.execute("SELECT id, front, back FROM user_cards")]
@@ -674,7 +688,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     def oral_items(db) -> list[dict]:
         items = [{"kind": "card", "id": c["id"], "prompt": c["front"].replace("＿＿＿", "blanc")}
-                 for c in cardlib.session(db, studied_cards(db), date.today())["cards"]]
+                 for c in card_session(db)["cards"]]
         qs = all_questions()
         for qid in due_reviews(db, date.today()):
             if (q := qs.get(qid)) is not None:
@@ -711,7 +725,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
 
     @app.get("/api/cards")
     def cards(db=Depends(get_db)):
-        return cardlib.session(db, studied_cards(db), date.today())
+        return card_session(db)
 
     @app.post("/api/cards/{card_id}")
     def card_answer(card_id: str, body: CardIn, db=Depends(get_db)):

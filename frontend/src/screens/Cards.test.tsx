@@ -66,3 +66,11 @@ test('gestes : toucher montre la réponse, glisser à droite = je savais, flèch
   await waitFor(() => expect(api.answerCard).toHaveBeenLastCalledWith('b', false))
   expect(await screen.findByText('Question B')).toBeTruthy() // ratée et seule restante : elle revient
 })
+
+test('nouvelles cartes par jour réglables', async () => {
+  vi.mocked(api.getCards).mockResolvedValue({ cards: [card('a', 'Q', 'R')], boxes: [0, 0, 0, 0, 0, 0], total: 1, unseen: 1, per_day: 10 })
+  const set = vi.spyOn(api, 'setCardsPerDay').mockResolvedValue({ ok: true })
+  render(<Cards onOpen={() => {}} />)
+  fireEvent.change(await screen.findByDisplayValue('10'), { target: { value: '5' } })
+  expect(set).toHaveBeenCalledWith(5)
+})

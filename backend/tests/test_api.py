@@ -544,3 +544,14 @@ def test_weak_points_group_fragile_mistakes_by_lesson(client):
     next(i for i in range(len(q["options"])) if not client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"])
     w = client.get("/api/weak").json()
     assert w[0]["lesson_id"] == "l1" and w[0]["count"] >= 1
+
+
+def test_cards_per_day_setting(client):
+    for i in range(3):
+        client.post("/api/cards/panne", json={"symptom": f"panne numéro {i}", "cause": "cause", "fix": "correction"})
+    assert client.get("/api/cards").json()["per_day"] == 10
+    assert len(client.get("/api/cards").json()["cards"]) == 3
+    assert client.post("/api/cards/per-day", json={"per_day": 2}).status_code == 200
+    d = client.get("/api/cards").json()
+    assert d["per_day"] == 2 and len(d["cards"]) == 2
+    assert client.post("/api/cards/per-day", json={"per_day": 99}).status_code == 422

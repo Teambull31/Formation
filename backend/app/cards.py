@@ -72,16 +72,16 @@ def record_card(db: sqlite3.Connection, card_id: str, known: bool, today: date) 
     return {"box": box, "due": due, "mastered": due == MASTERED}
 
 
-def session(db: sqlite3.Connection, studied: list[Card], today: date) -> dict:
-    """Cartes dues (déjà vues) puis nouvelles cartes des leçons étudiées, NEW_PER_DAY au plus par jour."""
+def session(db: sqlite3.Connection, studied: list[Card], today: date, per_day: int = NEW_PER_DAY) -> dict:
+    """Cartes dues (déjà vues) puis nouvelles cartes des leçons étudiées, `per_day` au plus par jour (réglable)."""
     rows = {r[0]: (r[1], r[2]) for r in db.execute("SELECT card_id, box, due FROM cards")}
     by_id = {c.id: c for c in studied}
     due = sorted((c for c in studied if c.id in rows and rows[c.id][1] <= today.isoformat()), key=lambda c: rows[c.id][1])
     intro_today = db.execute("SELECT COUNT(*) FROM cards WHERE intro = ?", (today.isoformat(),)).fetchone()[0]
-    fresh = [c for c in studied if c.id not in rows][: max(0, NEW_PER_DAY - intro_today)]
+    fresh = [c for c in studied if c.id not in rows][: max(0, per_day - intro_today)]
     boxes = [0] * (len(INTERVALS) + 1)
     for cid, (box, _) in rows.items():
         if cid in by_id and 0 <= box <= len(INTERVALS):
             boxes[box] += 1
     return {"cards": [{**c.__dict__, "box": rows[c.id][0] if c.id in rows else None} for c in due + fresh],
-            "boxes": boxes, "total": len(studied), "unseen": sum(1 for c in studied if c.id not in rows)}
+            "boxes": boxes, "total": len(studied), "unseen": sum(1 for c in studied if c.id not in rows), "per_day": per_day}

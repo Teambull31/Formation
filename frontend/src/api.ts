@@ -109,7 +109,7 @@ export const checkTp =(tpId: string) =>
 export const realTp = (tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/real`)
 export interface Card { id: string; lesson_id: string; kind: 'piege' | 'terme' | 'panne'; front: string; back: string; box: number | null }
-export interface Cards { cards: Card[]; boxes: number[]; total: number; unseen: number }
+export interface Cards { cards: Card[]; boxes: number[]; total: number; unseen: number; per_day?: number }
 export const getCards = () => call<Cards>('GET', '/api/cards')
 export const answerCard = (id: string, known: boolean) =>
   call<{ box: number; due: string; mastered: boolean }>('POST', `/api/cards/${encodeURIComponent(id)}`, { known })
@@ -173,3 +173,4 @@ export interface LessonKey { id: string; kind: string; front: string; back: stri
 export const getLessonKeys = (id: string) => call<LessonKey[]>('GET', `/api/lesson/${encodeURIComponent(id)}/keys`)
 export interface Weak { lesson_id: string; title: string; module: string; count: number }
 export const getWeak = () => call<Weak[]>('GET', '/api/weak')
+export const setCardsPerDay = (per_day: number) => call<Ok>('POST', '/api/cards/per-day', { per_day })

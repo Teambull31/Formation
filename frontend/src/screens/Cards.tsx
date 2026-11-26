@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
 const SWIPE_PX = 60
-import { answerCard, getCards, type Card, type Cards as C } from '../api'
+const PER_DAY = [3, 5, 10, 15, 20] // peu les jours chargés, plus quand on a le temps
+import { answerCard, getCards, setCardsPerDay, type Card, type Cards as C } from '../api'
 import { renderLesson } from '../renderLesson'
 import Panne from './Panne'
 
@@ -65,6 +66,12 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
     <section className="screen wrap">
       <h1>Cartes mémoire</h1>
       <Panne onAdded={() => setTries((n) => n + 1)} />
+      <label className="row">
+        <span className="tag">Nouvelles cartes par jour</span>
+        <select value={data.per_day ?? 10} onChange={(e) => setCardsPerDay(Number(e.target.value)).then(() => setTries((n) => n + 1))}>
+          {PER_DAY.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
       <p className="stat">{data.total} cartes dans les leçons terminées · {data.unseen} jamais vues · {data.boxes[data.boxes.length - 1] ?? 0} maîtrisées</p>
       {data.total === 0 && <p className="card">Terminez une leçon : ses pièges et ses termes clés deviennent des cartes.</p>}
       {data.total > 0 && !c && (
