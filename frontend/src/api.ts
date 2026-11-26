@@ -171,3 +171,5 @@ export const getCert = () => call<Cert>('GET', '/api/cert')
 export const setCert = (key: string | null, date: string | null) => call<Ok>('POST', '/api/cert', { key, date })
 export interface LessonKey { id: string; kind: string; front: string; back: string }
 export const getLessonKeys = (id: string) => call<LessonKey[]>('GET', `/api/lesson/${encodeURIComponent(id)}/keys`)
+export interface Weak { lesson_id: string; title: string; module: string; count: number }
+export const getWeak = () => call<Weak[]>('GET', '/api/weak')

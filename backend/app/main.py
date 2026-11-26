@@ -37,6 +37,7 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
+WEAK_MAX = 5
 AHEAD = 3  # questions proposées d'avance quand rien n'est dû
 KEYS_MAX = 6  # « À retenir » en fin de leçon
 MISSION_XP = 200  # mission réelle sur un de tes dépôts
@@ -816,6 +817,18 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             db.commit()
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
                 "xp": xp, "detail": detail}
+
+    @app.get("/api/weak")
+    def weak(db=Depends(get_db)):
+        """Leçons aux erreurs encore fragiles (boîtes basses), les plus touchées d'abord : où concentrer l'effort."""
+        fragile = {r[0] for r in db.execute("SELECT question_id FROM mistakes WHERE box < 3")}
+        out = []
+        for _, m in modules():
+            for les in m.lessons:
+                n = sum(q.id in fragile for q in les.qcm)
+                if n:
+                    out.append({"lesson_id": les.id, "title": les.title, "module": m.title, "count": n})
+        return sorted(out, key=lambda x: -x["count"])[:WEAK_MAX]
 
     @app.get("/api/missions")
     def missions(request: Request, db=Depends(get_db)):

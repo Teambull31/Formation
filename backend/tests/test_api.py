@@ -536,3 +536,11 @@ def test_reviews_offer_questions_ahead_when_nothing_due(client):
         assert r is not None
     d = client.get("/api/reviews").json()
     assert d["questions"] == [] and 1 <= len(d["ahead"]) <= 3 and "answer" not in str(d["ahead"])
+
+
+def test_weak_points_group_fragile_mistakes_by_lesson(client):
+    assert client.get("/api/weak").json() == []
+    q = client.get("/api/lesson/l1").json()["qcm"][0]
+    next(i for i in range(len(q["options"])) if not client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"])
+    w = client.get("/api/weak").json()
+    assert w[0]["lesson_id"] == "l1" and w[0]["count"] >= 1

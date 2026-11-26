@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 vi.mock('../api', async (orig) => {
@@ -87,6 +87,6 @@ test('rien de dû : 3 questions d\'avance, réponse au clavier (2) puis Entrée'
   fireEvent.keyDown(window, { key: '2' })
   expect(await screen.findByText(/touch crée un fichier/)).toBeTruthy()
   expect(api.answerQcm).toHaveBeenCalledWith('q1', 1, null)
-  fireEvent.keyDown(window, { key: 'Enter' })
-  expect(await screen.findByText('Séance terminée')).toBeTruthy()
+  // Entrée est ignorée tant que la réponse est en cours d'envoi : on réessaie jusqu'à ce qu'elle passe
+  await waitFor(() => { fireEvent.keyDown(window, { key: 'Enter' }); expect(screen.getByText('Séance terminée')).toBeTruthy() })
 })

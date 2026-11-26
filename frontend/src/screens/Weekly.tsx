@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, getRetention, isForbidden, weeklyBrief, weeklyImport, type Retention } from '../api'
+import { ApiError, getRetention, getWeak, isForbidden, weeklyBrief, weeklyImport, type Retention, type Weak } from '../api'
 
 const FORMATS = ['30 min', '60 min', 'mixte']
 
-export default function Weekly() {
+export default function Weekly({ onOpen }: { onOpen?: (lessonId: string) => void }) {
   const [topic, setTopic] = useState('')
   const [format, setFormat] = useState(FORMATS[0])
   const [brief, setBrief] = useState('')
@@ -13,6 +13,8 @@ export default function Weekly() {
   const [msg, setMsg] = useState('')
   const [ret, setRet] = useState<Retention | null>(null)
   useEffect(() => { getRetention().then(setRet).catch(() => {}) }, [])
+  const [weak, setWeak] = useState<Weak[]>([])
+  useEffect(() => { getWeak().then(setWeak).catch(() => {}) }, [])
   const pre = useRef<HTMLPreElement>(null)
 
   const gen = () =>
@@ -55,6 +57,18 @@ export default function Weekly() {
           <p className="stat">{ret.rate7 === null ? 'Pas encore de révision cette semaine' : `${ret.rate7} % de bonnes réponses en révision sur 7 jours (${ret.answered7})`}</p>
           <p className="stat">{ret.solid} notion(s) solide(s) · {ret.weak} à consolider</p>
           <p className="note">L'XP mesure l'effort ; ce taux mesure la mémoire. Au-dessus de 85 %, tu peux accélérer.</p>
+        </div>
+      )}
+      {weak.length > 0 && (
+        <div className="card">
+          <h3>Tes points faibles</h3>
+          <p className="note">Les leçons où les erreurs ne sont pas encore fixées : un passage ciblé y rapporte le plus.</p>
+          {weak.map((w) => (
+            <div className="row between" key={w.lesson_id}>
+              <span className="grow">{w.title} <span className="time">· {w.module} · {w.count} erreur(s)</span></span>
+              {onOpen && <button className="chip" onClick={() => onOpen(w.lesson_id)}>Revoir</button>}
+            </div>
+          ))}
         </div>
       )}
       <div className="card">

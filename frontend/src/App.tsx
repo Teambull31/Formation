@@ -54,7 +54,7 @@ export default function App() {
           </>
         )}
         {tab === 'Écoute' && <Listen />}
-        {tab === 'Semaine' && <Weekly />}
+        {tab === 'Semaine' && <Weekly onOpen={(id) => open(id)} />}
       </main>
       <nav aria-label="Navigation principale"><div className="inner" role="tablist">
         {TABS.map((t) => (
