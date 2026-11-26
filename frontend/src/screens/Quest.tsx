@@ -3,6 +3,7 @@ import Plan from './Plan'
 import Cert from './Cert'
 import Onboarding from './Onboarding'
 import { announceRest, getPushKey, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Suggestion, type Team } from '../api'
+import TodayRecap from './TodayRecap'
 
 export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe' | 'Boss', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
 
@@ -67,6 +68,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
 
   return (
     <section className="screen wrap">
+      {quest && !reviewFirst && !nextStep && <TodayRecap />}
       {quest && (reviewFirst || nextStep) && (
         <button className="btn term" style={{ fontSize: 18, minHeight: 56 }} onClick={startSession}>
           ▶ Ma séance du jour{left > 0 ? ` (≈ ${left} min)` : ''}{reviewFirst ? ` · ${quest.review!.due} révisions puis ${nextStep ? nextStep.lesson_id : 'fin'}` : ` · ${LABEL[nextStep!.kind]} ${nextStep!.lesson_id}`}

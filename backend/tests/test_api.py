@@ -590,3 +590,11 @@ def test_unclear_pages_noted_listed_and_cleared(client):
     assert client.post("/api/unclear", json={"lesson_id": "nope", "excerpt": "x"}).status_code == 404
     client.delete(f"/api/unclear/{items[0]['id']}")
     assert client.get("/api/unclear").json() == []
+
+
+def test_today_recap(client):
+    r = client.get("/api/today").json()
+    assert r == {"lessons": [], "reviewed": 0, "correct": 0, "tomorrow": 0}
+    q = client.get("/api/lesson/l1").json()["qcm"][0]
+    next(i for i in range(len(q["options"])) if not client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"])
+    assert client.get("/api/today").json()["tomorrow"] >= 1  # l'erreur revient (due aujourd'hui, donc aussi demain)

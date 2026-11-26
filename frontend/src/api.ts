@@ -179,3 +179,5 @@ export interface Unclear { id: number; lesson_id: string; title: string; excerpt
 export const markUnclear = (lesson_id: string, excerpt: string) => call<Ok>('POST', '/api/unclear', { lesson_id, excerpt })
 export const getUnclear = () => call<Unclear[]>('GET', '/api/unclear')
 export const clearUnclear = (id: number) => call<Ok>('DELETE', `/api/unclear/${id}`)
+export interface Today { lessons: string[]; reviewed: number; correct: number; tomorrow: number }
+export const getToday = () => call<Today>('GET', '/api/today')

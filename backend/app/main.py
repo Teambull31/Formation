@@ -862,6 +862,17 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
                 "xp": xp, "detail": detail}
 
+    @app.get("/api/today")
+    def today_recap(db=Depends(get_db)):
+        """Bilan de fin de séance : ce qui a été fait aujourd'hui et ce qui attend demain (clôture nette, envie de revenir)."""
+        today = date.today()
+        titles = {les.id: les.title for _, m in modules() for les in m.lessons}
+        done = [r[0] for r in db.execute(
+            "SELECT DISTINCT lesson_id FROM quest_steps WHERE day = ? AND done = 1 ORDER BY lesson_id", (today.isoformat(),))]
+        n, ok = db.execute("SELECT COUNT(*), COALESCE(SUM(correct), 0) FROM review_log WHERE day = ?", (today.isoformat(),)).fetchone()
+        tomorrow = len(due_reviews(db, today + timedelta(days=1)))
+        return {"lessons": [titles.get(i, i) for i in done], "reviewed": n, "correct": ok, "tomorrow": tomorrow}
+
     @app.post("/api/unclear")
     def unclear_add(body: UnclearIn, db=Depends(get_db)):
         # page « pas claire » : à revoir plus tard, et signal pour retravailler le contenu
