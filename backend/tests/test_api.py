@@ -626,3 +626,20 @@ def test_lesson_recall_draws_from_a_done_lesson(client, tmp_path):
     r = client.get("/api/lesson/l2/recall").json()
     assert r["lesson_id"] == "l1" and r["options"] and "answer" not in r
     assert client.get("/api/lesson/l1/recall").json() is None  # jamais la leçon en cours
+
+
+def test_rephrase_without_ollama_falls_back_to_definitions_from_elsewhere(client, monkeypatch, tmp_path):
+    import app.llm as llm
+
+    def down(title, text):
+        raise llm.LlmUnavailable("indispo")
+    monkeypatch.setattr(llm, "rephrase", down)
+    md = next((tmp_path / "content").rglob("l1.md"))
+    md.write_text(md.read_text() + "\n\nUn **runner** exécute les jobs du pipeline sur une machine dédiée.\n")
+    title = client.get("/api/lesson/l1").json()["title"]
+    r = client.post("/api/lesson/l2/rephrase", json={"text": "On relance le **runner** et **jamais** à la main, voilà."}).json()
+    assert r["mode"] == "glossaire" and f"• runner : Un runner exécute les jobs du pipeline sur une machine dédiée. ({title})" in r["text"]
+    assert "jamais" not in r["text"].split("\n", 1)[1]
+    # la page contient déjà la phrase de définition : rien de neuf à proposer
+    page = "Un **runner** exécute les jobs du pipeline sur une machine dédiée."
+    assert client.post("/api/lesson/l1/rephrase", json={"text": page}).status_code == 503

@@ -288,7 +288,7 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
             </div>
           )}
           {!whole && i === cur && (
-            other?.page === i ? <div className="fb ok" role="status"><p className="tag">Autrement dit</p><p>{other.text}</p></div> : (
+            other?.page === i ? <div className="fb ok" role="status"><p className="tag">Autrement dit</p><p style={{ whiteSpace: 'pre-line' }}>{other.text}</p></div> : (
               <button className="btn ghost" disabled={otherBusy} onClick={() => {
                 setOtherBusy(true)
                 rephrase(les.id, md).then((r) => setOther({ page: i, text: r.text }))

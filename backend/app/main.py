@@ -22,7 +22,7 @@ from app import cards as cardlib, exam as examlib, plan as planlib
 from app.content import Module, ModuleError, load_module
 from app.db import connect
 from app.gacha import NoTokens, pull
-from app.interview import keyword_grade, load_questions
+from app.interview import keyword_grade, load_questions, norm
 from app import learn, portfolio, push
 from app.tp import child_env
 from app.progress import award_xp, get_profile, level_for_xp
@@ -39,6 +39,7 @@ INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rappo
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
 REVISE_DAYS = 7  # dernière semaine avant l'examen : révisions et examen blanc, pas de nouvelles leçons
 WEAK_MAX = 5
+REPHRASE_TERMS = 6  # repli sans Ollama de « Explique autrement »
 FEYNMAN_TERMS = 8  # repli sans Ollama : termes clés attendus dans l'explication
 AHEAD = 3  # questions proposées d'avance quand rien n'est dû
 KEYS_MAX = 6  # « À retenir » en fin de leçon
@@ -410,9 +411,18 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def lesson_rephrase(lesson_id: str, body: RephraseIn):
         _, _, les = find_lesson(lesson_id)
         try:
-            return {"text": llm.rephrase(les.title, body.text)}
-        except llm.LlmUnavailable as e:
-            raise HTTPException(503, str(e))
+            return {"text": llm.rephrase(les.title, body.text), "mode": "ollama"}
+        except llm.LlmUnavailable as e:  # repli : les notions de la page, avec la phrase qui les définit ailleurs
+            g, page = glossary(), norm(cardlib.BOLD.sub(r"\1", body.text))
+            lines = []
+            for t in dict.fromkeys(x.strip().lower() for x in cardlib.BOLD.findall(body.text)):
+                d = g.get(t)
+                if d and norm(t) not in cardlib.EMPHASIS and norm(d["sentence"]) not in page:  # pas la phrase déjà lue
+                    lines.append(f"• {d['term']} : {d['sentence']}" + ("" if d["lesson_id"] == les.id else f" ({d['title']})"))
+            if not lines:
+                raise HTTPException(503, str(e))
+            return {"text": "Ollama est indisponible. Les notions de cette page, dites autrement :\n" + "\n".join(lines[:REPHRASE_TERMS]),
+                    "mode": "glossaire"}
 
     @app.get("/api/lesson/{lesson_id}/recall")
     def lesson_recall(lesson_id: str, db=Depends(get_db)):
