@@ -4,7 +4,7 @@ import {
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
-import { splitPages } from '../pages'
+import { bestPage, splitPages } from '../pages'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Confidence, { sureWrongNote } from './Confidence'
@@ -116,10 +116,11 @@ interface Props {
   id: string | null
   kind?: StepKind | null // step kind the lesson was opened from
   done?: boolean // server-side done state of that step
+  focus?: string // ouverte depuis une erreur : aller à la page qui explique ceci
   onOpen: (id: string) => void
 }
 
-export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props) {
+export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }: Props) {
   const [les, setLes] = useState<L | null>(null)
   const [loadErr, setLoadErr] = useState('')
   const [banner, setBanner] = useState('') // action errors: shown above content, content stays
@@ -187,7 +188,7 @@ export default function Lesson({ id, kind, done: initiallyDone, onOpen }: Props)
   const pages = splitPages(les.body_md)
   const last = pages.length - 1
   const saved = () => { try { return Number(localStorage.getItem(`page:${les.id}`)) || 0 } catch { return 0 } }
-  const cur = Math.max(0, Math.min(page ?? saved(), last))
+  const cur = Math.max(0, Math.min(page ?? (focus ? bestPage(pages, focus) : saved()), last))
   const at = order.findIndex((l) => l.id === les.id) // -1 for remedial lessons outside the catalogue
   const prev = at > 0 ? order[at - 1] : null
   const next = at >= 0 && at < order.length - 1 ? order[at + 1] : null

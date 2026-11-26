@@ -491,6 +491,10 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             "sure_wrong": bool(body.confident) and not correct,  # erreur sûre de soi : revient aujourd'hui
             "explanation": q.explain if correct else llm.explain_error(q, body.chosen),
             "remedial_lesson_id": None if correct else q.remedial_lesson_id,
+            # après une erreur : la leçon d'origine et la bonne réponse, pour rouvrir la page qui l'explique
+            "lesson_id": None if correct else next((les.id for _, m in modules() for les in m.lessons
+                                                    if any(x.id == q.id for x in les.qcm)), None),
+            "answer": None if correct else q.options[q.answer],
         }
 
     @app.get("/api/reviews")

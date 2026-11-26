@@ -13,7 +13,7 @@ import { getQuest, type StepKind } from './api'
 
 import { TABS, saveLast, startAt, type Sub, type Tab } from './deeplink'
 const MINI_CARDS = 3 // « J'ai 2 min » : trois cartes, et la journée compte
-interface Opened { id: string; kind: StepKind | null; done: boolean; n: number }
+interface Opened { id: string; kind: StepKind | null; done: boolean; n: number; focus?: string }
 
 export default function App() {
   const [start] = useState(() => startAt())
@@ -21,8 +21,8 @@ export default function App() {
   const [lesson, setLesson] = useState<Opened | null>(start.lessonId ? { id: start.lessonId, kind: null, done: false, n: 1 } : null)
   const [sub, setSub] = useState<Sub>(start.sub)
   useEffect(() => { saveLast({ tab, sub, lessonId: lesson?.id ?? null }) }, [tab, sub, lesson?.id])
-  const open = (id: string, kind: StepKind | null = null, done = false) => {
-    setLesson((l) => ({ id, kind, done, n: (l?.n ?? 0) + 1 }))
+  const open = (id: string, kind: StepKind | null = null, done = false, focus?: string) => {
+    setLesson((l) => ({ id, kind, done, n: (l?.n ?? 0) + 1, focus }))
     setTab('Leçon')
   }
   // séance guidée : révisions QCM → cartes → première étape pas faite de la quête
@@ -36,7 +36,7 @@ export default function App() {
       <main>
         {tab === 'Quête' && <Quest onStart={open} onGo={(t, sb) => { if (sb) setSub(sb); setTab(t) }} />}
         {tab === 'Leçon' && (
-          <Lesson key={lesson?.n} id={lesson?.id ?? null} kind={lesson?.kind} done={lesson?.done} onOpen={(id) => open(id)} />
+          <Lesson key={lesson?.n} id={lesson?.id ?? null} kind={lesson?.kind} done={lesson?.done} focus={lesson?.focus} onOpen={(id) => open(id)} />
         )}
         {tab === 'Équipe' && <Team />}
         {tab === 'Boss' && <Boss onOpen={(id) => open(id)} />}
@@ -47,7 +47,7 @@ export default function App() {
                 <button key={k} className="chip" aria-pressed={sub === k} onClick={() => setSub(k)}>{label}</button>
               ))}
             </div>
-            {sub === 'qcm' && <Review onOpen={(id) => open(id)} onContinue={() => setSub('cartes')} />}
+            {sub === 'qcm' && <Review onOpen={(id, focus) => open(id, null, false, focus)} onContinue={() => setSub('cartes')} />}
             {sub === 'cartes' && <Cards onOpen={(id) => open(id)} onContinue={toLesson} limit={start.mini ? MINI_CARDS : undefined} />}
             {sub === 'examen' && <Exam onOpen={(id) => open(id)} />}
             {sub === 'entretien' && <Interview />}

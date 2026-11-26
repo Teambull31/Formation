@@ -510,3 +510,12 @@ def test_revision_express_reads_due_mistakes(client, monkeypatch):
     assert client.get("/api/revision/deadbeef.mp3").status_code == 404  # clé périmée
     assert client.get(f"/api/revision/{info['key']}.mp3").status_code == 200
     assert q["text"] in texts[0] and "Réponse :" in texts[0]
+
+
+def test_wrong_answer_points_back_to_its_lesson(client):
+    q = client.get("/api/lesson/l1").json()["qcm"][0]
+    rs = [client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json() for i in range(len(q["options"]))]
+    wrong = next(r for r in rs if not r["correct"])
+    right = next(r for r in rs if r["correct"])
+    assert wrong["lesson_id"] == "l1" and wrong["answer"] in q["options"]
+    assert right["lesson_id"] is None and right["answer"] is None

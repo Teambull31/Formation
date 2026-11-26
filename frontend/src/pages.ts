@@ -15,3 +15,17 @@ export function splitPages(md: string, minChars = 700): string[] {
   }
   return out
 }
+
+const words = (t: string) => new Set(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]{4,}/g) ?? [])
+
+/** Page qui explique le mieux `focus` (question + bonne réponse) : celle qui en partage le plus de mots. */
+export function bestPage(pages: string[], focus: string): number {
+  const want = words(focus)
+  let best = 0, score = -1
+  pages.forEach((p, i) => {
+    const have = words(p)
+    const s = [...want].filter((w) => have.has(w)).length
+    if (s > score) { best = i; score = s }
+  })
+  return best
+}

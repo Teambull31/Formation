@@ -68,3 +68,12 @@ test('erreur API : message et réessai', async () => {
   fireEvent.click(screen.getByText('Réessayer'))
   expect(await screen.findByText('Quelle commande ?')).toBeTruthy()
 })
+
+test('erreur : « Revoir le passage » rouvre la leçon d\'origine sur la bonne réponse', async () => {
+  vi.mocked(api.answerQcm).mockResolvedValue({ correct: false, explanation: 'touch crée le fichier.', remedial_lesson_id: null, lesson_id: 'lx1', answer: 'touch' })
+  const onOpen = vi.fn()
+  render(<Review onOpen={onOpen} />)
+  fireEvent.click(await screen.findByText('ls'))
+  fireEvent.click(await screen.findByText('Revoir le passage dans la leçon lx1'))
+  expect(onOpen).toHaveBeenCalledWith('lx1', 'Quelle commande ? touch')
+})

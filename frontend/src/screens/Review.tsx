@@ -3,7 +3,7 @@ import { answerQcm, getReviews, type QcmResult, type Reviews } from '../api'
 import Confidence, { sureWrongNote } from './Confidence'
 
 // Leitner boxes: a wrong answer sends a question to box 1, right answers climb up to mastery.
-export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: string) => void; onContinue?: () => void }) {
+export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: string, focus?: string) => void; onContinue?: () => void }) {
   const [data, setData] = useState<Reviews | null>(null)
   const [err, setErr] = useState('')
   const [i, setI] = useState(0)
@@ -95,6 +95,11 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
           <div className={'fb' + (res.r.correct ? ' ok' : '')} role="status">
             <p>{res.r.correct ? 'Correct.' : 'Raté.'} {res.r.explanation}</p>
             {res.r.sure_wrong && <p><strong>{sureWrongNote}</strong></p>}
+            {res.r.lesson_id && (
+              <button className="btn ghost" onClick={() => onOpen(res.r.lesson_id!, `${q.text} ${res.r.answer ?? ''}`)}>
+                Revoir le passage dans la leçon {res.r.lesson_id}
+              </button>
+            )}
             {res.r.remedial_lesson_id && (
               <button className="btn ghost" onClick={() => onOpen(res.r.remedial_lesson_id!)}>Ouvrir la mini-leçon</button>
             )}

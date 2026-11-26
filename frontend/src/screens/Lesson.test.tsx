@@ -73,3 +73,12 @@ test('lecture par pages : une question entre deux pages, la fin sur la dernière
   fireEvent.click(screen.getByText('Tout sur une page'))
   expect(screen.getByText('Question un ?').closest('[hidden]')).toBeNull()
 })
+
+test('ouverte depuis une erreur : va à la page qui explique la réponse', async () => {
+  localStorage.clear()
+  const long = 'mot '.repeat(250)
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: `## Cache\n${long}\n## Secrets\nUn secret se lit avec secrets.NOM. ${long}` })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  render(<Lesson id="a" focus="Comment lire un secret ? secrets.NOM" onOpen={() => {}} />)
+  expect(await screen.findByText('Page 2 / 2')).toBeTruthy()
+})

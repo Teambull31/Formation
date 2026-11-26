@@ -47,7 +47,7 @@ export interface Lesson {
   qcm: { id: string; text: string; options: string[] }[]
   tp: { id: string; title: string; instructions_md: string; timeout_s: number; real?: boolean } | null
 }
-export interface QcmResult { correct: boolean; explanation: string; remedial_lesson_id: string | null; sure_wrong?: boolean }
+export interface QcmResult { correct: boolean; explanation: string; remedial_lesson_id: string | null; sure_wrong?: boolean; lesson_id?: string | null; answer?: string | null }
 export interface Team {
   xp: number; level: number; rank: string; rank_capped?: boolean; skills: Record<string, number>; skill_levels: Record<string, number>; tokens: number; streak: number
   inventory: { item_id: string; name: string; type: string; rarity: string; obtained_at: string }[]
