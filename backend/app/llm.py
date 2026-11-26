@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import time
 
 import httpx
 
@@ -8,6 +9,9 @@ from app.content import Question, Tp
 
 URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/chat")
 MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:14b")
+CONNECT_S = 2  # PC éteint derrière Tailscale : rien ne refuse, la connexion pend jusqu'au délai ; on n'attend pas plus
+DOWN_S = 60  # injoignable : pas de nouvel essai avant une minute (les erreurs de QCM suivantes restent instantanées)
+_down_until = 0.0
 GRADE_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "60"))
 MAX_EXPLANATION = 4000
 
@@ -17,10 +21,17 @@ class LlmUnavailable(Exception):
 
 
 def _ask(prompt: str, post, timeout: float = 8, fmt: str | None = None) -> str:
+    global _down_until
+    if time.monotonic() < _down_until:
+        raise LlmUnavailable("Ollama injoignable il y a moins d'une minute")
     body = {"model": MODEL, "messages": [{"role": "user", "content": prompt}], "stream": False, "think": False}
     if fmt:
         body["format"] = fmt
-    r = post(URL, json=body, timeout=timeout)
+    try:
+        r = post(URL, json=body, timeout=httpx.Timeout(timeout, connect=CONNECT_S))
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        _down_until = time.monotonic() + DOWN_S
+        raise
     r.raise_for_status()
     text = re.sub(r"<think>.*?</think>", "", r.json()["message"]["content"], flags=re.S)
     return text.strip()
