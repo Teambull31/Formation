@@ -142,6 +142,10 @@ def test_exam_draw_grade_and_best(client):
     assert r["score"] == 100 and r["passed"] is True and r["xp"] == 100
     r = client.post("/api/exam/demo", json={"answers": {**right, "q1": -1}}).json()
     assert r["score"] == 67 and r["passed"] is False and r["best"] == 100 and r["xp"] == 0
+    q1_lesson = next(les for les in ("l1", "l2") if any(q["id"] == "q1" for q in client.get(f"/api/lesson/{les}").json()["qcm"]))
+    assert r["to_review"] == [{"lesson_id": q1_lesson, "title": client.get(f"/api/lesson/{q1_lesson}").json()["title"],
+                               "count": 1, "focus": next(d["text"] for d in r["detail"] if d["id"] == "q1")}]
+    assert next(d for d in r["detail"] if d["id"] == "q1")["answer_text"]
     assert client.get("/api/reviews").json()["boxes"][0] == 1  # la question ratée rejoint les révisions
     assert client.post("/api/exam/demo", json={"answers": {"q1": 1}}).status_code == 400
     assert client.post("/api/exam/demo", json={"answers": {**right, "q3": 9}}).status_code == 400

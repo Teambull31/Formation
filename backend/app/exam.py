@@ -30,5 +30,6 @@ def grade(m: Module, answers: dict[str, int], size: int = SIZE) -> tuple[int, li
         if not -1 <= chosen < len(q.options):  # -1 : sans réponse (temps écoulé)
             raise ValueError(f"choix hors des options pour {qid}")
         detail.append({"id": qid, "text": q.text, "chosen": chosen, "answer": q.answer, "correct": chosen == q.answer,
+                       "answer_text": q.options[q.answer],
                        "explain": q.explain, "remedial_lesson_id": q.remedial_lesson_id})
     return round(100 * sum(d["correct"] for d in detail) / need), detail

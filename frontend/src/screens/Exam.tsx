@@ -4,7 +4,7 @@ import { getExam, getExams, submitExam, type Exam as E, type ExamResult, type Ex
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
 // Examen final : questions mélangées de tout le module, chronométrées, réponses montrées à la fin seulement.
-export default function Exam({ onOpen }: { onOpen: (lessonId: string) => void }) {
+export default function Exam({ onOpen }: { onOpen: (lessonId: string, focus?: string) => void }) {
   const [list, setList] = useState<ExamSummary[] | null>(null)
   const [exam, setExam] = useState<E | null>(null)
   const [answers, setAnswers] = useState<Record<string, number>>({})
@@ -68,10 +68,22 @@ export default function Exam({ onOpen }: { onOpen: (lessonId: string) => void })
           <h2>{res.score} % : {res.passed ? 'examen réussi' : `pas encore (${res.pass_pct} % requis)`}</h2>
           <p className="stat">Meilleur score {res.best} %{res.xp ? ` · +${res.xp} XP` : ''}</p>
         </div>
+        {!!res.to_review?.length && (
+          <div className="card">
+            <h3>À revoir en priorité</h3>
+            <p className="note">Tes erreurs, leçon par leçon. Elles reviennent aussi dans tes révisions.</p>
+            {res.to_review.map((t) => (
+              <div className="row between" key={t.lesson_id}>
+                <span className="grow">{t.title} <span className="time">· {t.count} erreur(s)</span></span>
+                <button className="chip" onClick={() => onOpen(t.lesson_id, t.focus)}>Revoir</button>
+              </div>
+            ))}
+          </div>
+        )}
         {res.detail.filter((d) => !d.correct).map((d) => (
           <div className="card" key={d.id}>
             <p>{d.text}</p>
-            <p className="note">{d.chosen < 0 ? 'Sans réponse.' : 'Raté.'} {d.explain}</p>
+            <p className="note">{d.chosen < 0 ? 'Sans réponse.' : 'Raté.'}{d.answer_text ? ` Bonne réponse : ${d.answer_text}.` : ''} {d.explain}</p>
             {d.remedial_lesson_id && <button className="btn ghost" onClick={() => onOpen(d.remedial_lesson_id!)}>Revoir la leçon</button>}
           </div>
         ))}

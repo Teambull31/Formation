@@ -873,8 +873,14 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             award_xp(db, m.skill, xp)  # commits the score row too
         else:
             db.commit()
+        # erreurs regroupées par leçon, la plus touchée d'abord : où reprendre après l'examen
+        owner = {q.id: les for _, mm in modules() for les in mm.lessons for q in les.qcm}
+        misses: dict[str, dict] = {}
+        for d in detail:
+            if not d["correct"] and (les := owner.get(d["id"])):
+                misses.setdefault(les.id, {"lesson_id": les.id, "title": les.title, "count": 0, "focus": d["text"]})["count"] += 1
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
-                "xp": xp, "detail": detail}
+                "xp": xp, "detail": detail, "to_review": sorted(misses.values(), key=lambda x: -x["count"])}
 
     @app.get("/api/glossary")
     def glossary():

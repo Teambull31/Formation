@@ -52,7 +52,7 @@ export default function App() {
             </div>
             {sub === 'qcm' && <Review onOpen={(id, focus) => open(id, null, false, focus)} onContinue={() => setSub('cartes')} />}
             {sub === 'cartes' && <Cards onOpen={(id) => open(id)} onContinue={toLesson} limit={start.mini ? MINI_CARDS : undefined} />}
-            {sub === 'examen' && <Exam onOpen={(id) => open(id)} />}
+            {sub === 'examen' && <Exam onOpen={(id, focus) => open(id, null, false, focus)} />}
             {sub === 'entretien' && <Interview />}
             {sub === 'glossaire' && <Glossary onOpen={(id, focus) => open(id, null, false, focus)} />}
           </>

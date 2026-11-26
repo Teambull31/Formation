@@ -128,7 +128,8 @@ export interface Exam {
 }
 export interface ExamResult {
   score: number; passed: boolean; pass_pct: number; best: number; xp: number
-  detail: { id: string; text: string; chosen: number; answer: number; correct: boolean; explain: string; remedial_lesson_id: string | null }[]
+  detail: { id: string; text: string; chosen: number; answer: number; correct: boolean; explain: string; remedial_lesson_id: string | null; answer_text?: string }[]
+  to_review?: { lesson_id: string; title: string; count: number; focus: string }[]
 }
 export const getExams = () => call<ExamSummary[]>('GET', '/api/exams')
 export const getExam = (id: string) => call<Exam>('GET', `/api/exam/${encodeURIComponent(id)}`)

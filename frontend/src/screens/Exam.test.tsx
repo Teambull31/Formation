@@ -41,3 +41,19 @@ test('le temps écoulé rend la copie automatiquement, une seule fois', async ()
   expect(await screen.findByText(/pas encore/, {}, { timeout: 4000 })).toBeTruthy()  // durée de 2 s, vraie horloge
   expect(api.submitExam).toHaveBeenCalledTimes(1)
 })
+
+test('après l\'examen : bonne réponse en clair et erreurs regroupées par leçon avec Revoir', async () => {
+  vi.mocked(api.getExams).mockResolvedValue([{ id: 'k8s', title: 'Kubernetes', questions: 2, best: null }])
+  vi.mocked(api.getExam).mockResolvedValue(exam)
+  vi.mocked(api.submitExam).mockResolvedValue({ ...result,
+    detail: [{ ...result.detail[0], answer_text: '1.27' }],
+    to_review: [{ lesson_id: 'k3', title: 'Images et tags', count: 1, focus: 'Quel tag ?' }] })
+  const onOpen = vi.fn()
+  render(<Exam onOpen={onOpen} />)
+  fireEvent.click(await screen.findByText('Commencer'))
+  fireEvent.click(await screen.findByText('Rendre la copie'))
+  expect(await screen.findByText('À revoir en priorité')).toBeTruthy()
+  expect(screen.getByText(/Bonne réponse : 1\.27\./)).toBeTruthy()
+  fireEvent.click(screen.getByText('Revoir'))
+  expect(onOpen).toHaveBeenCalledWith('k3', 'Quel tag ?')
+})
