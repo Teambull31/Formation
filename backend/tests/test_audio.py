@@ -116,3 +116,26 @@ def test_chunks_split_long_text_on_lines_and_keep_everything():
     assert _chunks("court") == ["court"]
     assert all(len(p) <= 100 for p in _chunks("mot " * 200, size=100))
     assert all(len(p) <= 100 for p in _chunks("x" * 350, size=100))
+
+
+def test_warm_audio_prepares_lessons_and_fiche(tmp_path, monkeypatch):
+    import shutil
+    from pathlib import Path
+    from app import warm_audio
+    content = tmp_path / "content"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "demo_module", content / "modules" / "demo")
+    made = {}
+
+    def fake_speak(text, stem):
+        made[stem.name] = text
+        out = stem.with_suffix(".mp3")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"ID3")
+        return out
+
+    monkeypatch.setattr(warm_audio, "speak", fake_speak)
+    warm_audio.main(content, tmp_path / "audio")
+    assert {"l1", "l2", "fiche-demo"} <= set(made) and made["fiche-demo"].startswith("Fiche de révision : ")
+    made.clear()
+    warm_audio.main(content, tmp_path / "audio")  # déjà prêts et à jour : rien à refaire
+    assert made == {}

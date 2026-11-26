@@ -17,6 +17,11 @@ def strip_markdown(md: str) -> str:
     return "\n".join(ln for ln in lines if ln.strip()).strip()
 
 
+def fiche_speech(title: str, fiche_md: str) -> str:
+    """Texte lu pour une fiche de révision (le même pour l'appli et le préchauffage, sinon le cache ne sert pas)."""
+    return f"Fiche de révision : {title}.\n" + strip_markdown(fiche_md)
+
+
 EDGE_VOICE = "fr-FR-VivienneMultilingualNeural"
 EDGE_TIMEOUT_S = 300
 EDGE_CHUNK = 800  # caractères par requête : edge-tts est lent sur un long texte, des morceaux en parallèle vont plus vite

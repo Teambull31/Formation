@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app import llm
 from app.auth import BasicAuth, make_security, security_from_env
-from app.audio import speak, stale, strip_markdown
+from app.audio import fiche_speech, speak, stale, strip_markdown
 from app.boss import attempt_boss, count_attempts
 from app import cards as cardlib, exam as examlib, plan as planlib
 from app.content import Module, ModuleError, load_module
@@ -408,7 +408,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         mid = mp3_id(name)
         for d, m in modules():
             if m.id == mid and m.fiche_md is not None:
-                return spoken(audio_dir / f"fiche-{mid}", lambda: f"Fiche de révision : {m.title}.\n" + strip_markdown(m.fiche_md),
+                return spoken(audio_dir / f"fiche-{mid}", lambda: fiche_speech(m.title, m.fiche_md),
                               d / "fiche.md")
         raise HTTPException(404, "Fiche inconnue")
 
