@@ -12,9 +12,16 @@ export default function Cert() {
   if (!c) return null
   if (!edit) {
     return c.key ? (
-      <div className="row between card">
-        <span><span className="tag">Objectif</span><br />{c.title}{c.days_left !== null ? ` · J-${c.days_left}` : ''}</span>
-        <button className="chip" onClick={() => setEdit(true)}>Changer</button>
+      <div className="card">
+        <div className="row between">
+          <span><span className="tag">Objectif</span><br />{c.title}{c.days_left !== null ? ` · J-${c.days_left}` : ''}</span>
+          <button className="chip" onClick={() => setEdit(true)}>Changer</button>
+        </div>
+        {c.pace && (
+          <p className={'fb' + (c.pace.on_track ? ' ok' : '')}>
+            {c.pace.per_week > 0 && <b>{c.pace.on_track ? 'Dans le rythme ✓ ' : 'En retard sur le rythme '}</b>}{c.pace.advice}
+          </p>
+        )}
       </div>
     ) : <button className="btn ghost" onClick={() => setEdit(true)}>🎯 Viser une certification (avec examen blanc)</button>
   }

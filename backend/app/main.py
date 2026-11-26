@@ -37,6 +37,7 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
+REVISE_DAYS = 7  # dernière semaine avant l'examen : révisions et examen blanc, pas de nouvelles leçons
 WEAK_MAX = 5
 AHEAD = 3  # questions proposées d'avance quand rien n'est dû
 KEYS_MAX = 6  # « À retenir » en fin de leçon
@@ -997,12 +998,34 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             db.commit()
         return {"xp": ARTICLE_XP if first else 0, "words": len(body.text.split())}
 
+    def cert_pace(db, c: dict, days_left: int, local: bool) -> dict:
+        """Rythme conseillé : leçons restantes de la certification réparties jusqu'à J-7, comparées aux 7 derniers jours."""
+        ids = [les.id for _, m in modules() if not c["modules"] or m.id in c["modules"] for les in m.lessons]
+        les_by_id = {les.id: les for _, m in modules() for les in m.lessons}
+        left = sum(1 for i in ids if not advanced(db, les_by_id[i], local))
+        since = (date.today() - timedelta(days=7)).isoformat()
+        recent = len({r[0] for r in db.execute(
+            "SELECT lesson_id FROM quest_steps WHERE kind = 'lesson' AND done = 1 AND day > ?", (since,))} & set(ids))
+        study = days_left - REVISE_DAYS
+        per_week = -(-left * 7 // study) if left and study > 0 else 0  # arrondi au-dessus
+        if days_left < 0:
+            advice = "La date est passée : change-la ou retire l'objectif."
+        elif not left:
+            advice = "Toutes les leçons sont vues : examen blanc et révisions jusqu'au jour J."
+        elif study <= 0:
+            advice = f"Dernière ligne droite : révisions et examen blanc d'abord ({left} leçon(s) pas encore vue(s))."
+        else:
+            advice = (f"Il reste {left} leçon(s) : vise {per_week} par semaine (ces 7 derniers jours : {recent}). "
+                      "La dernière semaine : révisions et examen blanc.")
+        return {"left": left, "per_week": per_week, "recent": recent, "on_track": recent >= per_week, "advice": advice}
+
     @app.get("/api/cert")
-    def cert(db=Depends(get_db)):
+    def cert(request: Request, db=Depends(get_db)):
         key, when = setting(db, "cert"), setting(db, "cert_date")
         c = learn.CERTS.get(key or "")
-        return {"key": key if c else None, "date": when, "title": c["title"] if c else None,
-                "days_left": (date.fromisoformat(when) - date.today()).days if c and when else None,
+        days_left = (date.fromisoformat(when) - date.today()).days if c and when else None
+        return {"key": key if c else None, "date": when, "title": c["title"] if c else None, "days_left": days_left,
+                "pace": cert_pace(db, c, days_left, strictly_local(request)) if days_left is not None else None,
                 "options": [{"key": k, "title": v["title"]} for k, v in learn.CERTS.items()]}
 
     @app.post("/api/cert")

@@ -79,7 +79,8 @@ test('article : compteur de mots et enregistrement', async () => {
 test('certification : choisir puis afficher le compte à rebours', async () => {
   const opts = [{ key: 'terraform', title: 'HashiCorp Terraform Associate' }]
   vi.mocked(api.getCert).mockResolvedValueOnce({ key: null, date: null, title: null, days_left: null, options: opts })
-    .mockResolvedValue({ key: 'terraform', date: '2027-01-10', title: 'HashiCorp Terraform Associate', days_left: 46, options: opts })
+    .mockResolvedValue({ key: 'terraform', date: '2027-01-10', title: 'HashiCorp Terraform Associate', days_left: 46, options: opts,
+      pace: { left: 9, per_week: 2, recent: 0, on_track: false, advice: 'Il reste 9 leçon(s) : vise 2 par semaine.' } })
   vi.mocked(api.setCert).mockResolvedValue({ ok: true })
   render(<Cert />)
   fireEvent.click(await screen.findByText(/Viser une certification/))
@@ -87,6 +88,8 @@ test('certification : choisir puis afficher le compte à rebours', async () => {
   await act(async () => { fireEvent.click(screen.getByText('Enregistrer')) })
   expect(api.setCert).toHaveBeenCalledWith('terraform', '2027-01-10')
   expect(await screen.findByText(/J-46/)).toBeTruthy()
+  expect(screen.getByText(/vise 2 par semaine/)).toBeTruthy()
+  expect(screen.getByText(/En retard sur le rythme/)).toBeTruthy()
 })
 
 test('entretien oral : question la moins réussie, réponse dictée longue, note lue', async () => {

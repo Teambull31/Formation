@@ -208,3 +208,24 @@ def test_habit_cue_in_reminder(db):
     sent = []
     push.remind(db, date(2026, 10, 23), 0, sender=lambda *a, **k: sent.append(a), hour=None)
     assert sent
+
+
+def test_cert_pace_spreads_remaining_lessons_until_last_week(client, tmp_path):
+    client.post("/api/cert", json={"key": "devops", "date": (date.today() + timedelta(days=21)).isoformat()})
+    p = client.get("/api/cert").json()["pace"]
+    left = p["left"]
+    assert left >= 1 and p["per_week"] == -(-left * 7 // 14) and p["recent"] == 0 and not p["on_track"]
+    con = sqlite3.connect(next(tmp_path.glob("*.db")))
+    con.executemany("INSERT INTO quest_steps(day, kind, lesson_id, done) VALUES (?, ?, 'l1', 1)",
+                    [(date.today().isoformat(), k) for k in ("lesson", "qcm")])
+    con.commit()
+    con.close()
+    p = client.get("/api/cert").json()["pace"]
+    assert p["left"] == left - 1 and p["recent"] == 1
+    client.post("/api/cert", json={"key": "devops", "date": (date.today() + timedelta(days=3)).isoformat()})
+    assert client.get("/api/cert").json()["pace"]["advice"].startswith("Dernière ligne droite")
+    client.post("/api/cert", json={"key": "devops", "date": (date.today() - timedelta(days=1)).isoformat()})
+    assert "passée" in client.get("/api/cert").json()["pace"]["advice"]
+    client.post("/api/cert", json={"key": "devops"})  # objectif sans date : pas de rythme
+    client.post("/api/cert", json={"key": None})
+    assert client.get("/api/cert").json()["pace"] is None

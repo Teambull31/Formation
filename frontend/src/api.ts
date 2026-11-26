@@ -166,7 +166,11 @@ export const proveMission = (id: string, proof: string) => call<{ xp: number }>(
 export interface Article { id: string; title: string; text: string; unlocked: boolean }
 export const getArticles = () => call<Article[]>('GET', '/api/articles')
 export const saveArticle = (id: string, text: string) => call<{ xp: number; words: number }>('PUT', `/api/articles/${encodeURIComponent(id)}`, { text })
-export interface Cert { key: string | null; date: string | null; title: string | null; days_left: number | null; options: { key: string; title: string }[] }
+export interface CertPace { left: number; per_week: number; recent: number; on_track: boolean; advice: string }
+export interface Cert {
+  key: string | null; date: string | null; title: string | null; days_left: number | null; options: { key: string; title: string }[]
+  pace?: CertPace | null
+}
 export const getCert = () => call<Cert>('GET', '/api/cert')
 export const setCert = (key: string | null, date: string | null) => call<Ok>('POST', '/api/cert', { key, date })
 export interface LessonKey { id: string; kind: string; front: string; back: string }
