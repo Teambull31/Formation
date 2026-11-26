@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+
+const SWIPE_PX = 60
 import { answerCard, getCards, type Card, type Cards as C } from '../api'
 import { renderLesson } from '../renderLesson'
 import Panne from './Panne'
@@ -17,16 +19,6 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
     getCards().then((d) => { setData(d); setQueue(limit ? d.cards.slice(0, limit) : d.cards); setKnown(0); setShown(false) }).catch((e: Error) => setErr(e.message || 'Erreur'))
   }, [tries, limit])
 
-  if (err) {
-    return (
-      <section className="screen wrap">
-        <p className="note" role="alert">Impossible de charger les cartes : {err}</p>
-        <button className="btn ghost" onClick={() => setTries((n) => n + 1)}>Réessayer</button>
-      </section>
-    )
-  }
-  if (!data) return <section className="screen wrap"><p className="note">Chargement…</p></section>
-
   const c = queue[0]
   const answer = (ok: boolean) => {
     answerCard(c.id, ok)
@@ -38,6 +30,36 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
       })
       .catch((e: Error) => setErr(e.message || 'Erreur'))
   }
+
+  // geste et clavier : toucher = voir la réponse ; glisser → je savais, ← à revoir (flèches, Espace au clavier)
+  const touchX = useRef<number | null>(null)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!c || (e.target as HTMLElement)?.closest?.('input, textarea, select')) return
+      if (!shown && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); setShown(true) }
+      else if (shown && e.key === 'ArrowRight') answer(true)
+      else if (shown && e.key === 'ArrowLeft') answer(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  const onTouchEnd = (x: number) => {
+    const dx = touchX.current === null ? 0 : x - touchX.current
+    touchX.current = null
+    if (!shown && Math.abs(dx) < 10) setShown(true)
+    else if (shown && dx > SWIPE_PX) answer(true)
+    else if (shown && dx < -SWIPE_PX) answer(false)
+  }
+
+  if (err) {
+    return (
+      <section className="screen wrap">
+        <p className="note" role="alert">Impossible de charger les cartes : {err}</p>
+        <button className="btn ghost" onClick={() => setTries((n) => n + 1)}>Réessayer</button>
+      </section>
+    )
+  }
+  if (!data) return <section className="screen wrap"><p className="note">Chargement…</p></section>
 
   return (
     <section className="screen wrap">
@@ -55,12 +77,16 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
         </div>
       )}
       {c && (
-        <div className="card">
-          <p className="tag">{c.kind === 'piege' ? 'Piège' : 'Terme clé'} · {c.lesson_id} · {queue.length} restante(s)</p>
+        <div className="card" onTouchStart={(e) => { touchX.current = e.touches[0].clientX }}
+          onTouchEnd={(e) => onTouchEnd(e.changedTouches[0].clientX)}>
+          <p className="tag">{c.kind === 'piege' ? 'Piège' : c.kind === 'panne' ? 'Panne vécue' : 'Terme clé'}{c.lesson_id ? ` · ${c.lesson_id}` : ''} · {queue.length} restante(s)</p>
           {/* renderLesson échappe tout avant de produire ses balises */}
           <div className="course" dangerouslySetInnerHTML={{ __html: renderLesson(c.front) }} />
           {!shown ? (
-            <button className="btn" onClick={() => setShown(true)}>Voir la réponse</button>
+            <>
+              <button className="btn" onClick={() => setShown(true)}>Voir la réponse</button>
+              <p className="time">Astuce : touche la carte, puis glisse → si tu savais, ← sinon.</p>
+            </>
           ) : (
             <>
               <div className="fb ok" role="status"><div className="course" dangerouslySetInnerHTML={{ __html: renderLesson(c.back) }} /></div>
@@ -68,7 +94,7 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
                 <button className="btn term grow" onClick={() => answer(true)}>Je savais</button>
                 <button className="btn ghost grow" onClick={() => answer(false)}>À revoir</button>
               </div>
-              <button className="btn ghost" onClick={() => onOpen(c.lesson_id)}>Relire la leçon</button>
+              {c.lesson_id && <button className="btn ghost" onClick={() => onOpen(c.lesson_id)}>Relire la leçon</button>}
             </>
           )}
         </div>

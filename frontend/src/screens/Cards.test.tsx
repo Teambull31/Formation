@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, test, vi } from 'vitest'
 
 vi.mock('../api', async (orig) => {
@@ -45,4 +45,24 @@ test('« J\'ai 2 min » : trois cartes au plus, puis la journée compte', async 
   }
   expect(await screen.findByText(/la journée compte/)).toBeTruthy()
   expect(api.answerCard).toHaveBeenCalledTimes(3)
+})
+
+test('gestes : toucher montre la réponse, glisser à droite = je savais, flèche gauche = à revoir', async () => {
+  vi.mocked(api.getCards).mockResolvedValue({ cards: [card('a', 'Question A', 'Réponse A'), card('b', 'Question B', 'Réponse B')], boxes: [0, 0, 0, 0, 0, 0], total: 2, unseen: 2 })
+  vi.mocked(api.answerCard).mockResolvedValue({ box: 1, due: '2026-11-28', mastered: false })
+  render(<Cards onOpen={() => {}} />)
+  const front = await screen.findByText('Question A')
+  const cardEl = front.closest('.card')!
+  fireEvent.touchStart(cardEl, { touches: [{ clientX: 100 }] })
+  fireEvent.touchEnd(cardEl, { changedTouches: [{ clientX: 102 }] })
+  expect(await screen.findByText('Réponse A')).toBeTruthy()
+  fireEvent.touchStart(cardEl, { touches: [{ clientX: 100 }] })
+  fireEvent.touchEnd(cardEl, { changedTouches: [{ clientX: 200 }] })
+  expect(await screen.findByText('Question B')).toBeTruthy()
+  expect(api.answerCard).toHaveBeenLastCalledWith('a', true)
+  fireEvent.keyDown(window, { key: ' ' })
+  expect(await screen.findByText('Réponse B')).toBeTruthy()
+  fireEvent.keyDown(window, { key: 'ArrowLeft' })
+  await waitFor(() => expect(api.answerCard).toHaveBeenLastCalledWith('b', false))
+  expect(await screen.findByText('Question B')).toBeTruthy() // ratée et seule restante : elle revient
 })

@@ -108,7 +108,7 @@ export const checkTp =(tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/check`)
 export const realTp = (tpId: string) =>
   call<{ passed: boolean; output: string }>('POST', `/api/tp/${encodeURIComponent(tpId)}/real`)
-export interface Card { id: string; lesson_id: string; kind: 'piege' | 'terme'; front: string; back: string; box: number | null }
+export interface Card { id: string; lesson_id: string; kind: 'piege' | 'terme' | 'panne'; front: string; back: string; box: number | null }
 export interface Cards { cards: Card[]; boxes: number[]; total: number; unseen: number }
 export const getCards = () => call<Cards>('GET', '/api/cards')
 export const answerCard = (id: string, known: boolean) =>
