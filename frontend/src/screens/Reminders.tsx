@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getPushKey, pushSubscribe, pushTest, pushUnsubscribe, setPushCue, setPushHour } from '../api'
-
-// Web Push needs a service worker, hence https (or localhost) and, on iPhone, the installed app.
-export const pushSupported = () =>
-  window.isSecureContext && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
-
-const toBytes = (b64url: string) => {
-  const raw = atob(b64url.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(b64url.length / 4) * 4, '='))
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0))
-}
+import { getPushKey, pushTest, pushUnsubscribe, setPushCue, setPushHour } from '../api'
+import { enablePush, pushSupported } from '../push'
 
 const CUES = ['Quand je démarre la voiture', 'Après mon café', 'Dans le train ou le bus', 'Après le repas du soir']
 
@@ -33,11 +25,8 @@ export default function Reminders() {
   }
 
   const enable = async () => {
-    if ((await Notification.requestPermission()) !== 'granted') return 'Notifications refusées dans le navigateur.'
-    const reg = await navigator.serviceWorker.ready
-    const { key } = await getPushKey()
-    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(key) })
-    await pushSubscribe(sub.toJSON())
+    const err = await enablePush()
+    if (err) return err
     setOn(true)
     return 'Rappel activé.'
   }
