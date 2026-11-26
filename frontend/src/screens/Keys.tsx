@@ -6,6 +6,7 @@ import { renderLesson } from '../renderLesson'
 export default function Keys({ lessonId }: { lessonId: string }) {
   const [keys, setKeys] = useState<LessonKey[]>([])
   const [open, setOpen] = useState<Set<string>>(new Set())
+  const [picked, setPicked] = useState<Record<string, string>>({}) // carte à trou : proposition touchée
   useEffect(() => { getLessonKeys(lessonId).then(setKeys).catch(() => {}) }, [lessonId])
   if (!keys.length) return null
   return (
@@ -17,9 +18,14 @@ export default function Keys({ lessonId }: { lessonId: string }) {
           {/* renderLesson échappe tout avant de produire ses balises */}
           <div className="grow">
             <div className="course" dangerouslySetInnerHTML={{ __html: renderLesson(k.front) }} />
-            {open.has(k.id) && <div className="fb ok course" dangerouslySetInnerHTML={{ __html: renderLesson(k.back) }} />}
+            {k.choices && k.choices.map((o) => {
+              const p = picked[k.id]
+              return <button key={o} className={'opt' + (!p ? '' : o === k.back ? ' right' : o === p ? ' wrong' : '')} disabled={!!p}
+                onClick={() => setPicked({ ...picked, [k.id]: o })}>{o}</button>
+            })}
+            {open.has(k.id) && !k.choices && <div className="fb ok course" dangerouslySetInnerHTML={{ __html: renderLesson(k.back) }} />}
           </div>
-          {!open.has(k.id) && <button className="chip" onClick={() => setOpen(new Set([...open, k.id]))}>Voir</button>}
+          {!open.has(k.id) && !k.choices && <button className="chip" onClick={() => setOpen(new Set([...open, k.id]))}>Voir</button>}
         </div>
       ))}
     </div>

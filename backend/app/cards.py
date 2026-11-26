@@ -69,6 +69,31 @@ def key_terms(les: Lesson, n: int) -> list[str]:
     return sorted(terms, key=lambda t: (-body.count(norm(t)), t))[:n]
 
 
+def choices(card: Card, pool: list[Card], k: int = 2) -> list[str] | None:
+    """Carte à trou → la bonne réponse et `k` autres notions vraisemblables (même leçon d'abord, longueur proche)."""
+    ans = norm(card.back).strip()
+    if card.kind != "terme" or ans in EMPHASIS:
+        return None  # gras d'insistance (« jamais ») : pas de leurres crédibles, on garde la carte à retourner
+    front, seen, cands = norm(card.front), {ans}, []
+    for c in pool:
+        n = norm(c.back).strip()
+        # un leurre déjà écrit dans la phrase se repère tout de suite : exclu
+        if c.kind != "terme" or n in seen or n in EMPHASIS or c.back.rstrip().endswith(":") or n in front:
+            continue
+        seen.add(n)
+        cands.append(c)
+    if len(cands) < k:
+        return None
+    def shape(t: str) -> tuple:  # un leurre d'une autre forme (majuscule, nb de mots, code) se repère sans savoir
+        return t[:1].isupper(), "`" in t, len(t.split())
+    a = shape(card.back)
+    cands.sort(key=lambda c: (sum(x != y for x, y in zip(shape(c.back), a)), c.lesson_id != card.lesson_id,
+                              abs(len(c.back) - len(card.back)), c.back))
+    opts = [card.back] + [c.back for c in cands[:k]]
+    rot = int(hashlib.sha1(card.id.encode()).hexdigest(), 16) % len(opts)  # place stable de la bonne réponse
+    return opts[rot:] + opts[:rot]
+
+
 def _box_due(today: date, box: int) -> tuple[int, str]:
     if box >= len(INTERVALS):
         return len(INTERVALS), MASTERED

@@ -74,3 +74,14 @@ test('nouvelles cartes par jour réglables', async () => {
   fireEvent.change(await screen.findByDisplayValue('10'), { target: { value: '5' } })
   expect(set).toHaveBeenCalledWith(5)
 })
+
+test('carte à trou : 3 propositions, la réponse choisie décide « su » ou « à revoir »', async () => {
+  vi.mocked(api.getCards).mockResolvedValue({ cards: [{ ...card('a', 'Un ＿＿＿ garde les pods', 'Deployment'), choices: ['Service', 'Deployment', 'Pod'] }], boxes: [0, 0, 0, 0, 0, 0], total: 1, unseen: 1 })
+  vi.mocked(api.answerCard).mockResolvedValue({ box: 0, due: '2026-11-22', mastered: false })
+  render(<Cards onOpen={() => {}} />)
+  fireEvent.click(await screen.findByText('Pod'))
+  expect(screen.getByRole('status').textContent).toContain('Bonne réponse : Deployment')
+  expect(screen.getByText('Service').hasAttribute('disabled')).toBe(true)
+  fireEvent.click(screen.getByText('Suivant →'))
+  await waitFor(() => expect(api.answerCard).toHaveBeenCalledWith('a', false))
+})

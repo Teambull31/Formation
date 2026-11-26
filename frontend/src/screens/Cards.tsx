@@ -11,23 +11,25 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
   const [data, setData] = useState<C | null>(null)
   const [queue, setQueue] = useState<Card[]>([])
   const [shown, setShown] = useState(false)
+  const [picked, setPicked] = useState<string | null>(null) // carte à trou : proposition touchée
   const [known, setKnown] = useState(0)
   const [err, setErr] = useState('')
   const [tries, setTries] = useState(0)
 
   useEffect(() => {
     setErr(''); setData(null)
-    getCards().then((d) => { setData(d); setQueue(limit ? d.cards.slice(0, limit) : d.cards); setKnown(0); setShown(false) }).catch((e: Error) => setErr(e.message || 'Erreur'))
+    getCards().then((d) => { setData(d); setQueue(limit ? d.cards.slice(0, limit) : d.cards); setKnown(0); setShown(false); setPicked(null) }).catch((e: Error) => setErr(e.message || 'Erreur'))
   }, [tries, limit])
 
   const c = queue[0]
+  const pick = (o: string) => { setPicked(o); setShown(true) }
   const answer = (ok: boolean) => {
     answerCard(c.id, ok)
       .then(() => {
         if (ok) setKnown((n) => n + 1)
         // une carte ratée revient en fin de séance : on ne la quitte pas sans l'avoir sue une fois
         setQueue((q) => (ok ? q.slice(1) : [...q.slice(1), c]))
-        setShown(false)
+        setShown(false); setPicked(null)
       })
       .catch((e: Error) => setErr(e.message || 'Erreur'))
   }
@@ -37,7 +39,9 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!c || (e.target as HTMLElement)?.closest?.('input, textarea, select')) return
-      if (!shown && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); setShown(true) }
+      if (!shown && c.choices && '123'.includes(e.key) && c.choices[Number(e.key) - 1]) pick(c.choices[Number(e.key) - 1])
+      else if (shown && picked && (e.key === 'Enter' || e.key === 'ArrowRight')) answer(picked === c.back)
+      else if (!shown && !c.choices && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); setShown(true) }
       else if (shown && e.key === 'ArrowRight') answer(true)
       else if (shown && e.key === 'ArrowLeft') answer(false)
     }
@@ -47,6 +51,7 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
   const onTouchEnd = (x: number) => {
     const dx = touchX.current === null ? 0 : x - touchX.current
     touchX.current = null
+    if (c?.choices) return // propositions : on choisit en touchant un bouton, pas la carte
     if (!shown && Math.abs(dx) < 10) setShown(true)
     else if (shown && dx > SWIPE_PX) answer(true)
     else if (shown && dx < -SWIPE_PX) answer(false)
@@ -89,7 +94,19 @@ export default function Cards({ onOpen, onContinue, limit }: { onOpen: (lessonId
           <p className="tag">{c.kind === 'piege' ? 'Piège' : c.kind === 'panne' ? 'Panne vécue' : 'Terme clé'}{c.lesson_id ? ` · ${c.lesson_id}` : ''} · {queue.length} restante(s)</p>
           {/* renderLesson échappe tout avant de produire ses balises */}
           <div className="course" dangerouslySetInnerHTML={{ __html: renderLesson(c.front) }} />
-          {!shown ? (
+          {c.choices && (
+            c.choices.map((o) => (
+              <button key={o} className={'opt' + (!picked ? '' : o === c.back ? ' right' : o === picked ? ' wrong' : '')}
+                disabled={!!picked} onClick={() => pick(o)}>{o}</button>
+            ))
+          )}
+          {picked ? (
+            <>
+              <p className={'fb' + (picked === c.back ? ' ok' : '')} role="status">{picked === c.back ? 'Juste ✓' : `Raté. Bonne réponse : ${c.back}.`}</p>
+              <button className="btn" onClick={() => answer(picked === c.back)}>Suivant →</button>
+              {c.lesson_id && picked !== c.back && <button className="btn ghost" onClick={() => onOpen(c.lesson_id)}>Relire la leçon</button>}
+            </>
+          ) : c.choices ? null : !shown ? (
             <>
               <button className="btn" onClick={() => setShown(true)}>Voir la réponse</button>
               <p className="time">Astuce : touche la carte, puis glisse → si tu savais, ← sinon.</p>

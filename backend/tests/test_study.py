@@ -43,6 +43,19 @@ def test_cards_from_traps_and_bold_terms_outside_code():
     assert [c.id for c in cardlib.lesson_cards(lesson())] == [c.id for c in cs]  # ids stables
 
 
+def test_blank_card_offers_answer_and_two_plausible_terms():
+    mk = lambda lid, back, front="Phrase avec ＿＿＿ dedans, assez longue pour une carte.": cardlib.Card(f"{lid}-{back}", lid, "terme", front, back)
+    card = mk("x1", "Deployment")
+    pool = [card, mk("x1", "jamais"), mk("x1", "Pod"), mk("x2", "ReplicaSet"), mk("x2", "Service"),
+            mk("x1", "nœud"), cardlib.Card("x1-p", "x1", "piege", "f", "Un piège")]
+    card = mk("x1", "Deployment", "Un ＿＿＿ garde le bon nombre de copies quand un nœud tombe.")
+    opts = cardlib.choices(card, pool)
+    assert sorted(opts) == ["Deployment", "Pod", "ReplicaSet"]  # même leçon d'abord, pas d'insistance ni de mot déjà dans la phrase
+    assert cardlib.choices(card, pool) == opts  # ordre stable d'un appel à l'autre
+    assert cardlib.choices(mk("x1", "jamais"), pool) is None
+    assert cardlib.choices(card, [card, mk("x1", "Pod")]) is None  # pas assez de leurres : carte à retourner
+
+
 def test_card_climbs_boxes_until_mastered_and_falls_back_on_miss(db):
     cid = "x1-abc"
     assert cardlib.record_card(db, cid, True, TODAY)["box"] == 1
@@ -75,7 +88,7 @@ def test_cards_api_only_for_studied_lessons(client, tmp_path):
     assert client.get("/api/cards").json()["cards"] == []
     _done(tmp_path, ("lesson", "l1"))
     cards = client.get("/api/cards").json()["cards"]
-    assert cards and cards[0]["lesson_id"] == "l1" and cards[0]["box"] is None
+    assert cards and cards[0]["lesson_id"] == "l1" and cards[0]["box"] is None and "choices" in cards[0]
     r = client.post(f"/api/cards/{cards[0]['id']}", json={"known": True})
     assert r.status_code == 200 and r.json()["box"] == 1
     assert client.post("/api/cards/l2-inconnue", json={"known": True}).status_code == 404

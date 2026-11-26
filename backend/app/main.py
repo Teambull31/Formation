@@ -450,7 +450,8 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
     def lesson_keys(lesson_id: str):
         # fin de leçon : ses pièges et termes clés, à se rappeler avant de voir la réponse
         _, _, les = find_lesson(lesson_id)
-        return [{"id": c.id, "kind": c.kind, "front": c.front, "back": c.back} for c in cardlib.lesson_cards(les)][:KEYS_MAX]
+        return with_choices([{"id": c.id, "lesson_id": les.id, "kind": c.kind, "front": c.front, "back": c.back}
+                             for c in cardlib.lesson_cards(les)][:KEYS_MAX])
 
     @app.get("/api/audio/{name}")
     def audio(name: str):
@@ -792,9 +793,20 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
             review_progress(db)
         return {"correct": ok, "answer": q.options[q.answer], "explain": q.explain}
 
+    def with_choices(cards: list[dict]) -> list[dict]:
+        # cartes à trou : 3 propositions tirées des notions du même module, plutôt que deviner un mot de tête
+        lids, pools = {c["lesson_id"] for c in cards if c["kind"] == "terme"}, {}
+        for _, m in modules():
+            if any(les.id in lids for les in m.lessons):
+                pool = [c for les in m.lessons for c in cardlib.lesson_cards(les)]
+                pools.update({les.id: pool for les in m.lessons})
+        return [{**c, "choices": cardlib.choices(cardlib.Card(c["id"], c["lesson_id"], c["kind"], c["front"], c["back"]),
+                                                 pools.get(c["lesson_id"], []))} for c in cards]
+
     @app.get("/api/cards")
     def cards(db=Depends(get_db)):
-        return card_session(db)
+        s = card_session(db)
+        return {**s, "cards": with_choices(s["cards"])}
 
     @app.post("/api/cards/{card_id}")
     def card_answer(card_id: str, body: CardIn, db=Depends(get_db)):
