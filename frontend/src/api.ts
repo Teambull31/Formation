@@ -54,6 +54,7 @@ export interface Quest {
   pending_tp: string[]; review: { due: number; done: boolean } | null; suggestions: Suggestion[]
   pace?: 'normal' | 'fast' | 'consolidate'
   week?: { days: number; goal: number; dots: boolean[]; today: number }
+  away?: number; plan_late?: number // retour après une pause
 }
 export interface Lesson {
   id: string; title: string; minutes: number; body_md: string

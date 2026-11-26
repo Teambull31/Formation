@@ -37,6 +37,7 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
+AWAY_DAYS = 3  # à partir de 3 jours sans séance : accueil « re-bonjour »
 REVISE_DAYS = 7  # dernière semaine avant l'examen : révisions et examen blanc, pas de nouvelles leçons
 WEAK_MAX = 5
 REPHRASE_TERMS = 6  # repli sans Ollama de « Explique autrement »
@@ -336,6 +337,14 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         r = retention_stats(db)
         # rythme adaptatif : au-dessus de 85 % on peut accélérer, sous 60 % on consolide avant d'avancer
         out["pace"] = "normal" if r["answered7"] < 10 else "fast" if r["rate7"] > 85 else "consolidate" if r["rate7"] < 60 else "normal"
+        # retour après une pause : l'accueil le dit sans reproche et propose d'effacer le retard du plan
+        day = today.isoformat()
+        last = db.execute("SELECT MAX(day) FROM (SELECT day FROM activity_days UNION SELECT day FROM rest_days) WHERE day < ?",
+                          (day,)).fetchone()[0]
+        active = db.execute("SELECT 1 FROM activity_days WHERE day = ?", (day,)).fetchone()
+        away = (today - date.fromisoformat(last)).days if last and not active else 0
+        out["away"] = away if away >= AWAY_DAYS else 0
+        out["plan_late"] = plan_status(db, local)["late"] if out["away"] else 0
         return out
 
     @app.post("/api/quest/step")

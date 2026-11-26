@@ -199,3 +199,18 @@ def test_week_status_goal_from_last_week(db):
     w = week_status(db, date(2026, 11, 26))  # jeudi ; semaine passée : 4 jours
     assert w["days"] == 2 and w["goal"] == 5 and w["dots"] == [False, True, False, True, False, False, False] and w["today"] == 3
     assert week_status(db, date(2026, 12, 14))["goal"] == 4  # semaine vide avant : objectif minimal
+
+
+def test_quest_welcomes_back_after_a_break(client, tmp_path):
+    import sqlite3
+    from datetime import date, timedelta
+    assert client.get("/api/quest").json()["away"] == 0  # jamais venu : pas de « re-bonjour »
+    con = sqlite3.connect(next(tmp_path.glob("*.db")))
+    con.execute("INSERT INTO activity_days VALUES (?)", ((date.today() - timedelta(days=4)).isoformat(),))
+    con.commit()
+    q = client.get("/api/quest").json()
+    assert q["away"] == 4 and q["plan_late"] == 0  # plan pas commencé : rien à recaler
+    con.execute("INSERT INTO rest_days VALUES (?)", ((date.today() - timedelta(days=1)).isoformat(),))
+    con.commit()
+    assert client.get("/api/quest").json()["away"] == 0  # repos annoncé hier : pas une pause subie
+    con.close()

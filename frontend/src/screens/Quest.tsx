@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Plan from './Plan'
 import Cert from './Cert'
 import Onboarding from './Onboarding'
-import { announceRest, getPushKey, getQuest, getReviews, getTeam, setTopic, type Quest as Q, type Step, type StepKind, type Suggestion, type Team } from '../api'
+import { announceRest, getPushKey, getQuest, getReviews, getTeam, rebasePlan, setTopic, type Quest as Q, type Step, type StepKind, type Suggestion, type Team } from '../api'
 import TodayRecap from './TodayRecap'
 
 export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe' | 'Boss', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
@@ -22,6 +22,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
   const [pushOff, setPushOff] = useState(false)
   // objectif daté : sur l'accueil (il donne le cap du jour) ; sinon son réglage reste dans le bloc replié
   const [certOn, setCertOn] = useState(false)
+  const [planKey, setPlanKey] = useState(0) // remonte le plan replié après un recalage
   const onCert = useCallback((c: { key: string | null; date: string | null }) => setCertOn(!!c.key && !!c.date), [])
   useEffect(() => { getReviews().then((r) => setDue(r.questions.length)).catch(() => {}) }, [])
   useEffect(() => { getPushKey().then((k) => setPushOff(!k.subscribed)).catch(() => {}) }, [])
@@ -71,6 +72,18 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
 
   return (
     <section className="screen wrap">
+      {!!quest?.away && (
+        <div className="card" role="status">
+          <h2>Re-bonjour 👋</h2>
+          <p>{quest.away} jours sans séance : ça arrive. On reprend en douceur, une séance courte suffit aujourd'hui.
+            Les révisions d'abord : ce sont elles qui ramènent ce que tu as appris.</p>
+          {!!quest.plan_late && (
+            <button className="btn ghost" onClick={() => act(rebasePlan().then(() => setPlanKey((k) => k + 1)), 'Plan recalé : plus de retard.')}>
+              Recaler mon plan sur aujourd'hui ({quest.plan_late} j de retard effacés)
+            </button>
+          )}
+        </div>
+      )}
       {quest && !reviewFirst && !nextStep && <TodayRecap />}
       {quest && (reviewFirst || nextStep) && (
         <button className="btn term" style={{ fontSize: 18, minHeight: 56 }} onClick={startSession}>
@@ -140,7 +153,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
       <button className="btn ghost" onClick={() => act(announceRest(), 'Repos annoncé.')}>Repos aujourd'hui</button>
       <details className="card">
         <summary>{certOn ? 'Plan, profil et réglages' : 'Plan, objectif, profil et réglages'}{team ? ` · série ${team.streak} j · niveau ${team.level}` : ''}</summary>
-        <Plan onStart={(id) => onStart(id, 'lesson', false)} />
+        <Plan key={planKey} onStart={(id) => onStart(id, 'lesson', false)} />
         {!certOn && <Cert onChange={onCert} />}
         <div className="card">
           <p className="tag">Rang actuel</p>

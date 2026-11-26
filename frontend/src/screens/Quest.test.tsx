@@ -75,3 +75,20 @@ test('objectif daté : affiché sur l\'accueil avec son rythme, hors du bloc rep
   const objective = screen.getByText(/J-45/)
   expect(objective.isConnected && !objective.closest('details')).toBe(true)
 })
+
+test('retour après une pause : accueil sans reproche, plan recalé en un toucher', async () => {
+  const base = { day: '2026-11-26', imposed_topic: null, bonus: null, pending_tp: [], suggestions: [], review: { due: 4, done: false },
+    steps: [{ kind: 'lesson' as const, lesson_id: 'ci3', minutes: 10, xp: 20, done: false }] }
+  vi.mocked(api.getQuest).mockResolvedValueOnce({ ...base, away: 4, plan_late: 3 }).mockResolvedValue({ ...base, away: 4, plan_late: 0 })
+  vi.mocked(api.getTeam).mockResolvedValue({ xp: 0, level: 1, rank: 'R', rank_capped: false, skills: {}, skill_levels: {}, tokens: 0, streak: 0, inventory: [] } as never)
+  vi.mocked(api.getReviews).mockResolvedValue({ due: [], questions: [], boxes: [], intervals: [] })
+  vi.mocked(api.getPushKey).mockResolvedValue({ key: 'k', subscribed: true, hour: 19 })
+  vi.mocked(api.getPlan).mockResolvedValue({ started: true, start: '2026-11-21', today: 6, days: [], late: 3 })
+  const rebase = vi.spyOn(api, 'rebasePlan').mockResolvedValue({ ok: true })
+  render(<Quest onStart={() => {}} onGo={() => {}} />)
+  expect(await screen.findByText(/4 jours sans séance : ça arrive/)).toBeTruthy()
+  fireEvent.click(screen.getByText(/Recaler mon plan sur aujourd'hui \(3 j de retard effacés\)/))
+  expect(rebase).toHaveBeenCalled()
+  expect(await screen.findByText('Plan recalé : plus de retard.')).toBeTruthy()
+  expect(screen.queryByText(/Recaler mon plan/)).toBeNull()
+})
