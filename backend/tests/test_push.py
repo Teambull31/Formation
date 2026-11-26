@@ -200,3 +200,15 @@ def test_streak_saver_at_21h_only_if_streak_and_nothing_done(db):
     assert sent[0]["url"].endswith("mini=1") and sent[0]["actions"][0]["action"] == "mini"
     db.execute("INSERT INTO activity_days VALUES ('2026-11-27')")
     assert push.streak_saver(db, date(2026, 11, 27), 4, sender=s, hour=21) == 0  # déjà travaillé
+
+
+def test_reminder_counts_due_reviews(db):
+    import json as _json
+    push.subscribe(db, SUB)
+    sent = []
+    s = lambda *a, **k: sent.append(_json.loads(k["data"]))  # noqa: E731
+    d = date(2026, 11, 26)
+    db.execute("INSERT INTO mistakes(question_id, box, due) VALUES ('q1', 0, '2026-11-25'), ('q2', 1, '2026-11-26'), ('q3', 2, '2026-12-01')")
+    db.execute("INSERT INTO cards(card_id, box, due, intro) VALUES ('c1', 1, '2026-11-26', '2026-11-20')")
+    assert push.remind(db, d, 4, sender=s) == 1
+    assert "Ta série de 4 jours t'attend : 3 révision(s) en attente, ≈ 2 min." in sent[0]["body"]

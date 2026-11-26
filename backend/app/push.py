@@ -109,7 +109,14 @@ def remind(db: sqlite3.Connection, today: date, streak: int, *, sender=webpush, 
         return 0
     if not reminder_due(db, today):
         return 0
-    body = f"Ta série de {streak} jours t'attend : 15 minutes suffisent." if streak else "15 minutes aujourd'hui, et la série démarre."
+    day = today.isoformat()
+    due = db.execute("SELECT (SELECT COUNT(*) FROM mistakes WHERE due <= ?) + (SELECT COUNT(*) FROM cards WHERE due <= ?)",
+                     (day, day)).fetchone()[0]
+    if due:  # un effort chiffré et petit se lance plus facilement qu'un vague « 15 minutes »
+        effort = f"{due} révision(s) en attente, ≈ {max(1, -(-due // 2))} min"  # ≈ 30 s par révision
+        body = f"Ta série de {streak} jours t'attend : {effort}." if streak else f"{effort} : la série démarre."
+    else:
+        body = f"Ta série de {streak} jours t'attend : 15 minutes suffisent." if streak else "15 minutes aujourd'hui, et la série démarre."
     if cue := _setting(db, "habit_cue"):  # déclencheur choisi : l'habitude s'accroche à un geste quotidien
         body = f"{cue} → lance l'épisode du jour ou la révision express. {body}"
     if plan_line:
