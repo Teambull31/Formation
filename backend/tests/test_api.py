@@ -598,3 +598,10 @@ def test_today_recap(client):
     q = client.get("/api/lesson/l1").json()["qcm"][0]
     next(i for i in range(len(q["options"])) if not client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"])
     assert client.get("/api/today").json()["tomorrow"] >= 1  # l'erreur revient (due aujourd'hui, donc aussi demain)
+
+
+def test_glossary_maps_bold_terms_to_their_first_sentence(client, tmp_path):
+    md = next((tmp_path / "content").rglob("l1.md"))
+    md.write_text(md.read_text() + "\n\nUn **runner** exécute les jobs du pipeline sur une machine dédiée.\n")
+    g = client.get("/api/glossary").json()
+    assert g["runner"]["sentence"] == "Un runner exécute les jobs du pipeline sur une machine dédiée." and g["runner"]["lesson_id"] == "l1"

@@ -137,3 +137,16 @@ test('« 👎 Pas clair » note la page avec son titre de section', async () => 
   expect(await screen.findByText(/reviendra dans « Semaine »/)).toBeTruthy()
   expect(m).toHaveBeenCalledWith('a', 'Partie 1')
 })
+
+test('toucher un terme en gras montre sa définition et la leçon d\'origine', async () => {
+  localStorage.clear()
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: 'On relance le **runner** ici.' })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  vi.spyOn(api, 'getGlossary').mockResolvedValue({ runner: { term: 'runner', sentence: 'Un runner exécute les jobs.', lesson_id: 'ci1', title: 'Premier workflow' } })
+  const onOpen = vi.fn()
+  render(<Lesson id="a" onOpen={onOpen} />)
+  fireEvent.click((await screen.findAllByText('runner'))[0])
+  expect(await screen.findByText(/Un runner exécute les jobs/)).toBeTruthy()
+  fireEvent.click(screen.getByText('Vu dans « Premier workflow » →'))
+  expect(onOpen).toHaveBeenCalledWith('ci1')
+})

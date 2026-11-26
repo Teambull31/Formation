@@ -181,3 +181,5 @@ export const getUnclear = () => call<Unclear[]>('GET', '/api/unclear')
 export const clearUnclear = (id: number) => call<Ok>('DELETE', `/api/unclear/${id}`)
 export interface Today { lessons: string[]; reviewed: number; correct: number; tomorrow: number }
 export const getToday = () => call<Today>('GET', '/api/today')
+export interface GlossEntry { term: string; sentence: string; lesson_id: string; title: string }
+export const getGlossary = () => call<Record<string, GlossEntry>>('GET', '/api/glossary')

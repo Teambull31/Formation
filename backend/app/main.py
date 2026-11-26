@@ -862,6 +862,18 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         return {"score": score, "passed": score >= examlib.PASS_PCT, "pass_pct": examlib.PASS_PCT, "best": top,
                 "xp": xp, "detail": detail}
 
+    @app.get("/api/glossary")
+    def glossary():
+        """Terme en gras → la phrase de la première leçon qui l'introduit (pour la retrouver quand il revient plus loin)."""
+        out: dict[str, dict] = {}
+        for _, m in modules():
+            for les in m.lessons:
+                for c in cardlib.lesson_cards(les):
+                    if c.kind == "terme" and c.back.lower() not in out:
+                        out[c.back.lower()] = {"term": c.back, "sentence": c.front.replace(cardlib.BLANK, c.back),
+                                               "lesson_id": les.id, "title": les.title}
+        return out
+
     @app.get("/api/today")
     def today_recap(db=Depends(get_db)):
         """Bilan de fin de séance : ce qui a été fait aujourd'hui et ce qui attend demain (clôture nette, envie de revenir)."""

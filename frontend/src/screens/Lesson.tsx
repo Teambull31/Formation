@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, markUnclear, rephrase, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
+  answerQcm, audioUrl, getGlossary, markUnclear, rephrase, type GlossEntry, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
@@ -161,6 +161,14 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
   const [reading, setReading] = useState(false)
   const [other, setOther] = useState<{ page: number; text: string } | null>(null) // « explique autrement »
   const [otherBusy, setOtherBusy] = useState(false)
+  const [gloss, setGloss] = useState<Record<string, GlossEntry>>({})
+  const [term, setTerm] = useState<{ page: number; e: GlossEntry } | null>(null) // terme en gras touché
+  useEffect(() => { getGlossary().then(setGloss).catch(() => {}) }, [])
+  const onTerm = (page: number, el: EventTarget) => {
+    const t = (el as HTMLElement).closest?.('strong')?.textContent?.trim().toLowerCase()
+    const e = t ? gloss[t] : undefined
+    if (e) setTerm(term?.e === e ? null : { page, e })
+  }
   const [flagged, setFlagged] = useState<Set<number>>(new Set()) // pages notées « pas claires »
   const [readingAll, setReadingAll] = useState(false)
   const all = useRef(false)
@@ -268,7 +276,16 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
       {/* dangerouslySetInnerHTML only ever receives renderLesson output (escape-first) */}
       {pages.map((md, i) => (
         <div key={i} hidden={!whole && i !== cur}>
-          <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(md) }} />
+          {/* toucher un terme en gras : sa définition, même si elle vient d'une autre leçon */}
+          <div className="card course" onClick={(e) => onTerm(i, e.target)} dangerouslySetInnerHTML={{ __html: renderLesson(md) }} />
+          {term?.page === i && (
+            <div className="fb ok" role="status">
+              <p><b>{term.e.term}</b> : {term.e.sentence}</p>
+              {term.e.lesson_id !== les.id
+                ? <button className="chip" onClick={() => onOpen(term.e.lesson_id)}>Vu dans « {term.e.title} » →</button>
+                : <p className="time">Défini dans cette leçon.</p>}
+            </div>
+          )}
           {!whole && i === cur && (
             other?.page === i ? <div className="fb ok" role="status"><p className="tag">Autrement dit</p><p>{other.text}</p></div> : (
               <button className="btn ghost" disabled={otherBusy} onClick={() => {

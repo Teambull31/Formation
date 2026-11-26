@@ -76,3 +76,6 @@ nav button[aria-selected="true"] { color: var(--gold); background: var(--surface
 .course th, .course td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
 .course th { background: var(--surface-2); }
 audio { width: 100%; }
+
+/* termes en gras : touchables pour voir leur définition */
+.course strong { text-decoration: underline dotted; cursor: help; }
