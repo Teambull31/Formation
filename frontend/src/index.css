@@ -28,7 +28,7 @@ p { margin: 0; }
 .tag { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .note { font-size: 12px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 10px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-.row { display: flex; align-items: center; gap: 10px; }
+.row { display: flex; flex-direction: row; align-items: center; gap: 10px; } /* même combiné à .wrap (colonne) */
 .row.between { justify-content: space-between; }
 .wrapf { flex-wrap: wrap; }
 .grow { flex: 1; min-width: 0; }

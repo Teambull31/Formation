@@ -45,7 +45,7 @@ export default function App() {
         {tab === 'Boss' && <Boss onOpen={(id) => open(id)} />}
         {tab === 'Révisions' && (
           <>
-            <div className="wrap row" role="group" aria-label="Type de révision">
+            <div className="wrap row wrapf" role="group" aria-label="Type de révision">
               {([['qcm', 'Questions'], ['cartes', 'Cartes'], ['examen', 'Examen'], ['entretien', 'Entretien'], ['glossaire', 'Glossaire']] as const).map(([k, label]) => (
                 <button key={k} className="chip" aria-pressed={sub === k} onClick={() => setSub(k)}>{label}</button>
               ))}
