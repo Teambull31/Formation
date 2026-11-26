@@ -9,6 +9,8 @@ export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe' | 'Boss', sub?: 'qcm
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
 
+const REVIEW_S = 30
+
 export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void; onGo?: Go }) {
   const [quest, setQuest] = useState<Q | null>(null)
   const [team, setTeam] = useState<Team | null>(null)
@@ -55,6 +57,9 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
   // un seul bouton pour démarrer : ce qui vient ensuite (révisions d'abord, puis la première étape pas faite)
   const nextStep = quest?.steps.find((s) => !s.done)
   const reviewFirst = !!(quest?.review && quest.review.due > 0 && !quest.review.done)
+  // durée annoncée : savoir avant de commencer que ça tient dans la pause (≈ 30 s par révision)
+  const left = quest ? quest.steps.filter((s) => !s.done).reduce((n, s) => n + s.minutes, 0)
+    + (reviewFirst ? Math.ceil(quest.review!.due * REVIEW_S / 60) : 0) : 0
   const startSession = () => {
     if (reviewFirst && onGo) onGo('Révisions', due > 0 ? 'qcm' : 'cartes')
     else if (nextStep) onStart(nextStep.lesson_id, nextStep.kind, false)
@@ -64,7 +69,7 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
     <section className="screen wrap">
       {quest && (reviewFirst || nextStep) && (
         <button className="btn term" style={{ fontSize: 18, minHeight: 56 }} onClick={startSession}>
-          ▶ Ma séance du jour{reviewFirst ? ` · ${quest.review!.due} révisions puis ${nextStep ? nextStep.lesson_id : 'fin'}` : ` · ${LABEL[nextStep!.kind]} ${nextStep!.lesson_id}`}
+          ▶ Ma séance du jour{left > 0 ? ` (≈ ${left} min)` : ''}{reviewFirst ? ` · ${quest.review!.due} révisions puis ${nextStep ? nextStep.lesson_id : 'fin'}` : ` · ${LABEL[nextStep!.kind]} ${nextStep!.lesson_id}`}
         </button>
       )}
       {quest?.week && (
