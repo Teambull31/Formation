@@ -82,7 +82,7 @@ export const audioUrl = (id: string) => `/api/audio/${encodeURIComponent(id)}.mp
 export const answerQcm = (question_id: string, chosen: number, confident: boolean | null = null) =>
   call<QcmResult>('POST', '/api/qcm/answer', { question_id, chosen, confident })
 export interface ReviewQuestion { id: string; text: string; options: string[]; box: number }
-export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: number[]; intervals: number[] }
+export interface Reviews { due: string[]; questions: ReviewQuestion[]; boxes: number[]; intervals: number[]; ahead?: ReviewQuestion[] }
 export const getReviews = () => call<Reviews>('GET', '/api/reviews')
 export const getHint = (tpId: string, level = 1) =>
   call<{ hint: string; cost: number }>('POST', `/api/tp/${encodeURIComponent(tpId)}/hint`, { level })

@@ -13,6 +13,28 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
   const [aerr, setAerr] = useState('')
   const [tries, setTries] = useState(0) // bump to reload
   const [sure, setSure] = useState<boolean | null>(null)
+  const [early, setEarly] = useState(false) // « questions d'avance » choisies quand rien n'est dû
+  const qs = data ? (data.questions.length ? data.questions : early ? data.ahead ?? [] : []) : []
+  const q = qs[i]
+  const pick = (c: number) => {
+    setBusy(true)
+    answerQcm(q.id, c, sure)
+      .then((r) => { setRes({ chosen: c, r }); setAerr(''); if (r.correct) setRight((n) => n + 1) })
+      .catch((e: Error) => setAerr(e.message || 'Erreur'))
+      .finally(() => setBusy(false))
+  }
+  const next = () => { setI(i + 1); setRes(null); setSure(null) }
+  useEffect(() => {
+    // clavier : 1 à 6 répond, Entrée passe à la suivante
+    const onKey = (e: KeyboardEvent) => {
+      if (!q || busy || (e.target as HTMLElement)?.closest?.('input, textarea, select')) return
+      const n = Number(e.key)
+      if (!res && n >= 1 && n <= q.options.length) pick(n - 1)
+      else if (res && e.key === 'Enter') next()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   useEffect(() => {
     setErr(''); setData(null)
@@ -29,8 +51,6 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
   }
   if (!data) return <section className="screen wrap"><p className="note">Chargement…</p></section>
 
-  const qs = data.questions
-  const q = qs[i]
   const boxes = (
     <div className="card">
       <p className="tag">Boîtes Leitner</p>
@@ -51,6 +71,9 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
       <section className="screen wrap">
         <h1>Révisions</h1>
         <p className="card">Rien à réviser aujourd'hui</p>
+        {!!data.ahead?.length && (
+          <button className="btn term" onClick={() => setEarly(true)}>Réviser {data.ahead.length} question{data.ahead.length > 1 ? 's' : ''} d'avance</button>
+        )}
         {onContinue && <button className="btn" onClick={onContinue}>Continuer la séance : cartes →</button>}
         {boxes}
       </section>
@@ -69,14 +92,6 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
         <button className="btn ghost" onClick={() => { setI(0); setRight(0); setRes(null); setTries((n) => n + 1) }}>Actualiser</button>
       </section>
     )
-  }
-
-  const pick = (c: number) => {
-    setBusy(true)
-    answerQcm(q.id, c, sure)
-      .then((r) => { setRes({ chosen: c, r }); setAerr(''); if (r.correct) setRight((n) => n + 1) })
-      .catch((e: Error) => setAerr(e.message || 'Erreur'))
-      .finally(() => setBusy(false))
   }
 
   return (
@@ -107,7 +122,7 @@ export default function Review({ onOpen, onContinue }: { onOpen: (lessonId: stri
         )}
       </div>
       {aerr && <p className="note" role="alert">{aerr}</p>}
-      {res && <button className="btn" onClick={() => { setI(i + 1); setRes(null); setSure(null) }}>{i + 1 < qs.length ? 'Question suivante' : 'Terminer'}</button>}
+      {res && <button className="btn" onClick={next}>{i + 1 < qs.length ? 'Question suivante' : 'Terminer'}</button>}
     </section>
   )
 }

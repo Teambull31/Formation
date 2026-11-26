@@ -527,3 +527,12 @@ def test_lesson_keys_lists_lesson_cards(client, tmp_path):
     keys = client.get("/api/lesson/l1/keys").json()
     assert keys and all({"front", "back", "kind"} <= set(k) for k in keys)
     assert client.get("/api/lesson/nope/keys").status_code == 404
+
+
+def test_reviews_offer_questions_ahead_when_nothing_due(client):
+    assert client.get("/api/reviews").json()["ahead"] == []
+    for q in client.get("/api/lesson/l1").json()["qcm"]:
+        r = next(i for i in range(len(q["options"])) if client.post("/api/qcm/answer", json={"question_id": q["id"], "chosen": i}).json()["correct"])
+        assert r is not None
+    d = client.get("/api/reviews").json()
+    assert d["questions"] == [] and 1 <= len(d["ahead"]) <= 3 and "answer" not in str(d["ahead"])

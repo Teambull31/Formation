@@ -37,6 +37,7 @@ HINT_COST = 10
 REAL_TIMEOUT = 120  # labo réel : terraform init télécharge un provider
 INTERVIEW_XP = 30  # max par question ; seules les améliorations de score rapportent
 REVIEW_XP = 15  # toutes les révisions du jour faites (une fois par jour)
+AHEAD = 3  # questions proposées d'avance quand rien n'est dû
 KEYS_MAX = 6  # « À retenir » en fin de leçon
 MISSION_XP = 200  # mission réelle sur un de tes dépôts
 ARTICLE_XP = 50
@@ -518,7 +519,12 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
                 continue
             due.append(qid)
             questions.append({"id": q.id, "text": q.text, "options": q.options, "box": boxes.get(qid, 0)})
-        return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS}
+        ahead = []
+        if not questions:  # rien de dû : les plus proches de leur échéance, pour ne pas finir sur un écran vide
+            for qid, box in db.execute("SELECT question_id, box FROM mistakes ORDER BY due, question_id LIMIT 20"):
+                if (q := qs.get(qid)) is not None and len(ahead) < AHEAD:
+                    ahead.append({"id": q.id, "text": q.text, "options": q.options, "box": box})
+        return {"due": due, "questions": questions, "boxes": box_counts(db), "intervals": INTERVALS, "ahead": ahead}
 
     @app.get("/api/portfolio.zip", dependencies=[Depends(local_only)])
     def portfolio_zip(db=Depends(get_db)):

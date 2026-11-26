@@ -77,3 +77,16 @@ test('erreur : « Revoir le passage » rouvre la leçon d\'origine sur la bonne 
   fireEvent.click(await screen.findByText('Revoir le passage dans la leçon lx1'))
   expect(onOpen).toHaveBeenCalledWith('lx1', 'Quelle commande ? touch')
 })
+
+test('rien de dû : 3 questions d\'avance, réponse au clavier (2) puis Entrée', async () => {
+  vi.mocked(api.getReviews).mockResolvedValue({ ...data, due: [], questions: [], ahead: [data.questions[0]] })
+  vi.mocked(api.answerQcm).mockResolvedValue({ correct: true, explanation: 'touch crée un fichier.', remedial_lesson_id: null })
+  render(<Review onOpen={() => {}} />)
+  fireEvent.click(await screen.findByText("Réviser 1 question d'avance"))
+  expect(screen.getByText('Quelle commande ?')).toBeTruthy()
+  fireEvent.keyDown(window, { key: '2' })
+  expect(await screen.findByText(/touch crée un fichier/)).toBeTruthy()
+  expect(api.answerQcm).toHaveBeenCalledWith('q1', 1, null)
+  fireEvent.keyDown(window, { key: 'Enter' })
+  expect(await screen.findByText('Séance terminée')).toBeTruthy()
+})
