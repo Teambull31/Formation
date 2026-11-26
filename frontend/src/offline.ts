@@ -2,7 +2,7 @@
 // Seules les pannes réseau (fetch qui lève) sont concernées : une erreur HTTP du serveur reste une erreur.
 const CACHE = 'hl-cache:'
 const QUEUE = 'hl-file'
-const CACHEABLE = [/^\/api\/(quest|cards|lessons|reviews|team|plan|oral)(\?|$)/, /^\/api\/lesson\/[^/]+$/]
+const CACHEABLE = [/^\/api\/(quest|cards|lessons|reviews|team|plan|oral)(\?|$)/, /^\/api\/lesson\/[^/]+(\/keys)?$/]
 const QUEUEABLE = [/^\/api\/cards\/[^/]+$/, /^\/api\/podcast\/[^/]+\/done$/, /^\/api\/revision\/done$/, /^\/api\/quest\/step$/]
 export interface Pending { method: string; url: string; body?: unknown }
 

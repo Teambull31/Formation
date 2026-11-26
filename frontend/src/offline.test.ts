@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from 'vitest'
 import { answerCard, getCards } from './api'
-import { flush, pending } from './offline'
+import { cacheable, flush, pending } from './offline'
 
 afterEach(() => { vi.unstubAllGlobals(); localStorage.clear() })
 const cards = { cards: [], boxes: [0], total: 0, unseen: 0 }
@@ -26,4 +26,11 @@ test('une erreur du serveur n\'est pas masquée, une route non prévue lève tou
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"detail":"Carte inconnue"}', { status: 404 })))
   await expect(answerCard('x', true)).rejects.toThrow('Carte inconnue')
   expect(pending()).toEqual([])
+})
+
+test('routes gardées hors ligne', () => {
+  expect(cacheable('/api/lesson/ci4')).toBe(true)
+  expect(cacheable('/api/lesson/ci4/keys')).toBe(true)
+  expect(cacheable('/api/quest?minutes=30')).toBe(true)
+  expect(cacheable('/api/missions')).toBe(false)
 })
