@@ -4,7 +4,7 @@ import {
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
-import { bestPage, splitPages } from '../pages'
+import { bestPage, speakable, splitPages } from '../pages'
 import { download, ficheHtml } from '../fiche'
 import Feynman from './Feynman'
 import Confidence, { sureWrongNote } from './Confidence'
@@ -139,9 +139,24 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
   const [page, setPage] = useState<number | null>(null) // null : page sauvegardée de cette leçon
   const [whole, setWhole] = useState(() => { try { return localStorage.getItem('lecture-entiere') === '1' } catch { return false } })
   const goPage = (n: number) => {
+    if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
+    setReading(false)
     setPage(n)
     window.scrollTo(0, 0)
     try { if (les) localStorage.setItem(`page:${les.id}`, String(n)) } catch { /* facultatif */ }
+  }
+  const [reading, setReading] = useState(false)
+  const canSpeak = typeof speechSynthesis !== 'undefined'
+  useEffect(() => () => { if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel() }, []) // quitter la leçon coupe la lecture
+  const readAloud = (md: string) => {
+    speechSynthesis.cancel()
+    if (reading) return setReading(false)
+    const u = new SpeechSynthesisUtterance(speakable(md))
+    u.lang = 'fr-FR'
+    u.onend = () => setReading(false)
+    u.onerror = () => setReading(false)
+    setReading(true)
+    speechSynthesis.speak(u)
   }
   const toggleWhole = () => { setWhole(!whole); try { localStorage.setItem('lecture-entiere', whole ? '0' : '1') } catch { /* facultatif */ } }
 
@@ -203,7 +218,12 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
       {pages.length > 1 && (
         <div className="row between">
           <span className="stat">{whole ? `${pages.length} parties` : `Page ${cur + 1} / ${pages.length}`}</span>
-          <button className="chip" onClick={toggleWhole}>{whole ? 'Lire par pages' : 'Tout sur une page'}</button>
+          <span className="row">
+            {canSpeak && !whole && (
+              <button className="chip" aria-pressed={reading} onClick={() => readAloud(pages[cur])}>{reading ? '■ Stop' : '🔊 Écouter'}</button>
+            )}
+            <button className="chip" onClick={toggleWhole}>{whole ? 'Lire par pages' : 'Tout sur une page'}</button>
+          </span>
         </div>
       )}
       {/* dangerouslySetInnerHTML only ever receives renderLesson output (escape-first) */}

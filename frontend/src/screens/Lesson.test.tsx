@@ -82,3 +82,18 @@ test('ouverte depuis une erreur : va à la page qui explique la réponse', async
   render(<Lesson id="a" focus="Comment lire un secret ? secrets.NOM" onOpen={() => {}} />)
   expect(await screen.findByText('Page 2 / 2')).toBeTruthy()
 })
+
+test('« Écouter » lit la page affichée à voix haute', async () => {
+  localStorage.clear()
+  const said: string[] = []
+  vi.stubGlobal('SpeechSynthesisUtterance', class { text: string; constructor(t: string) { this.text = t } })
+  vi.stubGlobal('speechSynthesis', { speak: (u: { text: string }) => said.push(u.text), cancel: vi.fn() })
+  const long = 'mot '.repeat(250)
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: `## Partie 1\n**Important** ${long}\n## Partie 2\n${long}` })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  render(<Lesson id="a" onOpen={() => {}} />)
+  fireEvent.click(await screen.findByText('🔊 Écouter'))
+  expect(said[0].startsWith('Partie 1\nImportant')).toBe(true)
+  expect(screen.getByText('■ Stop')).toBeTruthy()
+  vi.unstubAllGlobals()
+})

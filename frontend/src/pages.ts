@@ -29,3 +29,17 @@ export function bestPage(pages: string[], focus: string): number {
   })
   return best
 }
+
+/** Texte à lire à voix haute : sans blocs de code, balises markdown ni lignes de séparation de tableau. */
+export function speakable(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, ' (exemple de code, à lire à l\'écran) ')
+    .split('\n')
+    .filter((l) => !/^\s*\|[\s:|-]+\|\s*$/.test(l))
+    .map((l) => l.replace(/^\s*(#+|[-*]|\d+\.)\s+/, '').replace(/^\s*\|(.*)\|\s*$/, (_, c: string) => c.split('|').map((x) => x.trim()).join(', ')))
+    .join('\n')
+    .replace(/\*\*|!!|`/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/\n{2,}/g, '\n')
+    .trim()
+}
