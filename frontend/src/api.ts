@@ -12,6 +12,7 @@ export class ApiError extends Error {
     return this.status === 403
   }
 }
+export const OFFLINE = 'Pas de réseau : réessaie dès que la connexion revient. Les cartes, les leçons déjà ouvertes et l\'audio téléchargé marchent hors ligne.'
 export const isForbidden = (e: unknown) => e instanceof ApiError && e.status === 403
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
@@ -25,7 +26,8 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
   } catch (e) { // pas de réseau : dernière lecture connue, ou réponse mise en file
     if (method === 'GET' && cacheable(url)) { const hit = recall(url); if (hit !== undefined) return hit as T }
     if (queueable(method, url)) { enqueue({ method, url, body }); return offlineReply(url) as T }
-    throw e
+    console.warn('réseau', e)
+    throw new ApiError(0, OFFLINE) // pas « Failed to fetch » : dire quoi faire
   }
   if (!r.ok) {
     let msg = r.statusText

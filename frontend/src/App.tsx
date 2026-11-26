@@ -10,6 +10,7 @@ import Interview from './screens/Interview'
 import Cards from './screens/Cards'
 import Exam from './screens/Exam'
 import Listen from './screens/Listen'
+import OfflineBanner from './screens/OfflineBanner'
 import { getQuest, type StepKind } from './api'
 
 import { TABS, saveLast, startAt, type Sub, type Tab } from './deeplink'
@@ -35,6 +36,7 @@ export default function App() {
   return (
     <>
       <main>
+        <OfflineBanner />
         {tab === 'Quête' && <Quest onStart={open} onGo={(t, sb) => { if (sb) setSub(sb); setTab(t) }} />}
         {tab === 'Leçon' && (
           <Lesson key={lesson?.n} id={lesson?.id ?? null} kind={lesson?.kind} done={lesson?.done} focus={lesson?.focus} onOpen={(id) => open(id)} />

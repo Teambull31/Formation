@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, test, vi } from 'vitest'
-import { answerCard, getCards } from './api'
+import { answerCard, answerQcm, getCards } from './api'
 import { cacheable, flush, pending } from './offline'
 
 afterEach(() => { vi.unstubAllGlobals(); localStorage.clear() })
@@ -33,4 +33,11 @@ test('routes gardées hors ligne', () => {
   expect(cacheable('/api/lesson/ci4/keys')).toBe(true)
   expect(cacheable('/api/quest?minutes=30')).toBe(true)
   expect(cacheable('/api/missions')).toBe(false)
+})
+
+test('coupure sur une route sans repli : message clair en français, rien en file', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+  await expect(answerQcm('q1', 0)).rejects.toMatchObject({ status: 0, message: expect.stringMatching(/^Pas de réseau/) })
+  expect(pending()).toEqual([])
 })
