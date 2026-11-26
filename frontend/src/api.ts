@@ -183,3 +183,5 @@ export interface Today { lessons: string[]; reviewed: number; correct: number; t
 export const getToday = () => call<Today>('GET', '/api/today')
 export interface GlossEntry { term: string; sentence: string; lesson_id: string; title: string }
 export const getGlossary = () => call<Record<string, GlossEntry>>('GET', '/api/glossary')
+export interface RecallQ { id: string; text: string; options: string[]; lesson_id: string; title: string }
+export const getRecall = (id: string) => call<RecallQ | null>('GET', `/api/lesson/${encodeURIComponent(id)}/recall`)

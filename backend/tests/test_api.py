@@ -605,3 +605,14 @@ def test_glossary_maps_bold_terms_to_their_first_sentence(client, tmp_path):
     md.write_text(md.read_text() + "\n\nUn **runner** exécute les jobs du pipeline sur une machine dédiée.\n")
     g = client.get("/api/glossary").json()
     assert g["runner"]["sentence"] == "Un runner exécute les jobs du pipeline sur une machine dédiée." and g["runner"]["lesson_id"] == "l1"
+
+
+def test_lesson_recall_draws_from_a_done_lesson(client, tmp_path):
+    from app.db import connect
+    assert client.get("/api/lesson/l2/recall").json() is None  # rien de fait : pas de rappel
+    db = connect(next(tmp_path.rglob("*.db")))
+    db.execute("INSERT INTO quest_steps VALUES ('2026-11-25', 'lesson', 'l1', 1)")
+    db.commit()
+    r = client.get("/api/lesson/l2/recall").json()
+    assert r["lesson_id"] == "l1" and r["options"] and "answer" not in r
+    assert client.get("/api/lesson/l1/recall").json() is None  # jamais la leçon en cours

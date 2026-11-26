@@ -412,6 +412,19 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         except llm.LlmUnavailable as e:
             raise HTTPException(503, str(e))
 
+    @app.get("/api/lesson/{lesson_id}/recall")
+    def lesson_recall(lesson_id: str, db=Depends(get_db)):
+        """Entrelacement : une question d'une leçon déjà faite, d'un autre module si possible (change chaque jour)."""
+        _, mod, _ = find_lesson(lesson_id)
+        done = {r[0] for r in db.execute("SELECT lesson_id FROM quest_steps WHERE kind = 'lesson' AND done = 1")}
+        pool = [(m.id != mod.id, les, q) for _, m in modules() for les in m.lessons
+                if les.id in done and les.id != lesson_id for q in les.qcm]
+        if not pool:
+            return None
+        other = [x for x in pool if x[0]] or pool
+        _, les, q = other[(date.today().toordinal() + len(lesson_id)) % len(other)]
+        return {"id": q.id, "text": q.text, "options": q.options, "lesson_id": les.id, "title": les.title}
+
     @app.get("/api/lesson/{lesson_id}/keys")
     def lesson_keys(lesson_id: str):
         # fin de leçon : ses pièges et termes clés, à se rappeler avant de voir la réponse
