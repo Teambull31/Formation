@@ -16,6 +16,7 @@ test('révisions en tête, TP en attente, suggestions et bandeau de rappel', asy
     day: '2026-11-25', imposed_topic: null, bonus: null,
     steps: [{ kind: 'lesson', lesson_id: 'ci4', minutes: 10, xp: 20, done: false }],
     pending_tp: ['ci3'], review: { due: 3, done: false },
+    week: { days: 2, goal: 4, dots: [false, true, false, true, false, false, false], today: 3 },
     suggestions: [{ kind: 'episode', id: 'ep05.mp3', label: 'À écouter : Épisode 5' },
       { kind: 'feynman', id: 'ci1', label: 'Explique ci1 à un junior (Feynman)' }],
   })
@@ -27,6 +28,7 @@ test('révisions en tête, TP en attente, suggestions et bandeau de rappel', asy
   const onGo = vi.fn()
   render(<Quest onStart={onStart} onGo={onGo} />)
   expect(await screen.findByText('Révisions du jour · 3 à revoir')).toBeTruthy()
+  expect(screen.getByText('2 / 4 jours')).toBeTruthy()
   fireEvent.click(await screen.findByText('Réviser'))
   expect(onGo).toHaveBeenLastCalledWith('Révisions', 'qcm')
   fireEvent.click(screen.getByText('Ouvrir'))

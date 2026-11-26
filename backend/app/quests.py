@@ -140,3 +140,12 @@ def current_streak(db: sqlite3.Connection, today: date) -> int:
             break
         d -= timedelta(days=1)
     return streak
+
+
+def week_status(db: sqlite3.Connection, today: date) -> dict:
+    """Semaine en cours (lundi → dimanche) : jours actifs, objectif = semaine passée + 1 (entre 4 et 7)."""
+    monday = today - timedelta(days=today.weekday())
+    active = {r[0] for r in db.execute("SELECT day FROM activity_days WHERE day >= ?", ((monday - timedelta(days=7)).isoformat(),))}
+    week = [(monday + timedelta(days=i)).isoformat() in active for i in range(7)]
+    last = sum((monday - timedelta(days=7 - i)).isoformat() in active for i in range(7))
+    return {"days": sum(week), "goal": min(7, max(4, last + 1)), "dots": week, "today": today.weekday()}

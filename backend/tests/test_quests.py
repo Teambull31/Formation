@@ -190,3 +190,12 @@ def test_bonus_gives_one_token_once(db):
     complete_step(db, D1, "bonus", "l2", "demo")
     complete_step(db, D1, "bonus", "l2", "demo")
     assert tokens(db) == 1
+
+
+def test_week_status_goal_from_last_week(db):
+    from app.quests import week_status
+    db.executemany("INSERT INTO activity_days VALUES (?)",
+                   [("2026-11-17",), ("2026-11-18",), ("2026-11-20",), ("2026-11-21",), ("2026-11-24",), ("2026-11-26",)])
+    w = week_status(db, date(2026, 11, 26))  # jeudi ; semaine passée : 4 jours
+    assert w["days"] == 2 and w["goal"] == 5 and w["dots"] == [False, True, False, True, False, False, False] and w["today"] == 3
+    assert week_status(db, date(2026, 12, 14))["goal"] == 4  # semaine vide avant : objectif minimal

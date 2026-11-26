@@ -5,6 +5,7 @@ import { announceRest, getPushKey, getQuest, getReviews, getTeam, setTopic, type
 
 export type Go = (tab: 'Révisions' | 'Écoute' | 'Équipe' | 'Boss', sub?: 'qcm' | 'cartes' | 'examen' | 'entretien') => void
 
+const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const LABEL: Record<string, string> = { lesson: 'Leçon', qcm: 'QCM', tp: 'TP', bonus: 'Bonus' }
 
 export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, kind: StepKind, done: boolean) => void; onGo?: Go }) {
@@ -64,6 +65,20 @@ export default function Quest({ onStart, onGo }: { onStart: (lessonId: string, k
         <button className="btn term" style={{ fontSize: 18, minHeight: 56 }} onClick={startSession}>
           ▶ Ma séance du jour{reviewFirst ? ` · ${quest.review!.due} révisions puis ${nextStep ? nextStep.lesson_id : 'fin'}` : ` · ${LABEL[nextStep!.kind]} ${nextStep!.lesson_id}`}
         </button>
+      )}
+      {quest?.week && (
+        <div className="card" aria-label="Objectif de la semaine">
+          <div className="row between">
+            <span className="tag">Cette semaine</span>
+            <span className="stat">{quest.week.days} / {quest.week.goal} jours{quest.week.days >= quest.week.goal ? ' · objectif atteint ✓' : ''}</span>
+          </div>
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            {quest.week.dots.map((on, i) => (
+              <span key={i} className={'dot' + (on ? ' done' : '')} title={DAYS[i]}
+                style={i === quest.week!.today && !on ? { borderColor: 'var(--gold)' } : undefined}>{on ? '✓' : DAYS[i]}</span>
+            ))}
+          </div>
+        </div>
       )}
       {pushOff && onGo && (
         <button className="btn ghost" onClick={() => onGo('Équipe')}>🔔 Active le rappel quotidien : c'est la régularité qui fait retenir</button>

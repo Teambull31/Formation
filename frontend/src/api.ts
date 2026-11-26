@@ -41,6 +41,7 @@ export interface Quest {
   day: string; steps: Step[]; bonus: Step | null; imposed_topic: string | null
   pending_tp: string[]; review: { due: number; done: boolean } | null; suggestions: Suggestion[]
   pace?: 'normal' | 'fast' | 'consolidate'
+  week?: { days: number; goal: number; dots: boolean[]; today: number }
 }
 export interface Lesson {
   id: string; title: string; minutes: number; body_md: string

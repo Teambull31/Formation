@@ -27,7 +27,7 @@ from app import learn, portfolio, push
 from app.tp import child_env
 from app.progress import award_xp, get_profile, level_for_xp
 from app.quests import (XP, Quest, advanced, announce_rest, applicable_kinds, build_daily_quest, complete_step, current_streak,
-                        pending_tps, set_imposed_topic)
+                        pending_tps, set_imposed_topic, week_status)
 from app.review import INTERVALS, box_counts, due_reviews, record_answer
 from app.terminal import exec_ok, register_terminal, strictly_local
 from app.tp import run_check, seed_workspace
@@ -313,6 +313,7 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         q.review = {"due": n, "done": done} if n or done else None
         q.suggestions = suggestions(db, mods, mid, local)
         out = asdict(q)
+        out["week"] = week_status(db, today)
         r = retention_stats(db)
         # rythme adaptatif : au-dessus de 85 % on peut accélérer, sous 60 % on consolide avant d'avancer
         out["pace"] = "normal" if r["answered7"] < 10 else "fast" if r["rate7"] > 85 else "consolidate" if r["rate7"] < 60 else "normal"
