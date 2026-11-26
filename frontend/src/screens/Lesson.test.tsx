@@ -113,3 +113,15 @@ test('« Tout lire » enchaîne les pages à voix haute puis annonce la fin', as
   expect(said.filter((t) => t.startsWith('Partie')).length).toBe(2)
   vi.unstubAllGlobals()
 })
+
+test('« Explique autrement » affiche la reformulation de la page', async () => {
+  localStorage.clear()
+  const long = 'mot '.repeat(250)
+  vi.mocked(api.getLesson).mockResolvedValue({ ...lesson('a'), body_md: `## Partie 1\n${long}\n## Partie 2\n${long}` })
+  vi.mocked(api.getLessons).mockResolvedValue(index)
+  const r = vi.spyOn(api, 'rephrase').mockResolvedValue({ text: 'Comme une recette de cuisine.' })
+  render(<Lesson id="a" onOpen={() => {}} />)
+  fireEvent.click(await screen.findByText('Pas clair ? Explique autrement'))
+  expect(await screen.findByText('Comme une recette de cuisine.')).toBeTruthy()
+  expect(r.mock.calls[0][1].startsWith('## Partie 1')).toBe(true)
+})

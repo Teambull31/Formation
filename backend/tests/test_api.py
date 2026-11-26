@@ -569,3 +569,14 @@ def test_revision_express_always_has_an_interview_question(client, tmp_path, mon
     assert client.get(f"/api/revision/{info['key']}.mp3").status_code == 200
     assert "Question d'entretien : Qu'est-ce que l'idempotence ?" in texts[0]
     assert "Réponse type : Rejouer sans changer le résultat. Exemple : terraform apply. Fin." in texts[0] and "Ignoré" not in texts[0]
+
+
+def test_rephrase_endpoint(client, monkeypatch):
+    import app.llm as llm
+    monkeypatch.setattr(llm, "rephrase", lambda title, text: f"Autrement : {title}")
+    assert client.post("/api/lesson/l1/rephrase", json={"text": "une page de cours assez longue"}).json()["text"].startswith("Autrement")
+    def down(title, text):
+        raise llm.LlmUnavailable("indispo")
+    monkeypatch.setattr(llm, "rephrase", down)
+    assert client.post("/api/lesson/l1/rephrase", json={"text": "une page de cours assez longue"}).status_code == 503
+    assert client.post("/api/lesson/nope/rephrase", json={"text": "une page de cours assez longue"}).status_code == 404

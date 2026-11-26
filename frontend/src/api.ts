@@ -174,3 +174,4 @@ export const getLessonKeys = (id: string) => call<LessonKey[]>('GET', `/api/less
 export interface Weak { lesson_id: string; title: string; module: string; count: number }
 export const getWeak = () => call<Weak[]>('GET', '/api/weak')
 export const setCardsPerDay = (per_day: number) => call<Ok>('POST', '/api/cards/per-day', { per_day })
+export const rephrase = (lessonId: string, text: string) => call<{ text: string }>('POST', `/api/lesson/${encodeURIComponent(lessonId)}/rephrase`, { text })

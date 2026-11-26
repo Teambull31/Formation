@@ -148,3 +148,25 @@ def test_grade_ollama_down_raises():
 
     with pytest.raises(LlmUnavailable):
         grade_explanation("T", "cours", "x" * 50, post=down)
+
+
+def test_rephrase_uses_page_and_wraps_failures():
+    import pytest as _pytest
+    from app import llm as _llm
+    seen = {}
+
+    class R:
+        def raise_for_status(self): pass
+        def json(self): return {"message": {"content": "<think>x</think>Comme une recette de cuisine."}}
+
+    def post(url, json, timeout):
+        seen["prompt"] = json["messages"][0]["content"]
+        return R()
+
+    assert _llm.rephrase("Cache", "Le cache garde les dépendances.", post=post) == "Comme une recette de cuisine."
+    assert "<page>\nLe cache garde les dépendances.\n</page>" in seen["prompt"]
+
+    def down(*a, **k):
+        raise OSError("refus")
+    with _pytest.raises(_llm.LlmUnavailable):
+        _llm.rephrase("Cache", "x" * 30, post=down)

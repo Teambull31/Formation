@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  answerQcm, audioUrl, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
+  answerQcm, audioUrl, rephrase, checkTp, realTp, completeStep, getHint, getLesson, getFiche, getLessons, isForbidden, startTp,
   type Lesson as L, type LessonIndex, type QcmResult, type StepKind,
 } from '../api'
 import { renderLesson } from '../renderLesson'
@@ -157,6 +157,8 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
     try { if (les) localStorage.setItem(`page:${les.id}`, String(n)) } catch { /* facultatif */ }
   }
   const [reading, setReading] = useState(false)
+  const [other, setOther] = useState<{ page: number; text: string } | null>(null) // « explique autrement »
+  const [otherBusy, setOtherBusy] = useState(false)
   const [readingAll, setReadingAll] = useState(false)
   const all = useRef(false)
   const canSpeak = typeof speechSynthesis !== 'undefined'
@@ -264,6 +266,14 @@ export default function Lesson({ id, kind, done: initiallyDone, focus, onOpen }:
       {pages.map((md, i) => (
         <div key={i} hidden={!whole && i !== cur}>
           <div className="card course" dangerouslySetInnerHTML={{ __html: renderLesson(md) }} />
+          {!whole && i === cur && (
+            other?.page === i ? <div className="fb ok" role="status"><p className="tag">Autrement dit</p><p>{other.text}</p></div> : (
+              <button className="btn ghost" disabled={otherBusy} onClick={() => {
+                setOtherBusy(true)
+                rephrase(les.id, md).then((r) => setOther({ page: i, text: r.text }))
+                  .catch((e: Error) => setBanner(e.message)).finally(() => setOtherBusy(false))
+              }}>{otherBusy ? 'Reformulation…' : 'Pas clair ? Explique autrement'}</button>
+            ))}
           {!whole && i < last && les.qcm[i] && <p className="tag">Vérifie avant de continuer</p>}
         </div>
       ))}

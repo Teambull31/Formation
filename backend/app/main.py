@@ -76,6 +76,10 @@ class PanneIn(BaseModel):
     fix: str = Field(min_length=3, max_length=500)
 
 
+class RephraseIn(BaseModel):
+    text: str = Field(min_length=20, max_length=8000)
+
+
 class PerDayIn(BaseModel):
     per_day: int = Field(ge=0, le=50)
 
@@ -394,6 +398,14 @@ def create_app(db_path: str, content_dir: Path, workspace: Path, static_dir: Pat
         if not name.endswith(".mp3") or not SAFE_ID.fullmatch(name[:-4]):
             raise HTTPException(404, "Audio inconnu")
         return name[:-4]
+
+    @app.post("/api/lesson/{lesson_id}/rephrase")
+    def lesson_rephrase(lesson_id: str, body: RephraseIn):
+        _, _, les = find_lesson(lesson_id)
+        try:
+            return {"text": llm.rephrase(les.title, body.text)}
+        except llm.LlmUnavailable as e:
+            raise HTTPException(503, str(e))
 
     @app.get("/api/lesson/{lesson_id}/keys")
     def lesson_keys(lesson_id: str):
